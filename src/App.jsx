@@ -137,16 +137,13 @@ const GLOBAL_CSS = `
   .modal-overlay {
     position: fixed; inset: 0; z-index: 500;
     background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
-    display: flex; align-items: flex-start; justify-content: center;
-    padding: 16px; overflow-y: auto;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
   }
   .modal-box {
     background: ${C.bgCard}; border-radius: 16px;
     border: 1px solid ${C.border};
-    width: calc(100vw - 32px); max-width: 680px;
-    max-height: none; box-sizing: border-box;
+    width: 100%; max-height: 90vh; overflow-y: auto;
     box-shadow: 0 32px 64px rgba(0,0,0,0.6);
-    margin: auto;
   }
   .modal-header {
     padding: 18px 24px; border-bottom: 1px solid ${C.border};
@@ -1314,50 +1311,7 @@ function ReportsPage({ scales, songs }) {
 // APP ROOT
 // ═══════════════════════════════════
 
-const APP_PASSWORD = '8itav@123';
-
-function LoginScreen({ onLogin }) {
-  const [pwd, setPwd] = useState('');
-  const [error, setError] = useState(false);
-  const [show, setShow] = useState(false);
-  const attempt = () => {
-    if (pwd === APP_PASSWORD) { onLogin(); }
-    else { setError(true); setPwd(''); setTimeout(() => setError(false), 2000); }
-  };
-  return (
-    <div style={{ height: '100vh', overflow: 'hidden', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Nunito', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Nunito:wght@400;600;700&display=swap');`}</style>
-      <div style={{ width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 36 }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'linear-gradient(135deg, #1a0a2e, #2d1245)', border: `2px solid ${C.accent}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: `0 0 32px ${C.accent}33` }}>
-            <img src={LOGO_B64} alt="Logo" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }} />
-          </div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: C.accent, letterSpacing: 1, lineHeight: 1.2 }}>Oitava Music Betim</div>
-          <div style={{ color: C.textSecondary, fontSize: 13, marginTop: 6, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase' }}>Ministério de Louvor</div>
-        </div>
-        <div style={{ width: '100%', background: C.bgCard, borderRadius: 18, border: `1px solid ${C.border}`, padding: '32px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <div style={{ color: C.textSecondary, fontWeight: 700, fontSize: 12, textAlign: 'center', letterSpacing: 2, textTransform: 'uppercase' }}>Acesso Restrito</div>
-          <div style={{ position: 'relative' }}>
-            <input type={show ? 'text' : 'password'} placeholder="Digite a senha" value={pwd}
-              onChange={e => { setPwd(e.target.value); setError(false); }}
-              onKeyDown={e => e.key === 'Enter' && attempt()}
-              style={{ width: '100%', padding: '14px 48px 14px 18px', background: error ? 'rgba(217,82,82,0.08)' : C.bgInput, border: `1.5px solid ${error ? C.danger : C.border}`, borderRadius: 12, color: C.textPrimary, fontSize: 15, outline: 'none', fontFamily: "'Nunito', sans-serif", transition: 'border 0.2s', boxSizing: 'border-box' }} autoFocus />
-            <button onClick={() => setShow(s => !s)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: C.textSecondary, cursor: 'pointer', fontSize: 17, padding: 4 }}>
-              {show ? '🙈' : '👁️'}
-            </button>
-          </div>
-          {error && <div style={{ color: C.danger, fontSize: 13, textAlign: 'center', fontWeight: 600 }}>✕ Senha incorreta. Tente novamente.</div>}
-          <button onClick={attempt} style={{ padding: '14px 0', background: `linear-gradient(135deg, ${C.accent}, ${C.accentDark})`, border: 'none', borderRadius: 12, color: '#000', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: "'Montserrat', sans-serif", letterSpacing: 1, boxShadow: `0 4px 20px ${C.accent}44` }}>
-            ENTRAR
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(() => sessionStorage.getItem('oitava_auth') === '1');
   const [page, setPage] = useState('home');
   const [members, setMembers] = useState([]);
   const [groups, setGroups]   = useState([]);
@@ -1411,9 +1365,6 @@ export default function App() {
 
   const nav = id => { setPage(id); setSideOpen(false); };
   const current = NAV.find(n => n.id === page);
-
-  const handleLogin = () => { sessionStorage.setItem('oitava_auth', '1'); setLoggedIn(true); };
-  if (!loggedIn) return <LoginScreen onLogin={handleLogin} />;
 
   if (!ready) return (
     <>
