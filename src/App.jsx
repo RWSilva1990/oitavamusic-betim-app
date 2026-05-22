@@ -137,12 +137,14 @@ const GLOBAL_CSS = `
   .modal-overlay {
     position: fixed; inset: 0; z-index: 500;
     background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
-    display: flex; align-items: center; justify-content: center; padding: 16px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px; box-sizing: border-box;
   }
   .modal-box {
     background: ${C.bgCard}; border-radius: 16px;
     border: 1px solid ${C.border};
-    width: 100%; max-height: 90vh; overflow-y: auto;
+    width: 100%; max-width: 100%; max-height: 92vh; overflow-y: auto;
+    box-sizing: border-box;
     box-shadow: 0 32px 64px rgba(0,0,0,0.6);
   }
   .modal-header {
