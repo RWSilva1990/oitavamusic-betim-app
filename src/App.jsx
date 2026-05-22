@@ -341,7 +341,7 @@ function Inp({ label, ...p }) {
 function Modal({ title, onClose, wide, children }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: wide ? 680 : 460 }} onClick={e => e.stopPropagation()}>
+      <div className="modal-box" style={{ maxWidth: wide ? Math.min(680, window.innerWidth - 24) : Math.min(460, window.innerWidth - 24) }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2 style={{ fontFamily: 'Cinzel, serif', fontSize: 17, color: C.accent }}>{title}</h2>
           <Btn variant="ghost" onClick={onClose} style={{ padding: 4 }}><X size={18} /></Btn>
@@ -1322,7 +1322,7 @@ function LoginScreen({ onLogin }) {
     else { setError(true); setPwd(''); setTimeout(() => setError(false), 2000); }
   };
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Nunito', sans-serif" }}>
+    <div style={{ height: '100vh', overflow: 'hidden', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Nunito', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Nunito:wght@400;600;700&display=swap');`}</style>
       <div style={{ width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 36 }}>
         <div style={{ textAlign: 'center' }}>
