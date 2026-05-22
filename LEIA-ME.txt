@@ -1,0 +1,44 @@
+========================================
+  OITAVA MUSIC BETIM — INSTRUÇÕES
+========================================
+
+ESTRUTURA DE PASTAS NO GITHUB:
+Crie esta estrutura exata no repositório:
+
+oitava-music/
+├── index.html
+├── package.json
+├── vite.config.js
+├── manifest.json
+├── LEIA-ME.txt
+└── src/
+    ├── main.jsx
+    └── App.jsx
+
+ATENÇÃO: main.jsx e App.jsx ficam dentro
+de uma pasta chamada "src" (sem aspas).
+Os outros arquivos ficam na raiz.
+
+========================================
+  VERCEL (Caminho A)
+========================================
+1. Crie conta em vercel.com com GitHub
+2. "Add New Project" > selecione o repo
+3. Em "Framework Preset" escolha "Vite"
+4. Clique Deploy — pronto!
+
+========================================
+  GITHUB PAGES (Caminho B)
+========================================
+GitHub Pages não suporta React/Vite
+diretamente. Use o Caminho A (Vercel).
+É mais simples e gratuito também.
+
+========================================
+  FIREBASE — AVISO 30 DIAS
+========================================
+O modo de testes expira em 30 dias.
+Quando isso acontecer, vá em:
+Firebase > Firestore > Rules
+E substitua a data de expiração por uma
+mais longa, ou peça ajuda ao Claude.
