@@ -137,14 +137,12 @@ const GLOBAL_CSS = `
   .modal-overlay {
     position: fixed; inset: 0; z-index: 500;
     background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
-    display: flex; align-items: center; justify-content: center;
-    padding: 12px; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box;
   }
   .modal-box {
     background: ${C.bgCard}; border-radius: 16px;
     border: 1px solid ${C.border};
-    width: 100%; max-width: 100%; max-height: 92vh; overflow-y: auto;
-    box-sizing: border-box;
+    width: 100%; max-width: 100%; max-height: 92vh; overflow-y: auto; box-sizing: border-box;
     box-shadow: 0 32px 64px rgba(0,0,0,0.6);
   }
   .modal-header {
@@ -529,50 +527,6 @@ function MembersPage({ members, setMembers }) {
   const [modal, setModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [form, setForm] = useState({ name: '', birthdate: '', email: '', phone: '', photo: '', roles: [] });
-  const [importModal, setImportModal] = useState(false);
-  const [importPreview, setImportPreview] = useState([]);
-
-  const handleMemberCSV = e => {
-    const file = e.target.files[0]; if (!file) return;
-    Papa.parse(file, {
-      header: true, skipEmptyLines: true,
-      complete: ({ data }) => {
-        const rows = data.map(row => {
-          const keys = Object.keys(row);
-          const nk  = keys.find(k => /nome|name/i.test(k)) || keys[0];
-          const bk  = keys.find(k => /nasc|birth|data/i.test(k)) || '';
-          const ek  = keys.find(k => /email|e-mail/i.test(k)) || '';
-          const pk  = keys.find(k => /tel|fone|phone|cel/i.test(k)) || '';
-          const rk  = keys.find(k => /fun[çc]|role|instrumento/i.test(k)) || '';
-          const rawRoles = rk ? (row[rk] || '').split(/[,;/]/).map(r => r.trim().toLowerCase()) : [];
-          const roles = rawRoles.map(r => {
-            if (/bat/i.test(r)) return 'bateria';
-            if (/baix/i.test(r)) return 'baixo';
-            if (/viol/i.test(r)) return 'violao';
-            if (/tecl/i.test(r)) return 'teclado';
-            if (/voc|cant/i.test(r)) return 'vocal';
-            if (/minist/i.test(r)) return 'ministro';
-            return null;
-          }).filter(Boolean);
-          return {
-            name:      (row[nk] || '').trim(),
-            birthdate: (bk ? row[bk] || '' : '').trim(),
-            email:     (ek ? row[ek] || '' : '').trim(),
-            phone:     (pk ? row[pk] || '' : '').trim(),
-            roles,
-            photo: '',
-          };
-        }).filter(r => r.name);
-        setImportPreview(rows);
-      }
-    });
-    e.target.value = '';
-  };
-
-  const doImportMembers = () => {
-    setMembers(p => [...p, ...importPreview.map(m => ({ ...m, id: genId() }))]);
-    setImportModal(false); setImportPreview([]);
-  };
 
   const openAdd = () => { setForm({ name: '', birthdate: '', email: '', phone: '', photo: '', roles: [] }); setModal('add'); };
   const openEdit = m => { setForm({ ...m, roles: [...(m.roles || [])] }); setModal(m); };
@@ -605,10 +559,7 @@ function MembersPage({ members, setMembers }) {
           <h1 style={{ fontFamily: 'Cinzel, serif', fontSize: 21, color: C.accent }}>Membros</h1>
           <p style={{ color: C.textSecondary, fontSize: 13 }}>{members.length} membro{members.length !== 1 ? 's' : ''}</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Btn variant="secondary" onClick={() => { setImportPreview([]); setImportModal(true); }}><Upload size={15} />Importar CSV</Btn>
-          <Btn onClick={openAdd}><Plus size={15} />Novo Membro</Btn>
-        </div>
+        <Btn onClick={openAdd}><Plus size={15} />Novo Membro</Btn>
       </div>
 
       <div className="search-wrap">
@@ -637,44 +588,6 @@ function MembersPage({ members, setMembers }) {
             </div>
           ))}
         </div>
-      )}
-
-      {importModal && (
-        <Modal title="Importar Membros via CSV" onClose={() => { setImportModal(false); setImportPreview([]); }} wide>
-          <div style={{ padding: 14, background: C.bgInput, borderRadius: 8, marginBottom: 16, fontSize: 13, color: C.textSecondary, lineHeight: 1.7 }}>
-            <strong style={{ color: C.accent }}>Formato esperado:</strong> arquivo <code>.csv</code> com coluna <code>nome</code> (obrigatória) e opcionais: <code>nascimento</code>, <code>email</code>, <code>telefone</code>, <code>funcao</code>.<br />
-            Para funções, use: <em>bateria, baixo, violao, teclado, vocal, ministro</em> (separadas por vírgula).<br />
-            Exemplo: <code>nome,funcao</code> → <code>João Silva,bateria</code>
-          </div>
-          <label style={{ display: 'block', padding: '24px 16px', border: `2px dashed ${C.border}`, borderRadius: 10, textAlign: 'center', cursor: 'pointer', color: C.textSecondary, marginBottom: 16 }}>
-            <Upload size={26} style={{ display: 'block', margin: '0 auto 8px' }} />
-            Clique para selecionar o arquivo CSV
-            <input type="file" accept=".csv" onChange={handleMemberCSV} style={{ display: 'none' }} />
-          </label>
-          {importPreview.length > 0 && (
-            <>
-              <p style={{ color: C.success, fontSize: 13, marginBottom: 10 }}>✓ {importPreview.length} membro{importPreview.length !== 1 ? 's' : ''} encontrado{importPreview.length !== 1 ? 's' : ''} para importar</p>
-              <div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 5, marginBottom: 16 }}>
-                {importPreview.map((m, i) => (
-                  <div key={i} style={{ padding: '8px 12px', background: C.bgHover, borderRadius: 7, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                    <div style={{ width: 30, height: 30, borderRadius: '50%', background: C.accentGlow, border: `1px solid ${C.accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.accent, fontSize: 12, flexShrink: 0 }}>
-                      {m.name[0]?.toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: C.textPrimary, fontWeight: 600 }}>{m.name}</div>
-                      <div style={{ fontSize: 11, color: C.textSecondary }}>
-                        {m.roles.map(r => ROLES.find(x => x.key === r)?.emoji).filter(Boolean).join(' ')}
-                        {m.email && ` · ${m.email}`}
-                        {m.phone && ` · ${m.phone}`}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Btn onClick={doImportMembers}><Check size={14} />Importar {importPreview.length} membro{importPreview.length !== 1 ? 's' : ''}</Btn>
-            </>
-          )}
-        </Modal>
       )}
 
       {modal && (
@@ -846,6 +759,11 @@ function SongsPage({ songs, setSongs }) {
     setModal(null);
   };
   const del = id => { setSongs(p => p.filter(s => s.id !== id)); setConfirm(null); };
+
+  const ytThumb = url => {
+    const m = url?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+    return m ? `https://img.youtube.com/vi/${m[1]}/default.jpg` : null;
+  };
 
   const handleCSV = e => {
     const file = e.target.files[0]; if (!file) return;
@@ -1395,88 +1313,38 @@ function ReportsPage({ scales, songs }) {
 
 const APP_PASSWORD = '8itav@123';
 
-
 function LoginScreen({ onLogin }) {
   const [pwd, setPwd] = useState('');
   const [error, setError] = useState(false);
   const [show, setShow] = useState(false);
-
   const attempt = () => {
     if (pwd === APP_PASSWORD) { onLogin(); }
     else { setError(true); setPwd(''); setTimeout(() => setError(false), 2000); }
   };
-
   return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Nunito', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Nunito:wght@400;600;700&display=swap');`}</style>
       <div style={{ width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 36 }}>
-
-        {/* Logo + Título */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 96, height: 96, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #1a0a2e, #2d1245)',
-            border: `2px solid ${C.accent}55`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 20px',
-            boxShadow: `0 0 32px ${C.accent}33`,
-          }}>
-            <img src={`data:image/jpeg;base64,${LOGO_B64}`} alt="Logo" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }} />
+          <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'linear-gradient(135deg, #1a0a2e, #2d1245)', border: `2px solid ${C.accent}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: `0 0 32px ${C.accent}33` }}>
+            <img src={LOGO_B64} alt="Logo" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }} />
           </div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: C.accent, letterSpacing: 1, lineHeight: 1.2 }}>
-            Oitava Music Betim
-          </div>
-          <div style={{ color: C.textSecondary, fontSize: 13, marginTop: 6, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase' }}>
-            Ministério de Louvor
-          </div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: 24, color: C.accent, letterSpacing: 1, lineHeight: 1.2 }}>Oitava Music Betim</div>
+          <div style={{ color: C.textSecondary, fontSize: 13, marginTop: 6, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase' }}>Ministério de Louvor</div>
         </div>
-
-        {/* Card de login */}
         <div style={{ width: '100%', background: C.bgCard, borderRadius: 18, border: `1px solid ${C.border}`, padding: '32px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <div style={{ color: C.textSecondary, fontWeight: 700, fontSize: 12, textAlign: 'center', letterSpacing: 2, textTransform: 'uppercase' }}>
-            Acesso Restrito
-          </div>
+          <div style={{ color: C.textSecondary, fontWeight: 700, fontSize: 12, textAlign: 'center', letterSpacing: 2, textTransform: 'uppercase' }}>Acesso Restrito</div>
           <div style={{ position: 'relative' }}>
-            <input
-              type={show ? 'text' : 'password'}
-              placeholder="Digite a senha"
-              value={pwd}
+            <input type={show ? 'text' : 'password'} placeholder="Digite a senha" value={pwd}
               onChange={e => { setPwd(e.target.value); setError(false); }}
               onKeyDown={e => e.key === 'Enter' && attempt()}
-              style={{
-                width: '100%', padding: '14px 48px 14px 18px',
-                background: error ? 'rgba(217,82,82,0.08)' : C.bgInput,
-                border: `1.5px solid ${error ? C.danger : C.border}`,
-                borderRadius: 12, color: C.textPrimary, fontSize: 15,
-                outline: 'none', fontFamily: "'Nunito', sans-serif",
-                transition: 'border 0.2s',
-              }}
-              autoFocus
-            />
-            <button onClick={() => setShow(s => !s)} style={{
-              position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
-              background: 'none', border: 'none', color: C.textSecondary,
-              cursor: 'pointer', fontSize: 17, padding: 4, lineHeight: 1,
-            }}>
+              style={{ width: '100%', padding: '14px 48px 14px 18px', background: error ? 'rgba(217,82,82,0.08)' : C.bgInput, border: `1.5px solid ${error ? C.danger : C.border}`, borderRadius: 12, color: C.textPrimary, fontSize: 15, outline: 'none', fontFamily: "'Nunito', sans-serif", transition: 'border 0.2s', boxSizing: 'border-box' }} autoFocus />
+            <button onClick={() => setShow(s => !s)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: C.textSecondary, cursor: 'pointer', fontSize: 17, padding: 4 }}>
               {show ? '🙈' : '👁️'}
             </button>
           </div>
-
-          {error && (
-            <div style={{ color: C.danger, fontSize: 13, textAlign: 'center', fontWeight: 600 }}>
-              ✕ Senha incorreta. Tente novamente.
-            </div>
-          )}
-
-          <button onClick={attempt} style={{
-            padding: '14px 0',
-            background: `linear-gradient(135deg, ${C.accent}, ${C.accentDark})`,
-            border: 'none', borderRadius: 12, color: '#000',
-            fontWeight: 800, fontSize: 15, cursor: 'pointer',
-            fontFamily: "'Montserrat', sans-serif", letterSpacing: 1,
-            boxShadow: `0 4px 20px ${C.accent}44`,
-            transition: 'opacity 0.2s',
-          }}>
+          {error && <div style={{ color: C.danger, fontSize: 13, textAlign: 'center', fontWeight: 600 }}>✕ Senha incorreta. Tente novamente.</div>}
+          <button onClick={attempt} style={{ padding: '14px 0', background: `linear-gradient(135deg, ${C.accent}, ${C.accentDark})`, border: 'none', borderRadius: 12, color: '#000', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: "'Montserrat', sans-serif", letterSpacing: 1, boxShadow: `0 4px 20px ${C.accent}44` }}>
             ENTRAR
           </button>
         </div>
@@ -1496,9 +1364,6 @@ export default function App() {
   const [sideOpen, setSideOpen] = useState(false);
   const [syncing, setSyncing]   = useState(false);
   const [syncOk, setSyncOk]     = useState(null); // true | false | null
-
-  const handleLogin = () => { sessionStorage.setItem('oitava_auth', '1'); setLoggedIn(true); };
-  if (!loggedIn) return <LoginScreen onLogin={handleLogin} />;
 
   const loadAll = async () => {
     const [m, g, s, sc] = await Promise.all([
@@ -1543,6 +1408,9 @@ export default function App() {
 
   const nav = id => { setPage(id); setSideOpen(false); };
   const current = NAV.find(n => n.id === page);
+
+  const handleLogin = () => { sessionStorage.setItem('oitava_auth', '1'); setLoggedIn(true); };
+  if (!loggedIn) return <LoginScreen onLogin={handleLogin} />;
 
   if (!ready) return (
     <>
