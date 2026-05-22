@@ -137,13 +137,16 @@ const GLOBAL_CSS = `
   .modal-overlay {
     position: fixed; inset: 0; z-index: 500;
     background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
-    display: flex; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 16px; overflow-y: auto;
   }
   .modal-box {
     background: ${C.bgCard}; border-radius: 16px;
     border: 1px solid ${C.border};
-    width: 100%; max-width: 100%; max-height: 92vh; overflow-y: auto; box-sizing: border-box;
+    width: calc(100vw - 32px); max-width: 680px;
+    max-height: none; box-sizing: border-box;
     box-shadow: 0 32px 64px rgba(0,0,0,0.6);
+    margin: auto;
   }
   .modal-header {
     padding: 18px 24px; border-bottom: 1px solid ${C.border};
@@ -341,7 +344,7 @@ function Inp({ label, ...p }) {
 function Modal({ title, onClose, wide, children }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: wide ? Math.min(680, window.innerWidth - 24) : Math.min(460, window.innerWidth - 24) }} onClick={e => e.stopPropagation()}>
+      <div className="modal-box" style={{ maxWidth: wide ? 680 : 460 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2 style={{ fontFamily: 'Cinzel, serif', fontSize: 17, color: C.accent }}>{title}</h2>
           <Btn variant="ghost" onClick={onClose} style={{ padding: 4 }}><X size={18} /></Btn>
