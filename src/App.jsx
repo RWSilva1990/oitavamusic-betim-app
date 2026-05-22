@@ -47,6 +47,7 @@ const NAV = [
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Nunito:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { width: 100%; max-width: 100vw; overflow-x: hidden; }
   html, body { background: ${C.bg}; font-family: 'Nunito', sans-serif; color: ${C.textPrimary}; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -137,12 +138,12 @@ const GLOBAL_CSS = `
   .modal-overlay {
     position: fixed; inset: 0; z-index: 500;
     background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
-    display: flex; align-items: center; justify-content: center; padding: 16px;
+    display: flex; align-items: flex-start; justify-content: center; padding: 16px; overflow-y: auto;
   }
   .modal-box {
     background: ${C.bgCard}; border-radius: 16px;
     border: 1px solid ${C.border};
-    width: 100%; max-height: 90vh; overflow-y: auto;
+    width: calc(100vw - 32px); max-width: 680px; overflow-y: auto; margin: auto;
     box-shadow: 0 32px 64px rgba(0,0,0,0.6);
   }
   .modal-header {
@@ -1408,7 +1409,7 @@ export default function App() {
       {sideOpen && <div onClick={() => setSideOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 199 }} />}
 
       {/* Main */}
-      <div className="main-content" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="main-content" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', width: '100%' }}>
         {/* Topbar */}
         <div style={{ height: 54, background: C.bgSecondary, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: '0 18px', gap: 12, position: 'sticky', top: 0, zIndex: 100 }}>
           <button className="topbar-menu-btn btn-ghost btn" onClick={() => setSideOpen(x => !x)} style={{ padding: '6px 8px' }}>
