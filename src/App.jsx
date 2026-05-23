@@ -541,7 +541,6 @@ function MembersPage({ members, setMembers }) {
   const [confirm, setConfirm] = useState(null);
   const [form, setForm] = useState({ name: '', birthdate: '', email: '', phone: '', photo: '', roles: [] });
   
-  // Novos estados para a importação de CSV
   const [importModal, setImportModal] = useState(false);
   const [preview, setPreview] = useState([]);
 
@@ -567,7 +566,6 @@ function MembersPage({ members, setMembers }) {
   };
   const del = id => { setMembers(p => p.filter(m => m.id !== id)); setConfirm(null); };
 
-  // Função para ler o CSV dos Membros
   const handleCSV = e => {
     const file = e.target.files[0]; if (!file) return;
     Papa.parse(file, {
@@ -575,39 +573,81 @@ function MembersPage({ members, setMembers }) {
       complete: ({ data }) => {
         const rows = data.map(row => {
           const keys = Object.keys(row);
-          // Tenta adivinhar as colunas baseadas no nome
+          
           const nk = keys.find(k => /nome|name/i.test(k)) || keys[0];
           const ek = keys.find(k => /email|e-mail/i.test(k));
           const pk = keys.find(k => /tel|celular|phone/i.test(k));
-          const bk = keys.find(k => /nasc|data|birth/i.test(k));
+          const bk = keys.find(k => /nasc|data|birth|aniv/i.test(k));
           const rk = keys.find(k => /fun[cç][oõ]es|cargo|role/i.test(k));
 
-          // Tenta puxar as funções se existirem separadas por vírgula no CSV
           let parsedRoles = [];
           if (rk && row[rk]) {
             const str = row[rk].toLowerCase();
             ROLES.forEach(r => { if (str.includes(r.key) || str.includes(r.label.toLowerCase())) parsedRoles.push(r.key); });
           }
 
+          let rawDate = bk ? row[bk]?.trim() || '' : '';
+          let formattedDate = '';
+          
+          if (rawDate.includes('/')) {
+            const parts = rawDate.split('/');
+            if (parts.length === 3) {
+              const dia = parts[0].padStart(2, '0');
+              const mes = parts[1].padStart(2, '0');
+              const ano = parts[2].trim();
+              const anoCompleto = ano.length === 2 ? (parseInt(ano) > 30 ? '19' : '20') + ano : ano;
+              formattedDate = `${anoCompleto}-${mes}-${dia}`;
+            }
+          } else {
+            formattedDate = rawDate;
+          }
+
           return {
             name: row[nk]?.trim() || '',
             email: ek ? row[ek]?.trim() || '' : '',
             phone: pk ? row[pk]?.trim() || '' : '',
-            birthdate: bk ? row[bk]?.trim() || '' : '',
+            birthdate: formattedDate,
             roles: parsedRoles,
-            photo: '' // Importação vem sem foto por padrão
+            photo: ''
           };
-        }).filter(r => r.name); // Só importa se tiver nome
+        }).filter(r => r.name);
         setPreview(rows);
       }
     });
     e.target.value = '';
   };
 
+  // --- MOTOR DE ATUALIZAÇÃO EM MASSA (UPSERT) ---
   const doImport = () => {
-    setMembers(p => [...p, ...preview.map(m => ({ ...m, id: genId() }))]);
+    setMembers(prevMembers => {
+      let updatedList = [...prevMembers];
+      
+      preview.forEach(importedMember => {
+        // Busca se já existe um membro com esse nome exato (ignorando maiúsculas e minúsculas)
+        const existingIndex = updatedList.findIndex(
+          m => m.name.trim().toLowerCase() === importedMember.name.toLowerCase()
+        );
+
+        if (existingIndex >= 0) {
+          // SE EXISTE: Atualiza os dados, mas MANTÉM o ID original para não quebrar as escalas
+          updatedList[existingIndex] = {
+            ...updatedList[existingIndex], // Mantém foto, ID e outros dados
+            birthdate: importedMember.birthdate || updatedList[existingIndex].birthdate,
+            email: importedMember.email || updatedList[existingIndex].email,
+            phone: importedMember.phone || updatedList[existingIndex].phone,
+            roles: importedMember.roles.length > 0 ? importedMember.roles : updatedList[existingIndex].roles
+          };
+        } else {
+          // SE NÃO EXISTE: Cria um membro novo gerando um ID
+          updatedList.push({ ...importedMember, id: genId() });
+        }
+      });
+      
+      return updatedList;
+    });
     setImportModal(false); setPreview([]);
   };
+  // ----------------------------------------------
 
   const filtered = members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -619,7 +659,6 @@ function MembersPage({ members, setMembers }) {
           <p style={{ color: C.textSecondary, fontSize: 13 }}>{members.length} membro{members.length !== 1 ? 's' : ''}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {/* Novo Botão de Importar CSV */}
           <Btn variant="secondary" onClick={() => { setPreview([]); setImportModal(true); }}><Upload size={15} />Importar CSV</Btn>
           <Btn onClick={openAdd}><Plus size={15} />Novo Membro</Btn>
         </div>
@@ -653,12 +692,10 @@ function MembersPage({ members, setMembers }) {
         </div>
       )}
 
-      {/* Modal de Importar CSV */}
       {importModal && (
-        <Modal title="Importar Membros via CSV" onClose={() => { setImportModal(false); setPreview([]); }} wide>
+        <Modal title="Importar/Atualizar via CSV" onClose={() => { setImportModal(false); setPreview([]); }} wide>
           <div style={{ padding: 14, background: C.bgInput, borderRadius: 8, marginBottom: 16, fontSize: 13, color: C.textSecondary, lineHeight: 1.7 }}>
-            <strong style={{ color: C.accent }}>Dica de Formato:</strong> arquivo <code>.csv</code> com colunas como <code>nome</code>, <code>email</code>, <code>telefone</code>, <code>nascimento</code> e <code>funcoes</code>.<br />
-            Opcional: Na coluna "funções", escreva os cargos separados por texto (ex: <em>vocal, violão</em>). Apenas o <strong>nome</strong> é obrigatório.
+            <strong style={{ color: C.accent }}>Atualização em Massa:</strong> Se o nome da planilha já existir no sistema, os dados vazios (como a data de aniversário) serão <strong>atualizados</strong> automaticamente sem duplicar o membro e sem quebrar as escalas.<br />
           </div>
           <label style={{ display: 'block', padding: '24px 16px', border: `2px dashed ${C.border}`, borderRadius: 10, textAlign: 'center', cursor: 'pointer', color: C.textSecondary, marginBottom: 16 }}>
             <Upload size={26} style={{ display: 'block', margin: '0 auto 8px' }} />
@@ -667,22 +704,26 @@ function MembersPage({ members, setMembers }) {
           </label>
           {preview.length > 0 && (
             <>
-              <p style={{ color: C.success, fontSize: 13, marginBottom: 10 }}>✓ {preview.length} membro{preview.length !== 1 ? 's' : ''} encontrado{preview.length !== 1 ? 's' : ''} para importar</p>
+              <p style={{ color: C.success, fontSize: 13, marginBottom: 10 }}>✓ {preview.length} membro{preview.length !== 1 ? 's' : ''} lido{preview.length !== 1 ? 's' : ''} na planilha</p>
               <div style={{ maxHeight: 200, overflowY: 'auto', display: 'grid', gap: 4, marginBottom: 16 }}>
-                {preview.map((m, i) => (
-                  <div key={i} style={{ padding: '7px 12px', background: C.bgHover, borderRadius: 6, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                    <span style={{ color: C.textPrimary }}>{m.name}</span>
-                    <span style={{ color: C.textSecondary, fontSize: 11 }}>{(m.roles || []).length} funç{m.roles.length !== 1 ? 'ões' : 'ão'} identificada{m.roles.length !== 1 ? 's' : ''}</span>
-                  </div>
-                ))}
+                {preview.map((m, i) => {
+                  const exists = members.some(exist => exist.name.trim().toLowerCase() === m.name.toLowerCase());
+                  return (
+                    <div key={i} style={{ padding: '7px 12px', background: C.bgHover, borderRadius: 6, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span style={{ color: C.textPrimary }}>{m.name}</span>
+                      <span style={{ color: exists ? C.accent : C.success, fontSize: 11, fontWeight: 700 }}>
+                        {exists ? '🔄 Será Atualizado' : '✨ Novo Membro'}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-              <Btn onClick={doImport}><Check size={14} />Importar {preview.length} membro{preview.length !== 1 ? 's' : ''}</Btn>
+              <Btn onClick={doImport}><Check size={14} />Processar {preview.length} membro{preview.length !== 1 ? 's' : ''}</Btn>
             </>
           )}
         </Modal>
       )}
 
-      {/* Modal Adicionar/Editar */}
       {modal && (
         <Modal title={modal === 'add' ? 'Novo Membro' : 'Editar Membro'} onClose={() => setModal(null)}>
           <Inp label="Nome *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Nome completo" />
