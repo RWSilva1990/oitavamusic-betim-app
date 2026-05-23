@@ -30,10 +30,10 @@ const ROLES = [
   { key: 'bateria',  label: 'Bateria',  emoji: '🥁' },
   { key: 'baixo',    label: 'Baixo',    emoji: '🎸' },
   { key: 'violao',   label: 'Violão',   emoji: '🎵' },
+  { key: 'guitarra', label: 'Guitarra', emoji: '🎸' },
   { key: 'teclado',  label: 'Teclado',  emoji: '🎹' },
   { key: 'vocal',    label: 'Vocal',    emoji: '🎤' },
   { key: 'ministro', label: 'Ministro', emoji: '✨' },
-  { key: 'guitarra', label: 'Guitarra', emoji: 'U+1F3B8' },
 ];
 
 const NAV = [
