@@ -52,8 +52,8 @@ const GLOBAL_CSS = `
     background: ${C.bg}; 
     font-family: 'Nunito', sans-serif; 
     color: ${C.textPrimary}; 
-    overscroll-behavior-y: none; /* EVITA A TELA "DANÇAR" PARA CIMA/BAIXO (PWA) */
-    -webkit-tap-highlight-color: transparent; /* EVITA FUNDO AZUL AO CLICAR EM BOTÕES NO CELULAR */
+    -webkit-tap-highlight-color: transparent; 
+    -webkit-overflow-scrolling: touch; /* DEVOLVE O DESLIZE SUAVE (MOMENTUM) PARA CELULARES */
   }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
