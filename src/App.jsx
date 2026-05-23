@@ -382,8 +382,8 @@ function Avatar({ member, size = 44 }) {
 }
 
 // ─── Logo ───────────────────────────────────────────────────
-const LOGO_HOME = "/Logo1.png"; 
-const LOGO_SIDEBAR = "Logo1.png";
+const LOGO_HOME = "/icon-512.png"; 
+const LOGO_SIDEBAR = "icon-192.png";
 // ─── Pages ─────────────────────────────────────────────────
 
 function HomePage({ counts, scales, members, groups, onNav }) {
