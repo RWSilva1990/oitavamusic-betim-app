@@ -1505,7 +1505,7 @@ export default function App() {
           />
           <Btn style={{ width: '100%', justifyContent: 'center', padding: '12px' }} onClick={() => {
             // AQUI ESTÁ A SUA SENHA. PODE TROCAR "1234" PARA O QUE QUISER.
-            if (codigo === "1234") {
+            if (codigo === "8itav@123") {
               setAutenticado(true);
             } else {
               alert("Código incorreto!");
