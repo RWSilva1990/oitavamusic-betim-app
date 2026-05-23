@@ -1413,7 +1413,12 @@ export default function App() {
   const [ready, setReady]     = useState(false);
   const [sideOpen, setSideOpen] = useState(false);
   const [syncing, setSyncing]   = useState(false);
-  const [syncOk, setSyncOk]     = useState(null); // true | false | null
+  const [syncOk, setSyncOk]     = useState(null);
+
+  // --- NOVOS ESTADOS PARA A SENHA ---
+  const [autenticado, setAutenticado] = useState(false);
+  const [codigo, setCodigo] = useState('');
+  // ----------------------------------
 
   const loadAll = async () => {
     const [m, g, s, sc] = await Promise.all([
@@ -1425,7 +1430,6 @@ export default function App() {
     if (sc) setScales(sc);
   };
 
-  // Initial load
   useEffect(() => {
     setSyncing(true);
     loadAll()
@@ -1434,7 +1438,6 @@ export default function App() {
       .finally(() => setSyncing(false));
   }, []);
 
-  // Save helpers with sync indicator
   const save = async (key, val) => {
     setSyncing(true); setSyncOk(null);
     try { await dbSet(key, val); setSyncOk(true); }
@@ -1442,7 +1445,6 @@ export default function App() {
     finally { setSyncing(false); }
   };
 
-  // Auto-refresh every 30s when window has focus (catch changes from other devices)
   useEffect(() => {
     const onFocus = () => { if (ready) loadAll(); };
     window.addEventListener('focus', onFocus);
@@ -1450,7 +1452,6 @@ export default function App() {
     return () => { window.removeEventListener('focus', onFocus); clearInterval(interval); };
   }, [ready]);
 
-  // Persist changes upwards to Firebase
   useEffect(() => { if (ready) save('members', members); }, [members]);
   useEffect(() => { if (ready) save('groups',  groups);  }, [groups]);
   useEffect(() => { if (ready) save('songs',   songs);   }, [songs]);
@@ -1459,6 +1460,7 @@ export default function App() {
   const nav = id => { setPage(id); setSideOpen(false); };
   const current = NAV.find(n => n.id === page);
 
+  // 1. TELA DE CARREGAMENTO (Mantida intacta)
   if (!ready) return (
     <>
       <style>{GLOBAL_CSS}</style>
@@ -1473,6 +1475,49 @@ export default function App() {
     </>
   );
 
+  // 2. NOVA TELA DE SENHA (Aparece logo após conectar, se não estiver logado)
+  if (!autenticado) return (
+    <>
+      <style>{GLOBAL_CSS}</style>
+      <div style={{ 
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
+        minHeight: '100dvh', padding: 24, background: C.bg 
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ 
+            width: 80, height: 80, borderRadius: '50%', margin: '0 auto 16px',
+            overflow: 'hidden', border: `2px solid ${C.accent}`, boxShadow: `0 8px 24px ${C.accentGlow}`
+          }}>
+            <img src={LOGO_HOME} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+          <h2 style={{ fontFamily: 'Cinzel, serif', color: C.accent, marginBottom: 8, fontSize: 22 }}>Acesso Restrito</h2>
+          <p style={{ color: C.textSecondary, fontSize: 13 }}>Insira o código de acesso da equipe</p>
+        </div>
+        
+        <div style={{ width: '100%', maxWidth: 280 }}>
+          <input 
+            className="input-field" 
+            type="password" 
+            placeholder="••••" 
+            value={codigo} 
+            onChange={e => setCodigo(e.target.value)} 
+            style={{ textAlign: 'center', marginBottom: 16, fontSize: 24, letterSpacing: 8, padding: '12px' }}
+          />
+          <Btn style={{ width: '100%', justifyContent: 'center', padding: '12px' }} onClick={() => {
+            // AQUI ESTÁ A SUA SENHA. PODE TROCAR "1234" PARA O QUE QUISER.
+            if (codigo === "1234") {
+              setAutenticado(true);
+            } else {
+              alert("Código incorreto!");
+              setCodigo('');
+            }
+          }}>Entrar</Btn>
+        </div>
+      </div>
+    </>
+  );
+
+  // 3. O SEU APP PRINCIPAL (Mantido intacto)
   return (
     <>
       <style>{GLOBAL_CSS}</style>
