@@ -33,6 +33,7 @@ const ROLES = [
   { key: 'teclado',  label: 'Teclado',  emoji: '🎹' },
   { key: 'vocal',    label: 'Vocal',    emoji: '🎤' },
   { key: 'ministro', label: 'Ministro', emoji: '✨' },
+  { key: 'guitarra', label: 'Guitarra', emoji: 'U+1F3B8' },
 ];
 
 const NAV = [
