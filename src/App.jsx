@@ -163,7 +163,12 @@ const GLOBAL_CSS = `
     background: ${C.bgCard}; z-index: 1; flex-shrink: 0;
     border-radius: 16px 16px 0 0;
   }
-  .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+  .modal-body { 
+    padding: 24px; 
+    overflow-y: auto; 
+    flex: 1; 
+    -webkit-overflow-scrolling: touch; /* DESLIZE SUAVE DENTRO DO POP-UP */
+  }
 
   .empty-state {
     text-align: center; padding: 60px 24px; color: ${C.textSecondary};
