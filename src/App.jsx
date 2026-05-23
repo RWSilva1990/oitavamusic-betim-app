@@ -535,8 +535,6 @@ function HomePage({ counts, scales, members, groups, onNav }) {
 
 // ─── Members ────────────────────────────────────────────────
 
-// ─── Members ────────────────────────────────────────────────
-
 function MembersPage({ members, setMembers }) {
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(null);
