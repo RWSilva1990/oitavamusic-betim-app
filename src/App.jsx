@@ -1572,7 +1572,7 @@ export default function App() {
             style={{ textAlign: 'center', marginBottom: 16, fontSize: 24, letterSpacing: 8, padding: '12px' }}
           />
           <Btn style={{ width: '100%', justifyContent: 'center', padding: '12px' }} onClick={() => {
-            if (codigo === "1234") {
+            if (codigo === "8itav@123") {
               setAutenticado(true);
             } else {
               alert("Código incorreto!");
