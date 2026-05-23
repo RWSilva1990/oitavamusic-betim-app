@@ -383,7 +383,7 @@ function Avatar({ member, size = 44 }) {
 
 // ─── Logo ───────────────────────────────────────────────────
 const LOGO_HOME = "/icon-512.png"; 
-const LOGO_SIDEBAR = "icon-192.png";
+const LOGO_SIDEBAR = "/icon-192.png";
 // ─── Pages ─────────────────────────────────────────────────
 
 function HomePage({ counts, scales, members, groups, onNav }) {
@@ -425,7 +425,7 @@ function HomePage({ counts, scales, members, groups, onNav }) {
           overflow: 'hidden', border: `3px solid ${C.accent}`,
           boxShadow: `0 12px 32px ${C.accentGlow}`,
         }}>
-          <img src={LOGO_B64} alt="Oitava Music" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={LOGO_HOME} alt="Oitava Music" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <h1 style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 900, fontSize: 22, color: C.accent, marginBottom: 4, letterSpacing: '-0.5px' }}>Oitava Music Betim</h1>
       </div>
@@ -1377,7 +1377,7 @@ export default function App() {
     <>
       <style>{GLOBAL_CSS}</style>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', color: C.textSecondary, gap: 16 }}>
-        <img src={LOGO_B64} alt="" style={{ width: 64, height: 64, borderRadius: '50%', border: `2px solid ${C.accent}` }} />
+        <img src={LOGO_HOME} alt="" style={{ width: 64, height: 64, borderRadius: '50%', border: `2px solid ${C.accent}` }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 18, height: 18, border: `2px solid ${C.accent}44`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           Conectando ao Firebase...
@@ -1394,7 +1394,7 @@ export default function App() {
       {/* Sidebar */}
       <div className={`sidebar${sideOpen ? ' open' : ''}`}>
         <div style={{ padding: '16px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src={LOGO_B64} alt="Logo" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+          <img src={LOGO_SIDEBAR} alt="Logo" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
           <div style={{ fontFamily: 'Montserrat, sans-serif', color: C.accent, fontSize: 13, fontWeight: 900, lineHeight: 1.3 }}>
             Oitava Music<br />Betim
           </div>
