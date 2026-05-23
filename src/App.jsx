@@ -1455,10 +1455,28 @@ export default function App() {
   const [syncing, setSyncing]   = useState(false);
   const [syncOk, setSyncOk]     = useState(null);
 
-  // --- NOVOS ESTADOS PARA A SENHA ---
   const [autenticado, setAutenticado] = useState(false);
   const [codigo, setCodigo] = useState('');
-  // ----------------------------------
+
+  // --- NOVO: GERENCIADOR DO BOTÃO VOLTAR DO CELULAR ---
+  useEffect(() => {
+    // Ao carregar, define a página inicial no histórico do celular
+    window.history.replaceState({ page: 'home' }, '', '#home');
+
+    const handlePopState = (event) => {
+      // Quando o usuário aperta o botão de voltar do Android/iOS, este evento dispara
+      if (event.state && event.state.page) {
+        setPage(event.state.page); // Volta pra página anterior que estava salva
+        setSideOpen(false); // Garante que o menu fecha se estiver aberto
+      } else {
+        setPage('home'); // Prevenção: na dúvida, joga pra tela inicial
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+  // ----------------------------------------------------
 
   const loadAll = async () => {
     const [m, g, s, sc] = await Promise.all([
@@ -1497,10 +1515,20 @@ export default function App() {
   useEffect(() => { if (ready) save('songs',   songs);   }, [songs]);
   useEffect(() => { if (ready) save('scales',  scales);  }, [scales]);
 
-  const nav = id => { setPage(id); setSideOpen(false); };
+  // --- ATUALIZADO: FUNÇÃO DE NAVEGAÇÃO ---
+  const nav = id => {
+    if (page !== id) {
+      // Adiciona a nova tela ao histórico para o botão voltar funcionar
+      window.history.pushState({ page: id }, '', `#${id}`);
+      setPage(id);
+    }
+    setSideOpen(false);
+  };
+  // ---------------------------------------
+
   const current = NAV.find(n => n.id === page);
 
-  // 1. TELA DE CARREGAMENTO (Mantida intacta)
+  // 1. TELA DE CARREGAMENTO
   if (!ready) return (
     <>
       <style>{GLOBAL_CSS}</style>
@@ -1515,7 +1543,7 @@ export default function App() {
     </>
   );
 
-  // 2. NOVA TELA DE SENHA (Aparece logo após conectar, se não estiver logado)
+  // 2. TELA DE SENHA
   if (!autenticado) return (
     <>
       <style>{GLOBAL_CSS}</style>
@@ -1544,8 +1572,7 @@ export default function App() {
             style={{ textAlign: 'center', marginBottom: 16, fontSize: 24, letterSpacing: 8, padding: '12px' }}
           />
           <Btn style={{ width: '100%', justifyContent: 'center', padding: '12px' }} onClick={() => {
-            // AQUI ESTÁ A SUA SENHA. PODE TROCAR "1234" PARA O QUE QUISER.
-            if (codigo === "8itav@123") {
+            if (codigo === "1234") {
               setAutenticado(true);
             } else {
               alert("Código incorreto!");
@@ -1557,7 +1584,7 @@ export default function App() {
     </>
   );
 
-  // 3. O SEU APP PRINCIPAL (Mantido intacto)
+  // 3. O SEU APP PRINCIPAL
   return (
     <>
       <style>{GLOBAL_CSS}</style>
