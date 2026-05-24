@@ -617,28 +617,24 @@ function MembersPage({ members, setMembers }) {
     e.target.value = '';
   };
 
-  // --- MOTOR DE ATUALIZAÇÃO EM MASSA (UPSERT) ---
   const doImport = () => {
     setMembers(prevMembers => {
       let updatedList = [...prevMembers];
       
       preview.forEach(importedMember => {
-        // Busca se já existe um membro com esse nome exato (ignorando maiúsculas e minúsculas)
         const existingIndex = updatedList.findIndex(
           m => m.name.trim().toLowerCase() === importedMember.name.toLowerCase()
         );
 
         if (existingIndex >= 0) {
-          // SE EXISTE: Atualiza os dados, mas MANTÉM o ID original para não quebrar as escalas
           updatedList[existingIndex] = {
-            ...updatedList[existingIndex], // Mantém foto, ID e outros dados
+            ...updatedList[existingIndex],
             birthdate: importedMember.birthdate || updatedList[existingIndex].birthdate,
             email: importedMember.email || updatedList[existingIndex].email,
             phone: importedMember.phone || updatedList[existingIndex].phone,
             roles: importedMember.roles.length > 0 ? importedMember.roles : updatedList[existingIndex].roles
           };
         } else {
-          // SE NÃO EXISTE: Cria um membro novo gerando um ID
           updatedList.push({ ...importedMember, id: genId() });
         }
       });
@@ -647,9 +643,12 @@ function MembersPage({ members, setMembers }) {
     });
     setImportModal(false); setPreview([]);
   };
-  // ----------------------------------------------
 
-  const filtered = members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
+  // --- ORDENAÇÃO ALFABÉTICA APLICADA AQUI ---
+  const filtered = members
+    .filter(m => m.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+  // ------------------------------------------
 
   return (
     <div style={{ padding: 24, maxWidth: 860 }}>
@@ -695,7 +694,7 @@ function MembersPage({ members, setMembers }) {
       {importModal && (
         <Modal title="Importar/Atualizar via CSV" onClose={() => { setImportModal(false); setPreview([]); }} wide>
           <div style={{ padding: 14, background: C.bgInput, borderRadius: 8, marginBottom: 16, fontSize: 13, color: C.textSecondary, lineHeight: 1.7 }}>
-            <strong style={{ color: C.accent }}>Atualização em Massa:</strong> Se o nome da planilha já existir no sistema, os dados vazios (como a data de aniversário) serão <strong>atualizados</strong> automaticamente sem duplicar o membro e sem quebrar as escalas.<br />
+            <strong style={{ color: C.accent }}>Atualização em Massa:</strong> Se o nome da planilha já existir no sistema, os dados vazios serão <strong>atualizados</strong> automaticamente sem duplicar o membro e sem quebrar as escalas.<br />
           </div>
           <label style={{ display: 'block', padding: '24px 16px', border: `2px dashed ${C.border}`, borderRadius: 10, textAlign: 'center', cursor: 'pointer', color: C.textSecondary, marginBottom: 16 }}>
             <Upload size={26} style={{ display: 'block', margin: '0 auto 8px' }} />
