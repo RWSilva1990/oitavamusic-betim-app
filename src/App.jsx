@@ -544,15 +544,58 @@ function MembersPage({ members, setMembers }) {
   const [importModal, setImportModal] = useState(false);
   const [preview, setPreview] = useState([]);
 
+  // --- NOVO: Motor de normalização (Remove acentos, espaços extras e deixa minúsculo) ---
+  // Isso garante que "Ágata ", "agata" e " Ágata" sejam vistos pelo código como a mesma pessoa.
+  const normalizeStr = (str) => {
+    return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  };
+  // -------------------------------------------------------------------------------------
+
   const openAdd = () => { setForm({ name: '', birthdate: '', email: '', phone: '', photo: '', roles: [] }); setModal('add'); };
   const openEdit = m => { setForm({ ...m, roles: [...(m.roles || [])] }); setModal(m); };
 
+  // --- NOVO: COMPRESSOR DE IMAGENS NATIVO ---
   const handlePhoto = e => {
-    const file = e.target.files[0]; if (!file) return;
-    const r = new FileReader();
-    r.onload = ev => setForm(f => ({ ...f, photo: ev.target.result }));
-    r.readAsDataURL(file);
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        // Cria uma tela de pintura invisível (canvas)
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 300; // Define o tamanho máximo da foto (300px é perfeito para avatares)
+        let width = img.width;
+        let height = img.height;
+
+        // Mantém a proporção da imagem ao encolher
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Converte para JPEG com 70% de qualidade (Transforma Megabytes em Kilobytes)
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        setForm(f => ({ ...f, photo: compressedBase64 }));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
   };
+  // ------------------------------------------
 
   const toggleRole = key => setForm(f => ({
     ...f, roles: f.roles.includes(key) ? f.roles.filter(r => r !== key) : [...f.roles, key]
@@ -622,8 +665,9 @@ function MembersPage({ members, setMembers }) {
       let updatedList = [...prevMembers];
       
       preview.forEach(importedMember => {
+        // Agora o código usa a normalização estrita para procurar a pessoa
         const existingIndex = updatedList.findIndex(
-          m => m.name.trim().toLowerCase() === importedMember.name.toLowerCase()
+          m => normalizeStr(m.name) === normalizeStr(importedMember.name)
         );
 
         if (existingIndex >= 0) {
@@ -644,11 +688,10 @@ function MembersPage({ members, setMembers }) {
     setImportModal(false); setPreview([]);
   };
 
-  // --- ORDENAÇÃO ALFABÉTICA APLICADA AQUI ---
+  // Aplica a busca ignorando acentos também
   const filtered = members
-    .filter(m => m.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(m => normalizeStr(m.name).includes(normalizeStr(search)))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
-  // ------------------------------------------
 
   return (
     <div style={{ padding: 24, maxWidth: 860 }}>
@@ -706,7 +749,8 @@ function MembersPage({ members, setMembers }) {
               <p style={{ color: C.success, fontSize: 13, marginBottom: 10 }}>✓ {preview.length} membro{preview.length !== 1 ? 's' : ''} lido{preview.length !== 1 ? 's' : ''} na planilha</p>
               <div style={{ maxHeight: 200, overflowY: 'auto', display: 'grid', gap: 4, marginBottom: 16 }}>
                 {preview.map((m, i) => {
-                  const exists = members.some(exist => exist.name.trim().toLowerCase() === m.name.toLowerCase());
+                  // A telinha de preview agora usa a mesma inteligência estrita para prever se já existe
+                  const exists = members.some(exist => normalizeStr(exist.name) === normalizeStr(m.name));
                   return (
                     <div key={i} style={{ padding: '7px 12px', background: C.bgHover, borderRadius: 6, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                       <span style={{ color: C.textPrimary }}>{m.name}</span>
@@ -732,7 +776,7 @@ function MembersPage({ members, setMembers }) {
           </div>
           <Inp label="E-mail" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="email@exemplo.com" />
 
-          <Field label="Foto">
+          <Field label="Foto (Compactada Automaticamente)">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               {form.photo && <img src={form.photo} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${C.accent}` }} />}
               <label style={{ cursor: 'pointer', padding: '8px 14px', border: `1px dashed ${C.border}`, borderRadius: 8, color: C.textSecondary, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -764,6 +808,7 @@ function MembersPage({ members, setMembers }) {
     </div>
   );
 }
+
 // ─── Groups ────────────────────────────────────────────────
 
 function GroupsPage({ groups, setGroups, members }) {
