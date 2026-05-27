@@ -924,7 +924,6 @@ function SongsPage({ songs, setSongs }) {
   const [modal, setModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
   
-  // Utilizando 'title' conforme o seu código original!
   const [form, setForm] = useState({ title: '', artist: '', link: '', bpm: '' });
 
   const [importModal, setImportModal] = useState(false);
@@ -960,7 +959,7 @@ function SongsPage({ songs, setSongs }) {
             title: row[tk]?.trim() || '',
             artist: ak ? row[ak]?.trim() || '' : '',
             link: lk ? row[lk]?.trim() || '' : '',
-            bpm: bk ? row[bk]?.trim() || ''
+            bpm: bk ? row[bk]?.trim() || '' : '' // <--- O erro do Vercel foi corrigido nesta linha
           };
         }).filter(r => r.title);
         setPreview(rows);
