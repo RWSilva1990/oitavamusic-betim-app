@@ -790,44 +790,117 @@ function GroupsPage({ groups, setGroups, members }) {
 // ─── Songs ────────────────────────────────────────────────
 
 function SongsPage({ songs, setSongs }) {
+  const [search, setSearch] = useState('');
   const [modal, setModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
-  const [form, setForm] = useState({ title: '', artist: '', link: '', bpm: '' });
+  
+  // Corrigido para "name", que é como o seu banco de dados reconhece!
+  const [form, setForm] = useState({ name: '', artist: '', link: '', bpm: '' });
 
-  const openAdd = () => { setForm({ title: '', artist: '', link: '', bpm: '' }); setModal('add'); };
-  const openEdit = s => { setForm(s); setModal(s); };
+  const [importModal, setImportModal] = useState(false);
+  const [preview, setPreview] = useState([]);
+
+  const normalizeStr = (str) => (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+
+  const openAdd = () => { setForm({ name: '', artist: '', link: '', bpm: '' }); setModal('add'); };
+  
+  // Puxa o 'name' ou 'title' para garantir que músicas antigas apareçam perfeitamente
+  const openEdit = s => { setForm({ ...s, name: s.name || s.title || '' }); setModal(s); };
 
   const save = () => {
-    if (!form.title.trim()) return;
+    if (!form.name.trim()) return;
     if (modal === 'add') setSongs(p => [...p, { ...form, id: genId() }]);
     else setSongs(p => p.map(s => s.id === form.id ? { ...form } : s));
     setModal(null);
   };
+  
   const del = id => { setSongs(p => p.filter(s => s.id !== id)); setConfirm(null); };
+
+  // --- IMPORTAÇÃO DE CSV RESTAURADA E ADAPTADA PARA BPM ---
+  const handleCSV = e => {
+    const file = e.target.files[0]; if (!file) return;
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true,
+      complete: ({ data }) => {
+        const rows = data.map(row => {
+          const keys = Object.keys(row);
+          const nk = keys.find(k => /nome|t[ií]tulo|m[uú]sica|name/i.test(k)) || keys[0];
+          const ak = keys.find(k => /artista|cantor|banda|autor/i.test(k));
+          const lk = keys.find(k => /link|url|video|cifra/i.test(k));
+          const bk = keys.find(k => /bpm|tempo/i.test(k));
+
+          return {
+            name: row[nk]?.trim() || '',
+            artist: ak ? row[ak]?.trim() || '' : '',
+            link: lk ? row[lk]?.trim() || '' : '',
+            bpm: bk ? row[bk]?.trim() || ''
+          };
+        }).filter(r => r.name);
+        setPreview(rows);
+      }
+    });
+    e.target.value = '';
+  };
+
+  const doImport = () => {
+    setSongs(prev => {
+      let updatedList = [...prev];
+      preview.forEach(imported => {
+        const existingIndex = updatedList.findIndex(
+          s => normalizeStr(s.name || s.title) === normalizeStr(imported.name)
+        );
+        if (existingIndex >= 0) {
+          updatedList[existingIndex] = {
+            ...updatedList[existingIndex],
+            artist: imported.artist || updatedList[existingIndex].artist,
+            link: imported.link || updatedList[existingIndex].link,
+            bpm: imported.bpm || updatedList[existingIndex].bpm
+          };
+        } else {
+          updatedList.push({ ...imported, id: genId() });
+        }
+      });
+      return updatedList;
+    });
+    setImportModal(false); setPreview([]);
+  };
+
+  // Aplica a busca restaurada
+  const filtered = songs
+    .filter(s => normalizeStr(s.name || s.title).includes(normalizeStr(search)) || normalizeStr(s.artist).includes(normalizeStr(search)))
+    .sort((a, b) => (a.name || a.title || '').localeCompare(b.name || b.title || '', 'pt-BR', { sensitivity: 'base' }));
 
   return (
     <div style={{ padding: 24, maxWidth: 860 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontFamily: 'Cinzel, serif', fontSize: 21, color: C.accent }}>Músicas</h1>
+          <h1 style={{ fontFamily: 'Cinzel, serif', fontSize: 21, color: C.accent }}>Repertório</h1>
           <p style={{ color: C.textSecondary, fontSize: 13 }}>{songs.length} música{songs.length !== 1 ? 's' : ''}</p>
         </div>
-        <Btn onClick={openAdd}><Plus size={15} />Nova Música</Btn>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Btn variant="secondary" onClick={() => { setPreview([]); setImportModal(true); }}><Upload size={15} />Importar CSV</Btn>
+          <Btn onClick={openAdd}><Plus size={15} />Nova Música</Btn>
+        </div>
       </div>
 
-      {songs.length === 0 ? (
-        <div className="empty-state"><p>Nenhuma música cadastrada</p></div>
+      <div className="search-wrap">
+        <Search size={15} color={C.textSecondary} />
+        <input className="input-field" placeholder="Buscar por nome ou artista..." value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty-state"><Music size={38} style={{ marginBottom: 12, opacity: 0.25 }} /><p>Nenhuma música encontrada</p></div>
       ) : (
         <div style={{ display: 'grid', gap: 10 }}>
-          {/* O segredo de segurança: [...songs] cria uma cópia antes de ordenar */}
-          {[...songs].sort((a,b) => (a.title || '').localeCompare(b.title || '')).map(s => (
+          {filtered.map(s => (
             <div key={s.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{ width: 40, height: 40, borderRadius: 8, background: C.bgHover, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Music size={18} color={C.textSecondary} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, color: C.textPrimary, marginBottom: 2 }}>{s.title}</div>
-                <div style={{ fontSize: 13, color: C.textSecondary, display: 'flex', gap: 8, alignItems: 'center' }}>
+                {/* Fallback de segurança para não sumir o nome! */}
+                <div style={{ fontWeight: 700, color: C.textPrimary, marginBottom: 2 }}>{s.name || s.title}</div>
+                <div style={{ fontSize: 13, color: C.textSecondary, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   {s.artist && <span>{s.artist}</span>}
                   {s.bpm && <span className="tag">⏱️ {s.bpm} BPM</span>}
                 </div>
@@ -842,9 +915,41 @@ function SongsPage({ songs, setSongs }) {
         </div>
       )}
 
+      {importModal && (
+        <Modal title="Importar/Atualizar via CSV" onClose={() => { setImportModal(false); setPreview([]); }} wide>
+          <div style={{ padding: 14, background: C.bgInput, borderRadius: 8, marginBottom: 16, fontSize: 13, color: C.textSecondary, lineHeight: 1.7 }}>
+            <strong style={{ color: C.accent }}>Atualização Inteligente:</strong> Se a música já existir, dados em branco (como BPM ou Link) serão <strong>atualizados</strong> sem duplicar.
+          </div>
+          <label style={{ display: 'block', padding: '24px 16px', border: `2px dashed ${C.border}`, borderRadius: 10, textAlign: 'center', cursor: 'pointer', color: C.textSecondary, marginBottom: 16 }}>
+            <Upload size={26} style={{ display: 'block', margin: '0 auto 8px' }} />
+            Clique para selecionar o arquivo CSV
+            <input type="file" accept=".csv" onChange={handleCSV} style={{ display: 'none' }} />
+          </label>
+          {preview.length > 0 && (
+            <>
+              <p style={{ color: C.success, fontSize: 13, marginBottom: 10 }}>✓ {preview.length} música(s) lida(s)</p>
+              <div style={{ maxHeight: 200, overflowY: 'auto', display: 'grid', gap: 4, marginBottom: 16 }}>
+                {preview.map((m, i) => {
+                  const exists = songs.some(exist => normalizeStr(exist.name || exist.title) === normalizeStr(m.name));
+                  return (
+                    <div key={i} style={{ padding: '7px 12px', background: C.bgHover, borderRadius: 6, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span style={{ color: C.textPrimary }}>{m.name} {m.bpm && <span style={{color: C.accent, fontSize: 11}}>({m.bpm} BPM)</span>}</span>
+                      <span style={{ color: exists ? C.accent : C.success, fontSize: 11, fontWeight: 700 }}>
+                        {exists ? '🔄 Atualizar' : '✨ Nova'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <Btn onClick={doImport}><Check size={14} />Processar {preview.length} música(s)</Btn>
+            </>
+          )}
+        </Modal>
+      )}
+
       {modal && (
         <Modal title={modal === 'add' ? 'Nova Música' : 'Editar Música'} onClose={() => setModal(null)}>
-          <Inp label="Título *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+          <Inp label="Nome da Música *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           <div className="grid-2">
             <Inp label="Artista" value={form.artist} onChange={e => setForm(f => ({ ...f, artist: e.target.value }))} />
             <Inp label="BPM" type="number" value={form.bpm} onChange={e => setForm(f => ({ ...f, bpm: e.target.value }))} placeholder="Ex: 74" />
