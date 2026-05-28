@@ -306,8 +306,10 @@ txt += `\n`;
 if (scMembers.length > 0) {
 txt += `*👥 Integrantes:*\n`;
 scMembers.forEach(x => {
-const roleObj = x.role ? ROLES.find(r => r.key === x.role) : null;
-const roleLabel = roleObj ? `${roleObj.emoji} ${roleObj.label}` : ((x.member.roles || []).map(r => ROLES.find(ro => ro.key === r)?.label).filter(Boolean).join(', '));
+const activeRoles = x.roles || (x.role ? [x.role] : []);
+const roleLabel = activeRoles.length > 0
+? activeRoles.map(r => { const ro = ROLES.find(ro => ro.key === r); return ro ? `${ro.emoji} ${ro.label}` : null; }).filter(Boolean).join(' + ')
+: ((x.member.roles || []).map(r => ROLES.find(ro => ro.key === r)?.label).filter(Boolean).join(', '));
 txt += `• ${x.member.name}${x.isSub ? ' ↔ (substituto)' : ''}${roleLabel ? ` — ${roleLabel}` : ''}\n`;
 });
 txt += `\n`;
@@ -1116,7 +1118,15 @@ if (form.scaleMembers.find(x => x.memberId === id)) return;
 setForm(f => ({ ...f, scaleMembers: [...f.scaleMembers, { memberId: id, isSub: true, role: '' }] }));
 setMSearch('');
 };
-const updateMemberRole = (memberId, role) => setForm(f => ({ ...f, scaleMembers: f.scaleMembers.map(x => x.memberId === memberId ? { ...x, role } : x) }));
+const updateMemberRole = (memberId, role) => setForm(f => ({
+...f,
+scaleMembers: f.scaleMembers.map(x => {
+if (x.memberId !== memberId) return x;
+const current = x.roles || (x.role ? [x.role] : []);
+const updated = current.includes(role) ? current.filter(r => r !== role) : [...current, role];
+return { ...x, roles: updated, role: updated[0] || '' };
+})
+}));
 const addSong = id => {
 if (form.scaleSongs.find(x => x.songId === id)) return;
 setForm(f => ({ ...f, scaleSongs: [...f.scaleSongs, { songId: id, key: '', notes: '', soloMemberId: '' }] }));
@@ -1217,13 +1227,18 @@ Nenhuma escala agendada
 <Field label="Membros na Escala">
 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 {scaleMembers(viewModal).map(x => {
-const roleObj = x.role ? ROLES.find(r => r.key === x.role) : null;
+const activeRoles = x.roles || (x.role ? [x.role] : []);
+const roleLabels = activeRoles.map(r => ROLES.find(ro => ro.key === r)).filter(Boolean);
 return (
 <div key={x.memberId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: x.isSub ? 'rgba(79,128,225,0.1)' : C.accentGlow, borderRadius: 20, border: `1px solid ${x.isSub ? C.blue + '44' : C.accent + '44'}` }}>
 <Avatar member={x.member} size={24} />
 <div>
 <span style={{ fontSize: 13, color: x.isSub ? C.blue : C.accent }}>{x.isSub ? '↔ ' : ''}{x.member.name}</span>
-{roleObj && <span style={{ fontSize: 11, color: C.textSecondary, marginLeft: 4 }}>· {roleObj.emoji} {roleObj.label}</span>}
+{roleLabels.length > 0 && (
+<span style={{ fontSize: 11, color: C.textSecondary, marginLeft: 4 }}>
+· {roleLabels.map(r => `${r.emoji} ${r.label}`).join(', ')}
+</span>
+)}
 </div>
 </div>
 );
@@ -1305,21 +1320,37 @@ Selecione um grupo ou adicione membros manualmente
 const m = members.find(x => x.id === sm.memberId);
 if (!m) return null;
 const memberRoles = (m.roles || []).map(r => ROLES.find(x => x.key === r)).filter(Boolean);
+const activeRoles = sm.roles || (sm.role ? [sm.role] : []);
 return (
-<div key={sm.memberId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', marginBottom: 6, background: sm.isSub ? 'rgba(79,128,225,0.08)' : C.accentGlow, border: `1px solid ${sm.isSub ? C.blue + '44' : C.accent + '33'}`, borderRadius: 10 }}>
-<Avatar member={m} size={28} />
+<div key={sm.memberId} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', marginBottom: 6, background: sm.isSub ? 'rgba(79,128,225,0.08)' : C.accentGlow, border: `1px solid ${sm.isSub ? C.blue + '44' : C.accent + '33'}`, borderRadius: 10 }}>
+<Avatar member={m} size={28} style={{ flexShrink: 0, marginTop: 2 }} />
 <div style={{ flex: 1, minWidth: 0 }}>
-<div style={{ fontSize: 13, fontWeight: 600, color: sm.isSub ? C.blue : C.accent }}>{sm.isSub ? '↔ ' : ''}{m.name}</div>
-{memberRoles.length > 0 && (
-<select
-value={sm.role || ''}
-onChange={e => updateMemberRole(sm.memberId, e.target.value)}
-style={{ marginTop: 3, padding: '3px 8px', background: C.bgInput, border: `1px solid ${C.border}`, borderRadius: 6, color: sm.role ? C.textPrimary : C.textSecondary, fontSize: 11, width: '100%', maxWidth: 180 }}>
-<option value="">Função nesta escala...</option>
-{memberRoles.map(r => <option key={r.key} value={r.key}>{r.emoji} {r.label}</option>)}
-</select>
+<div style={{ fontSize: 13, fontWeight: 600, color: sm.isSub ? C.blue : C.accent, marginBottom: 5 }}>{sm.isSub ? '↔ ' : ''}{m.name}</div>
+{memberRoles.length > 0 ? (
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+{memberRoles.map(r => {
+const active = activeRoles.includes(r.key);
+return (
+<div
+key={r.key}
+onClick={() => updateMemberRole(sm.memberId, r.key)}
+style={{
+padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 4,
+transition: 'all 0.15s',
+background: active ? C.accent + '22' : 'transparent',
+color: active ? C.accent : C.textSecondary,
+border: `1px solid ${active ? C.accent + '88' : C.border}`,
+}}>
+{r.emoji} {r.label}
+{active && <Check size={10} />}
+</div>
+);
+})}
+</div>
+) : (
+<span style={{ fontSize: 11, color: C.textSecondary }}>Sem funções cadastradas</span>
 )}
-{memberRoles.length === 0 && <span style={{ fontSize: 11, color: C.textSecondary }}>Sem funções cadastradas</span>}
 </div>
 <button onClick={() => removeMember(sm.memberId)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textSecondary, display: 'flex', padding: 4, flexShrink: 0 }}>
 <X size={13} />
