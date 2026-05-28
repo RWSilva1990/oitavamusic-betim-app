@@ -280,6 +280,11 @@ body: JSON.stringify({ fields: { data: { stringValue: JSON.stringify(val) } } })
 
 const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 const fmtDate = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+const shortName = name => {
+const parts = (name || '').trim().split(/\s+/);
+if (parts.length <= 2) return name;
+return `${parts[0]} ${parts[parts.length - 1]}`;
+};
 
 // ═══════════════════════════════════
 // WHATSAPP SHARE HELPER
@@ -310,7 +315,7 @@ const activeRoles = x.roles || (x.role ? [x.role] : []);
 const roleLabel = activeRoles.length > 0
 ? activeRoles.map(r => { const ro = ROLES.find(ro => ro.key === r); return ro ? `${ro.emoji} ${ro.label}` : null; }).filter(Boolean).join(' + ')
 : ((x.member.roles || []).map(r => ROLES.find(ro => ro.key === r)?.label).filter(Boolean).join(', '));
-txt += `• ${x.member.name}${x.isSub ? ' ↔ (substituto)' : ''}${roleLabel ? ` — ${roleLabel}` : ''}\n`;
+txt += `• ${shortName(x.member.name)}${x.isSub ? ' ↔ (substituto)' : ''}${roleLabel ? ` — ${roleLabel}` : ''}\n`;
 });
 txt += `\n`;
 }
@@ -326,7 +331,7 @@ const soloist = members.find(m => m.id === x.soloMemberId);
 if (soloist) {
 const vocalRole = (soloist.roles || []).find(r => ['tenor','soprano','contralto'].includes(r));
 const roleLabel = vocalRole ? ROLES.find(ro => ro.key === vocalRole)?.label : '';
-txt += ` | 🎙️ Solo: ${soloist.name}${roleLabel ? ` (${roleLabel})` : ''}`;
+txt += ` | 🎙️ Solo: ${shortName(soloist.name)}${roleLabel ? ` (${roleLabel})` : ''}`;
 }
 }
 if (x.notes) txt += ` | ${x.notes}`;
