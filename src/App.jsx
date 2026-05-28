@@ -1676,7 +1676,7 @@ Oitava Music<br />Betim
 </div>
 
 <div style={{ flex: 1 }}>
-{page === 'home'    && <HomePage counts={{ members: members.length, groups: groups.length, songs: songs.length, scales: scales.length }} scales={scales} members={members} groups={groups} onNav={nav} />}
+{page === 'home'    && <HomePage counts={{ members: members.length, groups: groups.length, songs: songs.length, scales: scales.filter(s => s.date >= new Date().toISOString().split('T')[0]).length }} scales={scales} members={members} groups={groups} onNav={nav} />}
 {page === 'members' && <MembersPage members={members} setMembers={setMembers} />}
 {page === 'groups'  && <GroupsPage groups={groups} setGroups={setGroups} members={members} />}
 {page === 'songs'   && <SongsPage songs={songs} setSongs={setSongs} />}
