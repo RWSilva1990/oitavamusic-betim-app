@@ -586,7 +586,7 @@ const toggleRole = key => setForm(f => ({
 }));
 
 const save = () => {
-if (!form.name.trim()) return;
+if (!form.name.trim() || !form.birthdate) return;
 if (modal === 'add') setMembers(p => [...p, { ...form, id: genId() }]);
 else setMembers(p => p.map(m => m.id === form.id ? { ...form } : m));
 setModal(null);
@@ -744,7 +744,7 @@ return (
 <Modal title={modal === 'add' ? 'Novo Membro' : 'Editar Membro'} onClose={() => setModal(null)}>
 <Inp label="Nome *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Nome completo" />
 <div className="grid-2">
-<Inp label="Data de Nascimento" type="date" value={form.birthdate} onChange={e => setForm(f => ({ ...f, birthdate: e.target.value }))} />
+<Inp label="Data de Nascimento *" type="date" value={form.birthdate} onChange={e => setForm(f => ({ ...f, birthdate: e.target.value }))} />
 <Inp label="Telefone" type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="(11) 99999-9999" />
 </div>
 <Inp label="E-mail" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="email@exemplo.com" />
