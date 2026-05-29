@@ -10,7 +10,7 @@ Upload, Menu, AlertCircle, Eye, Share2, Cake, Clock
 // THEME & CONSTANTS
 // ═══════════════════════════════════
 const C = {
-bg:           '#FFFFFF',
+bg:           '#070c14',
 bgSecondary:  '#0C1220',
 bgCard:       '#111826',
 bgHover:      '#17202E',
