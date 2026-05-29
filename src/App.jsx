@@ -32,7 +32,6 @@ const ROLES = [
 { key: 'violao',    label: 'Violão',    emoji: '🎵' },
 { key: 'guitarra',  label: 'Guitarra',  emoji: '🎸' },
 { key: 'teclado',   label: 'Teclado',   emoji: '🎹' },
-{ key: 'vocal',     label: 'Vocal',     emoji: '🎤' },
 { key: 'ministro',  label: 'Ministro',  emoji: '✨' },
 { key: 'tenor',     label: 'Tenor',     emoji: '🎙️' },
 { key: 'soprano',   label: 'Soprano',   emoji: '🎙️' },
