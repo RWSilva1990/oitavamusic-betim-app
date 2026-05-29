@@ -10,20 +10,22 @@ Upload, Menu, AlertCircle, Eye, Share2, Cake, Clock
 // THEME & CONSTANTS
 // ═══════════════════════════════════
 const C = {
-bg:           '#070c14',
-bgSecondary:  '#0C1220',
-bgCard:       '#111826',
-bgHover:      '#17202E',
-bgInput:      '#080D18',
-accent:       '#C9A84C',
-accentDark:   '#8B6914',
-accentGlow:   'rgba(201,168,76,0.13)',
-border:       '#1C2840',
-textPrimary:  '#EDF2F8',
-textSecondary:'#607088',
-danger:       '#D95252',
-success:      '#4DA870',
-blue:         '#4F80E1',
+bg:           '#1e1525',
+bgSecondary:  '#251830',
+bgCard:       '#2d1f3a',
+bgHover:      '#362548',
+bgInput:      '#1a1020',
+accent:       '#c084fc',
+accentAlt:    '#f08070',
+accentDark:   '#9333ea',
+accentGlow:   'rgba(192,132,252,0.15)',
+accentGlow2:  'rgba(240,128,112,0.12)',
+border:       '#3d2a52',
+textPrimary:  '#f5eeff',
+textSecondary:'#8870a8',
+danger:       '#f87171',
+success:      '#4ade80',
+blue:         '#60a5fa',
 };
 
 const ROLES = [
@@ -32,6 +34,7 @@ const ROLES = [
 { key: 'violao',    label: 'Violão',    emoji: '🎵' },
 { key: 'guitarra',  label: 'Guitarra',  emoji: '🎸' },
 { key: 'teclado',   label: 'Teclado',   emoji: '🎹' },
+{ key: 'vocal',     label: 'Vocal',     emoji: '🎤' },
 { key: 'ministro',  label: 'Ministro',  emoji: '✨' },
 { key: 'tenor',     label: 'Tenor',     emoji: '🎙️' },
 { key: 'soprano',   label: 'Soprano',   emoji: '🎙️' },
@@ -51,25 +54,41 @@ const GLOBAL_CSS = `
  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Nunito:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
  html, body, #root { width: 100%; max-width: 100vw; overflow-x: hidden; }
- html, body { 
-   background: #070c14; 
-   font-family: 'Nunito', sans-serif; 
-   color: #EDF2F8; 
-   -webkit-tap-highlight-color: transparent; 
+ html, body {
+   background: #1e1525;
+   font-family: 'Nunito', sans-serif;
+   color: #f5eeff;
+   -webkit-tap-highlight-color: transparent;
    -webkit-overflow-scrolling: touch;
+   background-image:
+     radial-gradient(ellipse 70% 50% at 0% 0%, rgba(240,128,112,0.12) 0%, transparent 60%),
+     radial-gradient(ellipse 60% 50% at 100% 100%, rgba(147,51,234,0.14) 0%, transparent 60%);
+   background-attachment: fixed;
  }
  ::-webkit-scrollbar { width: 5px; height: 5px; }
  ::-webkit-scrollbar-track { background: transparent; }
- ::-webkit-scrollbar-thumb { background: #1C2840; border-radius: 4px; }
- ::-webkit-scrollbar-thumb:hover { background: #C9A84C66; }
+ ::-webkit-scrollbar-thumb { background: #3d2a52; border-radius: 4px; }
+ ::-webkit-scrollbar-thumb:hover { background: #c084fc55; }
  input, select, textarea, button { font-family: 'Nunito', sans-serif; }
- input::placeholder, textarea::placeholder { color: #607088; }
- select option { background: #111826; color: #EDF2F8; }
+ input::placeholder, textarea::placeholder { color: #8870a8; }
+ select option { background: #2d1f3a; color: #f5eeff; }
  a { color: inherit; }
 
+ /* ── Fix date picker icon visibility ── */
+ input[type="date"] { color-scheme: dark; }
+ input[type="date"]::-webkit-calendar-picker-indicator {
+   filter: invert(80%) sepia(20%) saturate(400%) hue-rotate(240deg) brightness(1.2);
+   cursor: pointer;
+   opacity: 0.8;
+ }
+ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+
  .sidebar {
-   width: 230px; background: #0C1220;
-   border-right: 1px solid #1C2840;
+   width: 230px;
+   background: rgba(30,21,37,0.92);
+   backdrop-filter: blur(24px);
+   -webkit-backdrop-filter: blur(24px);
+   border-right: 1px solid rgba(192,132,252,0.12);
    position: fixed; top: 0; left: 0; bottom: 0; z-index: 200;
    transform: translateX(-100%);
    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
@@ -86,122 +105,120 @@ const GLOBAL_CSS = `
  }
 
  .nav-item {
-   padding: 10px 14px; border-radius: 8px; cursor: pointer;
+   padding: 10px 14px; border-radius: 10px; cursor: pointer;
    display: flex; align-items: center; gap: 10px;
-   font-size: 14px; font-weight: 400; color: #607088;
-   transition: all 0.15s; border-left: 3px solid transparent;
-   margin-bottom: 2px; user-select: none;
+   font-size: 13.5px; font-weight: 500; color: #8870a8;
+   transition: all 0.15s; border: 1px solid transparent;
+   margin-bottom: 3px; user-select: none;
  }
- .nav-item:hover { background: #17202E; color: #EDF2F8; }
+ .nav-item:hover { background: rgba(255,255,255,0.05); color: #d4b8f0; border-color: rgba(255,255,255,0.06); }
  .nav-item.active {
-   background: rgba(201,168,76,0.13); color: #C9A84C;
-   font-weight: 600; border-left-color: #C9A84C;
+   background: rgba(192,132,252,0.15);
+   color: #c084fc;
+   font-weight: 600;
+   border-color: rgba(192,132,252,0.30);
+   box-shadow: 0 0 16px rgba(147,51,234,0.12);
  }
 
- .btn { 
-   padding: 9px 18px; border-radius: 8px; cursor: pointer;
-   font-size: 13.5px; font-family: 'Nunito', sans-serif;
+ .btn {
+   padding: 9px 18px; border-radius: 10px; cursor: pointer;
+   font-size: 13px; font-family: 'Nunito', sans-serif;
    display: inline-flex; align-items: center; gap: 6px;
    transition: opacity 0.15s, transform 0.1s; border: none;
    font-weight: 600; white-space: nowrap;
  }
  .btn:hover { opacity: 0.82; }
  .btn:active { transform: scale(0.96); }
- .btn-primary { background: #C9A84C; color: #06090F; }
- .btn-secondary { background: transparent; color: #607088; border: 1px solid #1C2840 !important; }
- .btn-danger { background: transparent; color: #D95252; border: 1px solid #D9525244 !important; }
- .btn-ghost { background: transparent; color: #607088; padding: 6px 8px; }
- .btn-ghost:hover { color: #EDF2F8; background: #17202E; }
- .btn-ghost.del:hover { color: #D95252; }
+ .btn-primary { background: linear-gradient(135deg, #9333ea, #c084fc); color: #fff; box-shadow: 0 4px 18px rgba(147,51,234,0.35); }
+ .btn-secondary { background: transparent; color: #8870a8; border: 1px solid #3d2a52 !important; }
+ .btn-danger { background: transparent; color: #f87171; border: 1px solid #f8717144 !important; }
+ .btn-ghost { background: transparent; color: #8870a8; padding: 6px 8px; }
+ .btn-ghost:hover { color: #f5eeff; background: rgba(255,255,255,0.06); }
+ .btn-ghost.del:hover { color: #f87171; }
 
  .input-field {
    width: 100%; padding: 10px 14px;
-   background: #080D18; border: 1px solid #1C2840;
-   border-radius: 8px; color: #EDF2F8; font-size: 14px;
-   transition: border-color 0.2s;
+   background: #1a1020; border: 1px solid #3d2a52;
+   border-radius: 10px; color: #f5eeff; font-size: 14px;
+   transition: border-color 0.2s, box-shadow 0.2s;
  }
- .input-field:focus { outline: none; border-color: #C9A84C; }
- .input-field:hover { border-color: #C9A84C66; }
+ .input-field:focus { outline: none; border-color: #c084fc; box-shadow: 0 0 0 3px rgba(192,132,252,0.14); }
+ .input-field:hover { border-color: #c084fc55; }
 
  .card {
-   background: #111826; border: 1px solid #1C2840;
-   border-radius: 12px; padding: 16px;
-   transition: border-color 0.2s;
-   max-width: 100%;
-   overflow: hidden;
+   background: rgba(255,255,255,0.04);
+   border: 1px solid rgba(255,255,255,0.08);
+   border-radius: 16px; padding: 16px;
+   transition: border-color 0.2s, box-shadow 0.2s;
+   backdrop-filter: blur(10px);
+   -webkit-backdrop-filter: blur(10px);
+   max-width: 100%; overflow: hidden;
  }
- .card:hover { border-color: #C9A84C33; }
+ .card:hover { border-color: rgba(192,132,252,0.28); box-shadow: 0 4px 24px rgba(147,51,234,0.10); }
 
  .tag {
    padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
-   background: rgba(201,168,76,0.13); color: #C9A84C; border: 1px solid #C9A84C33;
+   background: rgba(192,132,252,0.15); color: #c084fc; border: 1px solid rgba(192,132,252,0.32);
  }
- .tag.sub { background: rgba(79,128,225,0.13); color: #4F80E1; border-color: #4F80E133; }
- .tag.green { background: rgba(77,168,112,0.13); color: #4DA870; border-color: #4DA87033; }
+ .tag.sub { background: rgba(240,128,112,0.14); color: #f08878; border-color: rgba(240,128,112,0.32); }
+ .tag.green { background: rgba(74,222,128,0.13); color: #4ade80; border-color: rgba(74,222,128,0.30); }
 
  .field-label {
    display: block; margin-bottom: 6px;
-   color: #607088; font-size: 11.5px; font-weight: 700;
-   text-transform: uppercase; letter-spacing: 0.6px;
+   color: #8870a8; font-size: 11px; font-weight: 700;
+   text-transform: uppercase; letter-spacing: 0.8px;
  }
  .field-wrap { margin-bottom: 16px; }
 
  .modal-overlay {
    position: fixed; inset: 0; z-index: 500;
-   background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
-   display: flex; align-items: center; justify-content: center; padding: 16px; 
+   background: rgba(10,5,18,0.82); backdrop-filter: blur(10px);
+   display: flex; align-items: center; justify-content: center; padding: 16px;
  }
  .modal-box {
-   background: #111826; border-radius: 16px;
-   border: 1px solid #1C2840;
-   width: 100%; max-width: 680px; 
+   background: #251830;
+   border-radius: 20px;
+   border: 1px solid rgba(192,132,252,0.20);
+   width: 100%; max-width: 680px;
    max-height: calc(100dvh - 32px);
    display: flex; flex-direction: column;
-   box-shadow: 0 32px 64px rgba(0,0,0,0.6);
+   box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(192,132,252,0.08);
  }
  .modal-header {
-   padding: 18px 24px; border-bottom: 1px solid #1C2840;
+   padding: 18px 24px; border-bottom: 1px solid rgba(192,132,252,0.12);
    display: flex; align-items: center; justify-content: space-between;
-   background: #111826; z-index: 1; flex-shrink: 0;
-   border-radius: 16px 16px 0 0;
+   background: rgba(147,51,234,0.07); z-index: 1; flex-shrink: 0;
+   border-radius: 20px 20px 0 0;
  }
- .modal-body { 
-   padding: 24px; 
-   overflow-y: auto; 
-   flex: 1; 
-   -webkit-overflow-scrolling: touch;
- }
+ .modal-body { padding: 24px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
 
- .empty-state {
-   text-align: center; padding: 60px 24px; color: #607088;
- }
+ .empty-state { text-align: center; padding: 60px 24px; color: #8870a8; }
+
  .role-chip {
-   padding: 8px 12px; border-radius: 8px; cursor: pointer;
+   padding: 8px 12px; border-radius: 10px; cursor: pointer;
    display: flex; align-items: center; gap: 8px; font-size: 13px;
-   border: 1px solid #1C2840; background: transparent; color: #607088;
+   border: 1px solid #3d2a52; background: transparent; color: #8870a8;
    transition: all 0.15s; user-select: none;
  }
- .role-chip.selected { 
-   border-color: #C9A84C; background: rgba(201,168,76,0.13); color: #C9A84C;
+ .role-chip.selected {
+   border-color: rgba(192,132,252,0.55); background: rgba(192,132,252,0.13); color: #c084fc;
  }
  .member-pick {
-   padding: 8px 12px; border-radius: 8px; cursor: pointer;
+   padding: 8px 12px; border-radius: 10px; cursor: pointer;
    display: flex; align-items: center; gap: 10px; font-size: 13.5px;
-   border: 1px solid #1C2840; background: transparent;
-   transition: all 0.15s;
+   border: 1px solid #3d2a52; background: transparent; transition: all 0.15s;
  }
- .member-pick:hover { border-color: #C9A84C66; background: #17202E; }
- .member-pick.selected { border-color: #C9A84C; background: rgba(201,168,76,0.13); }
+ .member-pick:hover { border-color: rgba(192,132,252,0.38); background: rgba(192,132,252,0.07); }
+ .member-pick.selected { border-color: rgba(192,132,252,0.55); background: rgba(192,132,252,0.13); }
 
- .bar-bg { height: 6px; background: #17202E; border-radius: 4px; overflow: hidden; margin-top: 6px; }
- .bar-fill { height: 100%; background: linear-gradient(90deg, #C9A84C, #8B6914); border-radius: 4px; }
+ .bar-bg { height: 6px; background: #2d1f3a; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+ .bar-fill { height: 100%; background: linear-gradient(90deg, #f08070, #c084fc); border-radius: 4px; }
 
  .avatar {
    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
-   background: rgba(201,168,76,0.13); border: 2px solid #C9A84C33;
+   background: rgba(192,132,252,0.18); border: 2px solid rgba(192,132,252,0.35);
    display: flex; align-items: center; justify-content: center;
-   font-size: 17px; font-weight: 700; color: #C9A84C;
-   overflow: hidden;
+   font-size: 17px; font-weight: 700; color: #c084fc; overflow: hidden;
  }
  .avatar img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -213,32 +230,31 @@ const GLOBAL_CSS = `
  @media (max-width: 500px) { .grid-2 { grid-template-columns: 1fr; } }
 
  .song-item {
-   padding: 10px 14px; border-radius: 8px; cursor: pointer;
+   padding: 10px 14px; border-radius: 10px; cursor: pointer;
    display: flex; align-items: center; gap: 8px; font-size: 13px;
-   color: #EDF2F8; background: #17202E;
+   color: #f5eeff; background: rgba(255,255,255,0.05);
    transition: background 0.15s;
  }
- .song-item:hover { background: #111826; }
+ .song-item:hover { background: rgba(192,132,252,0.12); }
 
  .scale-song-row {
-   padding: 12px; background: #17202E; border-radius: 8px; margin-bottom: 8px;
+   padding: 12px; background: rgba(255,255,255,0.04); border-radius: 10px; margin-bottom: 8px;
+   border: 1px solid rgba(255,255,255,0.07);
  }
 
- .btn-whatsapp {
-   background: #1FAD4A; color: #fff;
- }
+ .btn-whatsapp { background: #1FAD4A; color: #fff; }
  .btn-whatsapp:hover { opacity: 0.85; }
 
  .archive-divider {
-   display: flex; align-items: center; gap: 10; margin: 4px 0;
-   color: #607088; font-size: 12px; cursor: pointer;
+   display: flex; align-items: center; gap: 10px; margin: 4px 0;
+   color: #8870a8; font-size: 12px; cursor: pointer;
    padding: 6px 0; user-select: none;
  }
- .archive-divider:hover { color: #EDF2F8; }
+ .archive-divider:hover { color: #f5eeff; }
 
  .section-header {
-   font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700;
-   color: #607088; text-transform: uppercase; letter-spacing: 1px;
+   font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 800;
+   color: #8870a8; text-transform: uppercase; letter-spacing: 1.5px;
    margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
  }
 
@@ -246,10 +262,12 @@ const GLOBAL_CSS = `
 
  .birthday-chip {
    display: flex; align-items: center; gap: 10px;
-   padding: 8px 12px; background: #111826; border: 1px solid #1C2840;
+   padding: 8px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
    border-radius: 10px; font-size: 13px;
  }
- .birthday-chip:hover { border-color: #C9A84C44; }
+ .birthday-chip:hover { border-color: rgba(192,132,252,0.28); }
+
+ @keyframes spin { to { transform: rotate(360deg); } }
 `;
 
 // ═══════════════════════════════════
@@ -368,7 +386,7 @@ return (
 <div className="modal-overlay" onClick={onClose}>
 <div className="modal-box" style={{ maxWidth: wide ? 680 : 460 }} onClick={e => e.stopPropagation()}>
 <div className="modal-header">
-<h2 style={{ fontFamily: 'Cinzel, serif', fontSize: 17, color: C.accent }}>{title}</h2>
+<h2 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 16, fontWeight: 800, color: C.accent }}>{title}</h2>
 <Btn variant="ghost" onClick={onClose} style={{ padding: 4 }}><X size={18} /></Btn>
 </div>
 <div className="modal-body">{children}</div>
@@ -441,12 +459,12 @@ return (
 <div style={{ textAlign: 'center', marginBottom: 32 }}>
 <div style={{
 width: 88, height: 88, borderRadius: '50%', margin: '0 auto 20px',
-overflow: 'hidden', border: `3px solid ${C.accent}`,
-boxShadow: `0 12px 32px ${C.accentGlow}`,
+overflow: 'hidden', border: `2px solid ${C.accent}`,
+boxShadow: `0 12px 40px rgba(99,57,255,0.25)`,
 }}>
 <img src={LOGO_HOME} alt="Oitava Music" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </div>
-<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 900, fontSize: 22, color: C.accent, marginBottom: 4, letterSpacing: '-0.5px' }}>Oitava Music Betim</h1>
+<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 800, fontSize: 22, color: C.accent, marginBottom: 4, letterSpacing: '-0.5px' }}>Oitava Music Betim</h1>
 </div>
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 8 }}>
@@ -458,7 +476,7 @@ boxShadow: `0 12px 32px ${C.accentGlow}`,
 ].map(item => (
 <div key={item.label} className="card" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => onNav(item.page)}>
 <div style={{ fontSize: 20, marginBottom: 6 }}>{item.emoji}</div>
-<div style={{ fontSize: 24, fontWeight: 700, color: C.accent, fontFamily: 'Cinzel, serif' }}>{item.val}</div>
+<div style={{ fontSize: 24, fontWeight: 800, color: C.accent, fontFamily: 'Montserrat, sans-serif' }}>{item.val}</div>
 <div style={{ fontSize: 11.5, color: C.textSecondary, marginTop: 2 }}>
 {item.label} {item.val !== 1 ? item.sub + 's' : item.sub}
 </div>
@@ -529,7 +547,7 @@ return (
 </div>
 </div>
 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-<div style={{ fontSize: 20, fontWeight: 700, color: isBday ? C.accent : C.textPrimary, fontFamily: 'Cinzel, serif' }}>{day}</div>
+<div style={{ fontSize: 20, fontWeight: 700, color: isBday ? C.accent : C.textPrimary, fontFamily: 'Montserrat, sans-serif', fontWeight: 800 }}>{day}</div>
 {isBday && <div style={{ fontSize: 10, color: C.accent, fontWeight: 600 }}>HOJE!</div>}
 </div>
 </div>
@@ -677,7 +695,7 @@ return (
 <div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Cinzel, serif', fontSize: 21, color: C.accent }}>Membros</h1>
+<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Membros</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{members.length} membro{members.length !== 1 ? 's' : ''}</p>
 </div>
 <div style={{ display: 'flex', gap: 8 }}>
@@ -828,7 +846,7 @@ return (
 <div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Cinzel, serif', fontSize: 21, color: C.accent }}>Grupos</h1>
+<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Grupos</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{groups.length} grupo{groups.length !== 1 ? 's' : ''}</p>
 </div>
 <Btn onClick={openAdd}><Plus size={15} />Novo Grupo</Btn>
@@ -958,7 +976,7 @@ return (
 <div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Cinzel, serif', fontSize: 21, color: C.accent }}>Repertório</h1>
+<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Repertório</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{songs.length} música{songs.length !== 1 ? 's' : ''}</p>
 </div>
 <div style={{ display: 'flex', gap: 8 }}>
@@ -1158,7 +1176,7 @@ return (
 <div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Cinzel, serif', fontSize: 21, color: C.accent }}>Escalas</h1>
+<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Escalas</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{scales.length} escala{scales.length !== 1 ? 1 ? 's' : '' : 's'}</p>
 </div>
 <Btn onClick={openAdd}><Plus size={15} />Nova Escala</Btn>
@@ -1266,7 +1284,7 @@ if (!soloist) return null;
 const vocalRole = (soloist.roles || []).find(r => ['tenor','soprano','contralto'].includes(r));
 const roleLabel = vocalRole ? ROLES.find(ro => ro.key === vocalRole)?.label : '';
 return (
-<span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 6, padding: '2px 8px' }}>
+<span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 6, padding: '2px 8px' }}>
 🎙️ Solo: {soloist.name}{roleLabel ? ` · ${roleLabel}` : ''}
 </span>
 );
@@ -1500,7 +1518,7 @@ const max = ranked[0]?.n || 1;
 return (
 <div style={{ padding: 24, maxWidth: 760 }}>
 <div style={{ marginBottom: 24 }}>
-<h1 style={{ fontFamily: 'Cinzel, serif', fontSize: 21, color: C.accent, marginBottom: 3 }}>Relatórios</h1>
+<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent, marginBottom: 3 }}>Relatórios</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>Músicas mais escaladas no período selecionado</p>
 </div>
 
@@ -1546,7 +1564,7 @@ border: `1px solid ${i < 3 ? C.accent + '44' : C.border}`,
 </div>
 <div className="bar-bg"><div className="bar-fill" style={{ width: `${(r.n / max) * 100}%` }} /></div>
 </div>
-<div style={{ fontWeight: 700, color: C.accent, fontSize: 20, fontFamily: 'Cinzel, serif', flexShrink: 0 }}>{r.n}</div>
+<div style={{ fontWeight: 700, color: C.accent, fontSize: 20, fontFamily: 'Montserrat, sans-serif', fontWeight: 800, flexShrink: 0 }}>{r.n}</div>
 </div>
 </div>
 ))}
@@ -1656,7 +1674,7 @@ if (!autenticado) return (
 <div style={{ width: 80, height: 80, borderRadius: '50%', margin: '0 auto 16px', overflow: 'hidden', border: `2px solid ${C.accent}`, boxShadow: `0 8px 24px ${C.accentGlow}` }}>
 <img src={LOGO_HOME} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </div>
-<h2 style={{ fontFamily: 'Cinzel, serif', color: C.accent, marginBottom: 8, fontSize: 22 }}>Acesso Restrito</h2>
+<h2 style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 800, color: C.accent, marginBottom: 8, fontSize: 22 }}>Acesso Restrito</h2>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>Insira o código de acesso da equipe</p>
 </div>
 <div style={{ width: '100%', maxWidth: 280 }}>
@@ -1676,7 +1694,7 @@ return (
 <div className={`sidebar${sideOpen ? ' open' : ''}`}>
 <div style={{ padding: '16px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
 <img src={LOGO_SIDEBAR} alt="Logo" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-<div style={{ fontFamily: 'Montserrat, sans-serif', color: C.accent, fontSize: 13, fontWeight: 900, lineHeight: 1.3 }}>
+<div style={{ fontFamily: 'Montserrat, sans-serif', color: C.accent, fontSize: 13, fontWeight: 800, lineHeight: 1.3 }}>
 Oitava Music<br />Betim
 </div>
 </div>
@@ -1695,11 +1713,11 @@ Oitava Music<br />Betim
 {sideOpen && <div onClick={() => setSideOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 199 }} />}
 
 <div className="main-content" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', width: '100%' }}>
-<div style={{ height: 54, background: C.bgSecondary, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: '0 18px', gap: 12, position: 'sticky', top: 0, zIndex: 100 }}>
+<div style={{ height: 54, background: 'rgba(30,21,37,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(192,132,252,0.12)', display: 'flex', alignItems: 'center', padding: '0 18px', gap: 12, position: 'sticky', top: 0, zIndex: 100 }}>
 <button className="topbar-menu-btn btn-ghost btn" onClick={() => setSideOpen(x => !x)} style={{ padding: '6px 8px' }}>
 <Menu size={19} />
 </button>
-<span style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 900, color: C.accent, fontSize: 13, flex: 1 }}>
+<span style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 800, color: C.accent, fontSize: 13, flex: 1 }}>
 {current?.emoji} {current?.label}
 </span>
 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: syncing ? C.textSecondary : syncOk === true ? C.success : syncOk === false ? C.danger : C.textSecondary }}>
