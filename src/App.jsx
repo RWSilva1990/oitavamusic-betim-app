@@ -53,7 +53,7 @@ const GLOBAL_CSS = `
  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
  html, body, #root { width: 100%; max-width: 100vw; overflow-x: hidden; }
  html, body { 
-   background: #070C14; 
+   background: #FFFFFF; 
    font-family: 'Nunito', sans-serif; 
    color: #EDF2F8; 
    -webkit-tap-highlight-color: transparent; 
