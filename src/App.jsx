@@ -751,7 +751,7 @@ return (
 {filtered.length === 0 ? (
 <div className="empty-state"><Users size={38} style={{ marginBottom: 12, opacity: 0.25 }} /><p>Nenhum membro encontrado</p></div>
 ) : (
-<div styleclassName="member-card-grid">
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
 {filtered.map(m => (
 <div key={m.id} className="member-card">
 <div className="member-card-ava">
