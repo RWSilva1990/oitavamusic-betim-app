@@ -34,9 +34,10 @@ const ROLES = [
 { key: 'violao',    label: 'Violão',    emoji: '🎵' },
 { key: 'guitarra',  label: 'Guitarra',  emoji: '🎸' },
 { key: 'teclado',   label: 'Teclado',   emoji: '🎹' },
-{ key: 'vocal',     label: 'Vocal',     emoji: '🎤' },
 { key: 'ministro',  label: 'Ministro',  emoji: '✨' },
-
+{ key: 'tenor',     label: 'Tenor',     emoji: '🎙️' },
+{ key: 'soprano',   label: 'Soprano',   emoji: '🎙️' },
+{ key: 'contralto', label: 'Contralto', emoji: '🎙️' },
 ];
 
 const NAV = [
@@ -323,7 +324,11 @@ if (x.key) txt += ` — Tom: ${x.key}`;
 if (x.song.bpm) txt += ` | BPM: ${x.song.bpm}`;
 if (x.soloMemberId) {
 const soloist = members.find(m => m.id === x.soloMemberId);
-if (soloist) txt += ` | 🎙️ Solo: ${shortName(soloist.name)}`;
+if (soloist) {
+const vocalRole = (soloist.roles || []).find(r => ['tenor','soprano','contralto'].includes(r));
+const roleLabel = vocalRole ? ROLES.find(ro => ro.key === vocalRole)?.label : '';
+txt += ` | 🎙️ Solo: ${shortName(soloist.name)}${roleLabel ? ` (${roleLabel})` : ''}`;
+}
 }
 if (x.notes) txt += ` | ${x.notes}`;
 if (x.song.youtubeUrl) txt += `\n   🔗 ${x.song.youtubeUrl}`;
@@ -1242,9 +1247,11 @@ return (
 {x.soloMemberId && (() => {
 const soloist = members.find(m => m.id === x.soloMemberId);
 if (!soloist) return null;
+const vocalRole = (soloist.roles || []).find(r => ['tenor','soprano','contralto'].includes(r));
+const roleLabel = vocalRole ? ROLES.find(ro => ro.key === vocalRole)?.label : '';
 return (
 <span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 6, padding: '2px 8px' }}>
-🎙️ Solo: {soloist.name}
+🎙️ Solo: {soloist.name}{roleLabel ? ` · ${roleLabel}` : ''}
 </span>
 );
 })()}
@@ -1409,11 +1416,19 @@ onChange={e => updateSong(ss.songId, 'key', e.target.value)} style={{ fontSize: 
 <input className="input-field" placeholder="Observações..." value={ss.notes}
 onChange={e => updateSong(ss.songId, 'notes', e.target.value)} style={{ fontSize: 12 }} />
 </div>
-{/* ── Seleção de solista: membros escalados com Vocal no cadastro ── */}
+{/* ── Seleção de solista: membros escalados com Tenor/Soprano/Contralto no cadastro ── */}
 {(() => {
+const VOCAL_KEYS = ['tenor', 'soprano', 'contralto'];
 const vocalists = form.scaleMembers
-.map(sm => members.find(m => m.id === sm.memberId))
-.filter(m => m && (m.roles || []).includes('vocal'));
+.map(sm => {
+const m = members.find(x => x.id === sm.memberId);
+if (!m) return null;
+const vocalRole = (m.roles || []).find(r => VOCAL_KEYS.includes(r));
+if (!vocalRole) return null;
+const roleLabel = ROLES.find(r => r.key === vocalRole)?.label || '';
+return { member: m, roleLabel };
+})
+.filter(Boolean);
 if (vocalists.length === 0) return null;
 return (
 <div style={{ marginTop: 8 }}>
@@ -1424,9 +1439,9 @@ onChange={e => updateSong(ss.songId, 'soloMemberId', e.target.value)}
 style={{ fontSize: 12 }}
 >
 <option value="">🎙️ Sem solista...</option>
-{vocalists.map(m => (
+{vocalists.map(({ member: m, roleLabel }) => (
 <option key={m.id} value={m.id}>
-🎙️ {m.name}
+🎙️ {m.name} — {roleLabel}
 </option>
 ))}
 </select>
@@ -1561,7 +1576,18 @@ const loadAll = async () => {
 const [m, g, s, sc] = await Promise.all([
 dbGet('members'), dbGet('groups'), dbGet('songs'), dbGet('scales')
 ]);
-if (m) setMembers(m);
+if (m) {
+// Remove função 'vocal' de todos os membros e salva se necessário
+const cleaned = m.map(mb => ({
+...mb,
+roles: (mb.roles || []).filter(r => r !== 'vocal')
+}));
+const hadVocal = m.some(mb => (mb.roles || []).includes('vocal'));
+setMembers(cleaned);
+if (hadVocal) await dbSet('members', cleaned);
+} else {
+setMembers([]);
+}
 if (g) setGroups(g);
 if (s) setSongs(s);
 if (sc) setScales(sc);
