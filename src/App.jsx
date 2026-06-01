@@ -276,8 +276,8 @@ const GLOBAL_CSS = `
 
  .scale-card-c2 {
    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-   border-radius: 16px; padding: 18px 20px;
-   display: flex; align-items: center; gap: 18px; transition: all 0.2s;
+   border-radius: 16px; padding: 14px 16px;
+   display: flex; align-items: flex-start; gap: 14px; transition: all 0.2s;
  }
  .scale-card-c2:hover { border-color: rgba(240,128,112,0.30); background: rgba(240,128,112,0.04); }
  .scale-date-block {
@@ -1239,8 +1239,9 @@ const months = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV
               <span style={{fontWeight:700,color:C.textPrimary,fontSize:15}}>{sc.name}</span>
               {g&&<span className="tag">{g.name}</span>}
             </div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:4}}>
-              {sm.map(x=><span key={x.memberId} className={`tag${x.isSub?' sub':''}`}>{x.isSub?'↔ ':''}{x.member.name}</span>)}
+            <div style={{fontSize:12,color:C.textSecondary,marginBottom:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+              {sm.slice(0,5).map(x => shortName(x.member.name)).join(' · ')}
+              {sm.length>5 && ` · +${sm.length-5}`}
             </div>
             <div style={{fontSize:12,color:C.textSecondary}}>{ss.length} música{ss.length!==1?'s':''}</div>
           </div>
