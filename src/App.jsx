@@ -51,7 +51,7 @@ const NAV = [
 ];
 
 const GLOBAL_CSS = `
- @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+ @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
  html, body, #root { width: 100%; max-width: 100vw; overflow-x: hidden; }
  html, body {
@@ -233,7 +233,7 @@ const GLOBAL_CSS = `
  .archive-divider:hover { color: #eef0ff; }
 
  .section-header {
-   font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+   font-family: 'Plus Jakarta Sans', sans-serif; font-size: 11px; font-weight: 700;
    color: #5a6490; text-transform: uppercase; letter-spacing: 1.5px;
    margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
  }
@@ -366,7 +366,7 @@ return (
 <div className="modal-overlay" onClick={onClose}>
 <div className="modal-box" style={{ maxWidth: wide ? 680 : 460 }} onClick={e => e.stopPropagation()}>
 <div className="modal-header">
-<h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 800, color: C.accent }}>{title}</h2>
+<h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 16, fontWeight: 800, color: C.accent }}>{title}</h2>
 <Btn variant="ghost" onClick={onClose} style={{ padding: 4 }}><X size={18} /></Btn>
 </div>
 <div className="modal-body">{children}</div>
@@ -444,7 +444,7 @@ boxShadow: `0 12px 40px rgba(99,57,255,0.25)`,
 }}>
 <img src={LOGO_HOME} alt="Oitava Music" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </div>
-<h1 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 22, color: C.accent, marginBottom: 4, letterSpacing: '-0.5px' }}>Oitava Music Betim</h1>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800, fontSize: 22, color: C.accent, marginBottom: 4, letterSpacing: '-0.5px' }}>Oitava Music Betim</h1>
 </div>
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 8 }}>
@@ -456,7 +456,7 @@ boxShadow: `0 12px 40px rgba(99,57,255,0.25)`,
 ].map(item => (
 <div key={item.label} className="card" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => onNav(item.page)}>
 <div style={{ fontSize: 20, marginBottom: 6 }}>{item.emoji}</div>
-<div style={{ fontSize: 24, fontWeight: 800, color: C.accent, fontFamily: 'Syne, sans-serif' }}>{item.val}</div>
+<div style={{ fontSize: 24, fontWeight: 800, color: C.accent, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{item.val}</div>
 <div style={{ fontSize: 11.5, color: C.textSecondary, marginTop: 2 }}>
 {item.label} {item.val !== 1 ? item.sub + 's' : item.sub}
 </div>
@@ -527,7 +527,7 @@ return (
 </div>
 </div>
 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-<div style={{ fontSize: 20, fontWeight: 700, color: isBday ? C.accent : C.textPrimary, fontFamily: 'Syne, sans-serif', fontWeight: 800 }}>{day}</div>
+<div style={{ fontSize: 20, fontWeight: 700, color: isBday ? C.accent : C.textPrimary, fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800 }}>{day}</div>
 {isBday && <div style={{ fontSize: 10, color: C.accent, fontWeight: 600 }}>HOJE!</div>}
 </div>
 </div>
@@ -675,7 +675,7 @@ return (
 <div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Membros</h1>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Membros</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{members.length} membro{members.length !== 1 ? 's' : ''}</p>
 </div>
 <div style={{ display: 'flex', gap: 8 }}>
@@ -826,7 +826,7 @@ return (
 <div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Grupos</h1>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Grupos</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{groups.length} grupo{groups.length !== 1 ? 's' : ''}</p>
 </div>
 <Btn onClick={openAdd}><Plus size={15} />Novo Grupo</Btn>
@@ -956,7 +956,7 @@ return (
 <div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Repertório</h1>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Repertório</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{songs.length} música{songs.length !== 1 ? 's' : ''}</p>
 </div>
 <div style={{ display: 'flex', gap: 8 }}>
@@ -979,7 +979,7 @@ const hues = [200, 260, 320, 30, 160, 50, 290, 10];
 const hue = hues[i % hues.length];
 return (
 <div key={s.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-<div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: `hsl(${hue},60%,22%)`, border: `1.5px solid hsl(${hue},60%,35%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: `hsl(${hue},80%,65%)`, fontFamily: "'Syne', sans-serif" }}>
+<div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: `hsl(${hue},60%,22%)`, border: `1.5px solid hsl(${hue},60%,35%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: `hsl(${hue},80%,65%)`, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
 {s.name.trim()[0]?.toUpperCase() || '🎵'}
 </div>
 <div style={{ flex: 1, minWidth: 0 }}>
@@ -1156,7 +1156,7 @@ return (
 <div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Escalas</h1>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Escalas</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{scales.length} escala{scales.length !== 1 ? 1 ? 's' : '' : 's'}</p>
 </div>
 <Btn onClick={openAdd}><Plus size={15} />Nova Escala</Btn>
@@ -1498,7 +1498,7 @@ const max = ranked[0]?.n || 1;
 return (
 <div style={{ padding: 24, maxWidth: 760 }}>
 <div style={{ marginBottom: 24 }}>
-<h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent, marginBottom: 3 }}>Relatórios</h1>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent, marginBottom: 3 }}>Relatórios</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>Músicas mais escaladas no período selecionado</p>
 </div>
 
@@ -1544,7 +1544,7 @@ border: `1px solid ${i < 3 ? C.accent + '44' : C.border}`,
 </div>
 <div className="bar-bg"><div className="bar-fill" style={{ width: `${(r.n / max) * 100}%` }} /></div>
 </div>
-<div style={{ fontWeight: 700, color: C.accent, fontSize: 20, fontFamily: 'Syne, sans-serif', fontWeight: 800, flexShrink: 0 }}>{r.n}</div>
+<div style={{ fontWeight: 700, color: C.accent, fontSize: 20, fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800, flexShrink: 0 }}>{r.n}</div>
 </div>
 </div>
 ))}
@@ -1654,7 +1654,7 @@ if (!autenticado) return (
 <div style={{ width: 80, height: 80, borderRadius: '50%', margin: '0 auto 16px', overflow: 'hidden', border: `2px solid ${C.accent}`, boxShadow: `0 8px 24px ${C.accentGlow}` }}>
 <img src={LOGO_HOME} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </div>
-<h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, color: C.accent, marginBottom: 8, fontSize: 22 }}>Acesso Restrito</h2>
+<h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800, color: C.accent, marginBottom: 8, fontSize: 22 }}>Acesso Restrito</h2>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>Insira o código de acesso da equipe</p>
 </div>
 <div style={{ width: '100%', maxWidth: 280 }}>
@@ -1674,7 +1674,7 @@ return (
 <div className={`sidebar${sideOpen ? ' open' : ''}`}>
 <div style={{ padding: '16px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
 <img src={LOGO_SIDEBAR} alt="Logo" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-<div style={{ fontFamily: "'Syne', sans-serif", color: C.accent, fontSize: 13, fontWeight: 800, lineHeight: 1.3 }}>
+<div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.accent, fontSize: 13, fontWeight: 800, lineHeight: 1.3 }}>
 Oitava Music<br />Betim
 </div>
 </div>
@@ -1697,7 +1697,7 @@ Oitava Music<br />Betim
 <button className="topbar-menu-btn btn-ghost btn" onClick={() => setSideOpen(x => !x)} style={{ padding: '6px 8px' }}>
 <Menu size={19} />
 </button>
-<span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, color: C.accent, fontSize: 13, flex: 1 }}>
+<span style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800, color: C.accent, fontSize: 13, flex: 1 }}>
 {current?.emoji} {current?.label}
 </span>
 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: syncing ? C.textSecondary : syncOk === true ? C.success : syncOk === false ? C.danger : C.textSecondary }}>
