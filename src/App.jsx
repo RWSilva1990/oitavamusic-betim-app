@@ -34,11 +34,9 @@ const ROLES = [
 { key: 'violao',    label: 'Violão',    emoji: '🎵' },
 { key: 'guitarra',  label: 'Guitarra',  emoji: '🎸' },
 { key: 'teclado',   label: 'Teclado',   emoji: '🎹' },
-{ key: 'vocal',     label: 'Libras',    emoji: '🤞' },
+{ key: 'vocal',     label: 'Vocal',     emoji: '🎤' },
 { key: 'ministro',  label: 'Ministro',  emoji: '✨' },
-{ key: 'tenor',     label: 'Tenor',     emoji: '🎙️' },
-{ key: 'soprano',   label: 'Soprano',   emoji: '🎙️' },
-{ key: 'contralto', label: 'Contralto', emoji: '🎙️' },
+
 ];
 
 const NAV = [
@@ -325,11 +323,7 @@ if (x.key) txt += ` — Tom: ${x.key}`;
 if (x.song.bpm) txt += ` | BPM: ${x.song.bpm}`;
 if (x.soloMemberId) {
 const soloist = members.find(m => m.id === x.soloMemberId);
-if (soloist) {
-const vocalRole = (soloist.roles || []).find(r => ['tenor','soprano','contralto'].includes(r));
-const roleLabel = vocalRole ? ROLES.find(ro => ro.key === vocalRole)?.label : '';
-txt += ` | 🎙️ Solo: ${shortName(soloist.name)}${roleLabel ? ` (${roleLabel})` : ''}`;
-}
+if (soloist) txt += ` | 🎙️ Solo: ${shortName(soloist.name)}`;
 }
 if (x.notes) txt += ` | ${x.notes}`;
 if (x.song.youtubeUrl) txt += `\n   🔗 ${x.song.youtubeUrl}`;
@@ -668,8 +662,7 @@ const filtered = members
 .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
 
 // Separar roles em instrumentais e vocais para exibição organizada
-const ROLES_INSTRUMENTAL = ROLES.filter(r => !['tenor','soprano','contralto'].includes(r.key));
-const ROLES_VOCAL = ROLES.filter(r => ['tenor','soprano','contralto'].includes(r.key));
+
 
 return (
 <div style={{ padding: 24, maxWidth: 860 }}>
@@ -765,21 +758,9 @@ return (
 </Field>
 
 {/* ── FUNÇÕES: Instrumentais ── */}
-<Field label="Funções — Instrumentos">
+<Field label="Funções">
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
-{ROLES_INSTRUMENTAL.map(r => (
-<div key={r.key} className={`role-chip${form.roles.includes(r.key) ? ' selected' : ''}`} onClick={() => toggleRole(r.key)}>
-<span>{r.emoji}</span>{r.label}
-{form.roles.includes(r.key) && <Check size={13} style={{ marginLeft: 'auto' }} />}
-</div>
-))}
-</div>
-</Field>
-
-{/* ── FUNÇÕES: Vocais ── */}
-<Field label="Funções — Vocal">
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
-{ROLES_VOCAL.map(r => (
+{ROLES.map(r => (
 <div key={r.key} className={`role-chip${form.roles.includes(r.key) ? ' selected' : ''}`} onClick={() => toggleRole(r.key)}>
 <span>{r.emoji}</span>{r.label}
 {form.roles.includes(r.key) && <Check size={13} style={{ marginLeft: 'auto' }} />}
@@ -1261,11 +1242,9 @@ return (
 {x.soloMemberId && (() => {
 const soloist = members.find(m => m.id === x.soloMemberId);
 if (!soloist) return null;
-const vocalRole = (soloist.roles || []).find(r => ['tenor','soprano','contralto'].includes(r));
-const roleLabel = vocalRole ? ROLES.find(ro => ro.key === vocalRole)?.label : '';
 return (
 <span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 6, padding: '2px 8px' }}>
-🎙️ Solo: {soloist.name}{roleLabel ? ` · ${roleLabel}` : ''}
+🎙️ Solo: {soloist.name}
 </span>
 );
 })()}
@@ -1430,18 +1409,11 @@ onChange={e => updateSong(ss.songId, 'key', e.target.value)} style={{ fontSize: 
 <input className="input-field" placeholder="Observações..." value={ss.notes}
 onChange={e => updateSong(ss.songId, 'notes', e.target.value)} style={{ fontSize: 12 }} />
 </div>
-{/* ── Seleção de solista: apenas membros cuja FUNÇÃO NA ESCALA é vocal ── */}
+{/* ── Seleção de solista: membros escalados com Vocal no cadastro ── */}
 {(() => {
-const VOCAL_KEYS = ['tenor', 'soprano', 'contralto'];
 const vocalists = form.scaleMembers
-.filter(sm => VOCAL_KEYS.includes(sm.role))
-.map(sm => {
-const m = members.find(x => x.id === sm.memberId);
-if (!m) return null;
-const roleLabel = ROLES.find(r => r.key === sm.role)?.label || '';
-return { member: m, roleLabel };
-})
-.filter(Boolean);
+.map(sm => members.find(m => m.id === sm.memberId))
+.filter(m => m && (m.roles || []).includes('vocal'));
 if (vocalists.length === 0) return null;
 return (
 <div style={{ marginTop: 8 }}>
@@ -1452,9 +1424,9 @@ onChange={e => updateSong(ss.songId, 'soloMemberId', e.target.value)}
 style={{ fontSize: 12 }}
 >
 <option value="">🎙️ Sem solista...</option>
-{vocalists.map(({ member: m, roleLabel }) => (
+{vocalists.map(m => (
 <option key={m.id} value={m.id}>
-🎙️ {m.name} — {roleLabel}
+🎙️ {m.name}
 </option>
 ))}
 </select>
