@@ -253,7 +253,6 @@ const GLOBAL_CSS = `
  .birthday-chip:hover { border-color: rgba(192,132,252,0.28); }
 
  /* C2 Layout additions */
- .member-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
  .member-card {
    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
    border-radius: 14px; padding: 16px; text-align: center;
@@ -278,8 +277,14 @@ const GLOBAL_CSS = `
    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
    border-radius: 16px; padding: 14px 16px;
    display: flex; align-items: flex-start; gap: 14px; transition: all 0.2s;
+   min-width: 0; overflow: hidden;
  }
  .scale-card-c2:hover { border-color: rgba(240,128,112,0.30); background: rgba(240,128,112,0.04); }
+
+ /* ── Member card grid ── */
+ .member-card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+ @media (min-width: 600px) { .member-card-grid { grid-template-columns: repeat(3, 1fr); } }
+ @media (min-width: 860px) { .member-card-grid { grid-template-columns: repeat(4, 1fr); } }
  .scale-date-block {
    width: 54px; height: 54px; border-radius: 14px; flex-shrink: 0;
    background: rgba(240,128,112,0.14); border: 1px solid rgba(240,128,112,0.30);
@@ -726,7 +731,7 @@ const ROLES_INSTRUMENTAL = ROLES.filter(r => !['tenor','soprano','contralto'].in
 const ROLES_VOCAL = ROLES.filter(r => ['tenor','soprano','contralto'].includes(r.key));
 
 return (
-<div style={{ padding: 24, maxWidth: 860 }}>
+<div style={{ padding: '24px 16px', maxWidth: 860, boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
 <h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, color: C.accent }}>Membros</h1>
@@ -876,7 +881,7 @@ const del = id => { setGroups(p => p.filter(g => g.id !== id)); setConfirm(null)
 const filteredM = members.filter(m => m.name.toLowerCase().includes(mSearch.toLowerCase()));
 
 return (
-<div style={{ padding: 24, maxWidth: 860 }}>
+<div style={{ padding: '24px 16px', maxWidth: 860, boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
 <h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, color: C.accent }}>Grupos</h1>
@@ -1006,7 +1011,7 @@ setImportModal(false); setPreview([]);
 const filtered = songs.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
 
 return (
-<div style={{ padding: 24, maxWidth: 860 }}>
+<div style={{ padding: '24px 16px', maxWidth: 860, boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
 <h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, color: C.accent }}>Repertório</h1>
@@ -1206,7 +1211,7 @@ const scaleMembers = sc => (sc.scaleMembers || []).map(sm => ({ ...sm, member: m
 const scaleSongs = sc => (sc.scaleSongs || []).map(ss => ({ ...ss, song: songs.find(s => s.id === ss.songId) })).filter(x => x.song);
 
 return (
-<div style={{ padding: 24, maxWidth: 860 }}>
+<div style={{ padding: '24px 16px', maxWidth: 860, boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
 <h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, color: C.accent }}>Escalas</h1>
