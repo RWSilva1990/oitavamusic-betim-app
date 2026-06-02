@@ -283,7 +283,7 @@ const GLOBAL_CSS = `
 
  /* ── Member card grid ── */
  .member-card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
- @media (min-width: 600px) { .member-card-grid { grid-template-columns: repeat(3, 1fr); } }
+ @media (min-width: 360px) { .member-card-grid { grid-template-columns: repeat(3, 1fr); } }
  @media (min-width: 860px) { .member-card-grid { grid-template-columns: repeat(4, 1fr); } }
  .scale-date-block {
    width: 54px; height: 54px; border-radius: 14px; flex-shrink: 0;
@@ -751,7 +751,11 @@ return (
 {filtered.length === 0 ? (
 <div className="empty-state"><Users size={38} style={{ marginBottom: 12, opacity: 0.25 }} /><p>Nenhum membro encontrado</p></div>
 ) : (
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+<div style={{
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+    gap: 10
+  }}>
 {filtered.map(m => (
 <div key={m.id} className="member-card">
 <div className="member-card-ava">
