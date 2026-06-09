@@ -10,19 +10,19 @@ Upload, Menu, AlertCircle, Eye, Share2, Cake, Clock
 // THEME & CONSTANTS
 // ═══════════════════════════════════
 const C = {
-bg:           '#1e1525',
-bgSecondary:  '#251830',
-bgCard:       '#2d1f3a',
-bgHover:      '#362548',
-bgInput:      '#1a1020',
-accent:       '#c084fc',
-accentAlt:    '#f08070',
-accentDark:   '#9333ea',
-accentGlow:   'rgba(192,132,252,0.15)',
-accentGlow2:  'rgba(240,128,112,0.12)',
-border:       '#3d2a52',
-textPrimary:  '#f5eeff',
-textSecondary:'#8870a8',
+bg:           '#04050d',
+bgSecondary:  '#07091a',
+bgCard:       '#0c0e1f',
+bgHover:      '#111428',
+bgInput:      '#060812',
+accent:       '#a78bfa',
+accentAlt:    '#f472b6',
+accentDark:   '#6339ff',
+accentGlow:   'rgba(167,139,250,0.15)',
+accentGlow2:  'rgba(244,114,182,0.10)',
+border:       '#1a1d3a',
+textPrimary:  '#eef0ff',
+textSecondary:'#5a6490',
 danger:       '#f87171',
 success:      '#4ade80',
 blue:         '#60a5fa',
@@ -34,7 +34,6 @@ const ROLES = [
 { key: 'violao',    label: 'Violão',    emoji: '🎵' },
 { key: 'guitarra',  label: 'Guitarra',  emoji: '🎸' },
 { key: 'teclado',   label: 'Teclado',   emoji: '🎹' },
-{ key: 'vocal',     label: 'Vocal',     emoji: '🎤' },
 { key: 'ministro',  label: 'Ministro',  emoji: '✨' },
 { key: 'tenor',     label: 'Tenor',     emoji: '🎙️' },
 { key: 'soprano',   label: 'Soprano',   emoji: '🎙️' },
@@ -51,41 +50,29 @@ const NAV = [
 ];
 
 const GLOBAL_CSS = `
- @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Nunito:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+ @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
  html, body, #root { width: 100%; max-width: 100vw; overflow-x: hidden; }
  html, body {
-   background: #1e1525;
-   font-family: 'Nunito', sans-serif;
-   color: #f5eeff;
+   background: #04050d;
+   font-family: 'Plus Jakarta Sans', sans-serif;
+   color: #eef0ff;
    -webkit-tap-highlight-color: transparent;
    -webkit-overflow-scrolling: touch;
-   background-image:
-     radial-gradient(ellipse 70% 50% at 0% 0%, rgba(240,128,112,0.12) 0%, transparent 60%),
-     radial-gradient(ellipse 60% 50% at 100% 100%, rgba(147,51,234,0.14) 0%, transparent 60%);
-   background-attachment: fixed;
+   background-image: radial-gradient(ellipse 60% 40% at 15% 0%, rgba(99,57,255,0.10) 0%, transparent 70%), radial-gradient(ellipse 40% 50% at 85% 80%, rgba(244,114,182,0.08) 0%, transparent 70%); background-attachment: fixed;
  }
  ::-webkit-scrollbar { width: 5px; height: 5px; }
  ::-webkit-scrollbar-track { background: transparent; }
- ::-webkit-scrollbar-thumb { background: #3d2a52; border-radius: 4px; }
- ::-webkit-scrollbar-thumb:hover { background: #c084fc55; }
- input, select, textarea, button { font-family: 'Nunito', sans-serif; }
- input::placeholder, textarea::placeholder { color: #8870a8; }
- select option { background: #2d1f3a; color: #f5eeff; }
+ ::-webkit-scrollbar-thumb { background: #1a1d3a; border-radius: 4px; }
+ ::-webkit-scrollbar-thumb:hover { background: #a78bfa55; }
+ input, select, textarea, button { font-family: 'Plus Jakarta Sans', sans-serif; }
+ input::placeholder, textarea::placeholder { color: #5a6490; }
+ select option { background: rgba(255,255,255,0.025); color: #eef0ff; }
  a { color: inherit; }
 
- input[type="date"] { color-scheme: dark; }
- input[type="date"]::-webkit-calendar-picker-indicator {
-   filter: invert(80%) sepia(20%) saturate(400%) hue-rotate(240deg) brightness(1.2);
-   cursor: pointer; opacity: 0.8;
- }
- input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
-
  .sidebar {
-   width: 240px;
-   background: rgba(30,21,37,0.92);
-   backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-   border-right: 1px solid rgba(192,132,252,0.12);
+   width: 230px; background: rgba(7,9,26,0.85);
+   border-right: 1px solid rgba(167,139,250,0.10);
    position: fixed; top: 0; left: 0; bottom: 0; z-index: 200;
    transform: translateX(-100%);
    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
@@ -94,118 +81,123 @@ const GLOBAL_CSS = `
  .sidebar.open { transform: translateX(0); }
  .topbar-menu-btn { display: flex; }
  .main-content { margin-left: 0; }
+
  @media (min-width: 900px) {
    .sidebar { transform: translateX(0) !important; }
-   .main-content { margin-left: 240px; }
+   .main-content { margin-left: 230px; }
    .topbar-menu-btn { display: none !important; }
  }
 
  .nav-item {
    padding: 10px 14px; border-radius: 10px; cursor: pointer;
    display: flex; align-items: center; gap: 10px;
-   font-size: 13.5px; font-weight: 500; color: #8870a8;
+   font-size: 13.5px; font-weight: 500; color: #5a6490;
    transition: all 0.15s; border: 1px solid transparent;
    margin-bottom: 3px; user-select: none;
  }
- .nav-item:hover { background: rgba(255,255,255,0.05); color: #d4b8f0; border-color: rgba(255,255,255,0.06); }
+ .nav-item:hover { background: rgba(255,255,255,0.04); color: #a0a8cc; }
  .nav-item.active {
-   background: rgba(192,132,252,0.15); color: #c084fc; font-weight: 600;
-   border-color: rgba(192,132,252,0.30); box-shadow: 0 0 16px rgba(147,51,234,0.12);
+   background: rgba(99,57,255,0.15); color: #a78bfa;
+   font-weight: 600; border-color: rgba(167,139,250,0.25);
+   box-shadow: 0 0 16px rgba(99,57,255,0.10);
  }
 
  .btn {
    padding: 9px 18px; border-radius: 10px; cursor: pointer;
-   font-size: 13px; font-family: 'Nunito', sans-serif;
+   font-size: 13px; font-family: 'Plus Jakarta Sans', sans-serif;
    display: inline-flex; align-items: center; gap: 6px;
    transition: opacity 0.15s, transform 0.1s; border: none;
    font-weight: 600; white-space: nowrap;
  }
  .btn:hover { opacity: 0.82; }
  .btn:active { transform: scale(0.96); }
- .btn-primary { background: linear-gradient(135deg, #9333ea, #c084fc); color: #fff; box-shadow: 0 4px 18px rgba(147,51,234,0.35); }
- .btn-secondary { background: transparent; color: #8870a8; border: 1px solid #3d2a52 !important; }
+ .btn-primary { background: linear-gradient(135deg, #6339ff, #a855f7); color: #fff; box-shadow: 0 4px 18px rgba(99,57,255,0.35); }
+ .btn-secondary { background: transparent; color: #5a6490; border: 1px solid rgba(255,255,255,0.07) !important; }
  .btn-danger { background: transparent; color: #f87171; border: 1px solid #f8717144 !important; }
- .btn-ghost { background: transparent; color: #8870a8; padding: 6px 8px; }
- .btn-ghost:hover { color: #f5eeff; background: rgba(255,255,255,0.06); }
+ .btn-ghost { background: transparent; color: #5a6490; padding: 6px 8px; }
+ .btn-ghost:hover { color: #eef0ff; background: rgba(255,255,255,0.04); }
  .btn-ghost.del:hover { color: #f87171; }
 
  .input-field {
    width: 100%; padding: 10px 14px;
-   background: #1a1020; border: 1px solid #3d2a52;
-   border-radius: 10px; color: #f5eeff; font-size: 14px;
+   background: #060812; border: 1px solid #1a1d3a;
+   border-radius: 10px; color: #eef0ff; font-size: 14px;
    transition: border-color 0.2s, box-shadow 0.2s;
  }
- .input-field:focus { outline: none; border-color: #c084fc; box-shadow: 0 0 0 3px rgba(192,132,252,0.14); }
- .input-field:hover { border-color: #c084fc55; }
+ .input-field:focus { outline: none; border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(167,139,250,0.12); }
+ .input-field:hover { border-color: #a78bfa55; }
 
  .card {
-   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+   background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
    border-radius: 16px; padding: 16px;
    transition: border-color 0.2s, box-shadow 0.2s;
-   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
    max-width: 100%; overflow: hidden;
  }
- .card:hover { border-color: rgba(192,132,252,0.28); box-shadow: 0 4px 24px rgba(147,51,234,0.10); }
+ .card:hover { border-color: rgba(167,139,250,0.25); box-shadow: 0 4px 24px rgba(99,57,255,0.08); }
 
  .tag {
    padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
-   background: rgba(192,132,252,0.15); color: #c084fc; border: 1px solid rgba(192,132,252,0.32);
+   background: rgba(167,139,250,0.15); color: #a78bfa; border: 1px solid rgba(167,139,250,0.30);
  }
- .tag.sub { background: rgba(240,128,112,0.14); color: #f08878; border-color: rgba(240,128,112,0.32); }
+ .tag.sub { background: rgba(244,114,182,0.13); color: #f472b6; border-color: rgba(244,114,182,0.30); }
  .tag.green { background: rgba(74,222,128,0.13); color: #4ade80; border-color: rgba(74,222,128,0.30); }
 
  .field-label {
    display: block; margin-bottom: 6px;
-   color: #8870a8; font-size: 11px; font-weight: 700;
+   color: #5a6490; font-size: 11px; font-weight: 700;
    text-transform: uppercase; letter-spacing: 0.8px;
  }
  .field-wrap { margin-bottom: 16px; }
 
  .modal-overlay {
    position: fixed; inset: 0; z-index: 500;
-   background: rgba(10,5,18,0.82); backdrop-filter: blur(10px);
+   background: rgba(0,0,5,0.80); backdrop-filter: blur(8px);
    display: flex; align-items: center; justify-content: center; padding: 16px;
  }
  .modal-box {
-   background: #251830; border-radius: 20px;
-   border: 1px solid rgba(192,132,252,0.20);
-   width: 100%; max-width: 680px; max-height: calc(100dvh - 32px);
+   background: #0c0e1f; border-radius: 20px;
+   border: 1px solid rgba(167,139,250,0.18);
+   width: 100%; max-width: 680px;
+   max-height: calc(100dvh - 32px);
    display: flex; flex-direction: column;
-   box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+   box-shadow: 0 32px 80px rgba(0,0,0,0.7);
  }
  .modal-header {
-   padding: 18px 24px; border-bottom: 1px solid rgba(192,132,252,0.12);
+   padding: 18px 24px; border-bottom: 1px solid rgba(167,139,250,0.10);
    display: flex; align-items: center; justify-content: space-between;
-   background: rgba(147,51,234,0.07); z-index: 1; flex-shrink: 0;
+   background: rgba(99,57,255,0.06); z-index: 1; flex-shrink: 0;
    border-radius: 20px 20px 0 0;
  }
  .modal-body { padding: 24px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
 
- .empty-state { text-align: center; padding: 60px 24px; color: #8870a8; }
+ .empty-state { text-align: center; padding: 60px 24px; color: #5a6490; }
 
  .role-chip {
    padding: 8px 12px; border-radius: 10px; cursor: pointer;
    display: flex; align-items: center; gap: 8px; font-size: 13px;
-   border: 1px solid #3d2a52; background: transparent; color: #8870a8;
+   border: 1px solid #1a1d3a; background: transparent; color: #5a6490;
    transition: all 0.15s; user-select: none;
  }
- .role-chip.selected { border-color: rgba(192,132,252,0.55); background: rgba(192,132,252,0.13); color: #c084fc; }
+ .role-chip.selected {
+   border-color: rgba(167,139,250,0.5); background: rgba(167,139,250,0.12); color: #a78bfa;
+ }
  .member-pick {
    padding: 8px 12px; border-radius: 10px; cursor: pointer;
    display: flex; align-items: center; gap: 10px; font-size: 13.5px;
-   border: 1px solid #3d2a52; background: transparent; transition: all 0.15s;
+   border: 1px solid #1a1d3a; background: transparent; transition: all 0.15s;
  }
- .member-pick:hover { border-color: rgba(192,132,252,0.38); background: rgba(192,132,252,0.07); }
- .member-pick.selected { border-color: rgba(192,132,252,0.55); background: rgba(192,132,252,0.13); }
+ .member-pick:hover { border-color: rgba(167,139,250,0.35); background: rgba(255,255,255,0.04); }
+ .member-pick.selected { border-color: rgba(167,139,250,0.5); background: rgba(167,139,250,0.12); }
 
- .bar-bg { height: 6px; background: #2d1f3a; border-radius: 4px; overflow: hidden; margin-top: 6px; }
- .bar-fill { height: 100%; background: linear-gradient(90deg, #f08070, #c084fc); border-radius: 4px; }
+ .bar-bg { height: 6px; background: #111428; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+ .bar-fill { height: 100%; background: linear-gradient(90deg, #6339ff, #f472b6); border-radius: 4px; }
 
  .avatar {
    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
-   background: rgba(192,132,252,0.18); border: 2px solid rgba(192,132,252,0.35);
+   background: rgba(99,57,255,0.20); border: 2px solid rgba(167,139,250,0.30);
    display: flex; align-items: center; justify-content: center;
-   font-size: 17px; font-weight: 700; color: #c084fc; overflow: hidden;
+   font-size: 17px; font-weight: 700; color: #a78bfa; overflow: hidden;
  }
  .avatar img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -219,13 +211,14 @@ const GLOBAL_CSS = `
  .song-item {
    padding: 10px 14px; border-radius: 10px; cursor: pointer;
    display: flex; align-items: center; gap: 8px; font-size: 13px;
-   color: #f5eeff; background: rgba(255,255,255,0.05); transition: background 0.15s;
+   color: #eef0ff; background: rgba(255,255,255,0.04);
+   transition: background 0.15s;
  }
- .song-item:hover { background: rgba(192,132,252,0.12); }
+ .song-item:hover { background: rgba(167,139,250,0.10); }
 
  .scale-song-row {
    padding: 12px; background: rgba(255,255,255,0.04); border-radius: 10px; margin-bottom: 8px;
-   border: 1px solid rgba(255,255,255,0.07);
+   border: 1px solid rgba(255,255,255,0.06);
  }
 
  .btn-whatsapp { background: #1FAD4A; color: #fff; }
@@ -233,13 +226,14 @@ const GLOBAL_CSS = `
 
  .archive-divider {
    display: flex; align-items: center; gap: 10px; margin: 4px 0;
-   color: #8870a8; font-size: 12px; cursor: pointer; padding: 6px 0; user-select: none;
+   color: #5a6490; font-size: 12px; cursor: pointer;
+   padding: 6px 0; user-select: none;
  }
- .archive-divider:hover { color: #f5eeff; }
+ .archive-divider:hover { color: #eef0ff; }
 
  .section-header {
-   font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 800;
-   color: #8870a8; text-transform: uppercase; letter-spacing: 1.5px;
+   font-family: 'Plus Jakarta Sans', sans-serif; font-size: 11px; font-weight: 700;
+   color: #5a6490; text-transform: uppercase; letter-spacing: 1.5px;
    margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
  }
 
@@ -247,85 +241,10 @@ const GLOBAL_CSS = `
 
  .birthday-chip {
    display: flex; align-items: center; gap: 10px;
-   padding: 8px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+   padding: 8px 12px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
    border-radius: 10px; font-size: 13px;
  }
- .birthday-chip:hover { border-color: rgba(192,132,252,0.28); }
-
- /* C2 Layout additions */
- .member-card {
-   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-   border-radius: 14px; padding: 16px; text-align: center;
-   transition: border-color 0.2s, box-shadow 0.2s;
- }
- .member-card:hover { border-color: rgba(192,132,252,0.30); box-shadow: 0 4px 20px rgba(147,51,234,0.10); }
- .member-card-ava {
-   width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 10px;
-   background: rgba(192,132,252,0.18); border: 2px solid rgba(192,132,252,0.35);
-   display: flex; align-items: center; justify-content: center;
-   font-size: 20px; font-weight: 700; color: #c084fc; overflow: hidden;
- }
- .member-card-ava img { width: 100%; height: 100%; object-fit: cover; }
- .member-card-name { font-size: 13px; font-weight: 700; color: #f5eeff; margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
- .member-card-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
- .member-card-tag {
-   font-size: 9px; padding: 2px 7px; border-radius: 20px; font-weight: 600;
-   background: rgba(192,132,252,0.15); color: #c084fc; border: 1px solid rgba(192,132,252,0.30);
- }
-
- .scale-card-c2 {
-   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-   border-radius: 16px; padding: 14px 16px;
-   display: flex; align-items: flex-start; gap: 14px; transition: all 0.2s;
-   min-width: 0; overflow: hidden;
- }
- .scale-card-c2:hover { border-color: rgba(240,128,112,0.30); background: rgba(240,128,112,0.04); }
-
- /* ── Member card grid ── */
- .member-card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
- @media (min-width: 360px) { .member-card-grid { grid-template-columns: repeat(3, 1fr); } }
- @media (min-width: 860px) { .member-card-grid { grid-template-columns: repeat(4, 1fr); } }
- .scale-date-block {
-   width: 54px; height: 54px; border-radius: 14px; flex-shrink: 0;
-   background: rgba(240,128,112,0.14); border: 1px solid rgba(240,128,112,0.30);
-   display: flex; flex-direction: column; align-items: center; justify-content: center;
- }
- .scale-date-day { font-family: 'Montserrat', sans-serif; font-size: 22px; font-weight: 900; color: #f08878; line-height: 1; }
- .scale-date-mon { font-size: 9px; color: rgba(240,136,120,0.7); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
-
- .hero-card {
-   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-   border-radius: 20px; padding: 28px 28px 24px;
-   position: relative; overflow: hidden;
-   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
- }
- .hero-card::before {
-   content: ''; position: absolute; top: -60px; right: -60px;
-   width: 220px; height: 220px; border-radius: 50%;
-   background: radial-gradient(circle, rgba(240,128,112,0.18), transparent 70%);
-   pointer-events: none;
- }
- .hero-card::after {
-   content: ''; position: absolute; bottom: -50px; left: 25%;
-   width: 180px; height: 180px; border-radius: 50%;
-   background: radial-gradient(circle, rgba(192,132,252,0.14), transparent 70%);
-   pointer-events: none;
- }
- .hero-stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
- @media (max-width: 560px) { .hero-stat-grid { grid-template-columns: repeat(2,1fr); } }
- .hero-stat {
-   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
-   border-radius: 14px; padding: 14px 12px; cursor: pointer; transition: all 0.2s;
- }
- .hero-stat:hover { border-color: rgba(192,132,252,0.30); background: rgba(192,132,252,0.10); }
- .hero-stat-icon { font-size: 18px; margin-bottom: 8px; }
- .hero-stat-num { font-family: 'Montserrat', sans-serif; font-size: 26px; font-weight: 900; color: #f5eeff; line-height: 1; }
- .hero-stat-lbl { font-size: 11px; color: #8870a8; margin-top: 4px; }
-
- .sidebar-mini-stats { padding: 14px 18px; border-top: 1px solid rgba(192,132,252,0.10); }
- .sidebar-mini-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
- .sidebar-mini-label { font-size: 11px; color: #8870a8; }
- .sidebar-mini-val { font-size: 11px; color: #c084fc; font-weight: 700; }
+ .birthday-chip:hover { border-color: rgba(167,139,250,0.25); }
 
  @keyframes spin { to { transform: rotate(360deg); } }
 `;
@@ -412,9 +331,17 @@ txt += ` | 🎙️ Solo: ${shortName(soloist.name)}${roleLabel ? ` (${roleLabel}
 }
 }
 if (x.notes) txt += ` | ${x.notes}`;
-if (x.song.youtubeUrl) txt += `\n   🔗 ${x.song.youtubeUrl}`;
 txt += `\n`;
 });
+
+// Playlist única com todos os vídeos
+const videoIds = scSongs
+.map(x => { const m = x.song.youtubeUrl?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/); return m ? m[1] : null; })
+.filter(Boolean);
+if (videoIds.length > 0) {
+const playlistUrl = `https://www.youtube.com/watch_videos?video_ids=${videoIds.join(',')}`;
+txt += `\n▶️ *Playlist:* ${playlistUrl}\n`;
+}
 }
 
 return txt;
@@ -446,7 +373,7 @@ return (
 <div className="modal-overlay" onClick={onClose}>
 <div className="modal-box" style={{ maxWidth: wide ? 680 : 460 }} onClick={e => e.stopPropagation()}>
 <div className="modal-header">
-<h2 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 17, color: C.accent }}>{title}</h2>
+<h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 16, fontWeight: 800, color: C.accent }}>{title}</h2>
 <Btn variant="ghost" onClick={onClose} style={{ padding: 4 }}><X size={18} /></Btn>
 </div>
 <div className="modal-body">{children}</div>
@@ -489,115 +416,136 @@ const LOGO_SIDEBAR = "/icon-192.png";
 function HomePage({ counts, scales, members, groups, onNav }) {
 const today = new Date().toISOString().split('T')[0];
 const thisMonth = new Date().getMonth() + 1;
-const upcoming = [...scales].filter(s => s.date >= today).sort((a,b) => a.date.localeCompare(b.date)).slice(0,5);
+
+const upcoming = [...scales]
+.filter(s => s.date >= today)
+.sort((a, b) => a.date.localeCompare(b.date))
+.slice(0, 5);
+
 const birthdayMembers = members
-  .filter(m => { if(!m.birthdate)return false; return parseInt(m.birthdate.split('-')[1],10)===thisMonth; })
-  .sort((a,b) => parseInt(a.birthdate.split('-')[2],10) - parseInt(b.birthdate.split('-')[2],10));
+.filter(m => {
+if (!m.birthdate) return false;
+const month = parseInt(m.birthdate.split('-')[1], 10);
+return month === thisMonth;
+})
+.sort((a, b) => {
+const da = parseInt(a.birthdate.split('-')[2], 10);
+const db = parseInt(b.birthdate.split('-')[2], 10);
+return da - db;
+});
+
 const today2 = new Date();
-const isToday = bd => { if(!bd)return false; const[,m,d]=bd.split('-').map(Number); return m===today2.getMonth()+1&&d===today2.getDate(); };
-const months = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+const isToday = (birthdate) => {
+if (!birthdate) return false;
+const [, m, d] = birthdate.split('-').map(Number);
+return m === today2.getMonth() + 1 && d === today2.getDate();
+};
+
 return (
-<div style={{padding:'28px 24px',maxWidth:860,margin:'0 auto'}}>
-  {/* Hero */}
-  <div className="hero-card" style={{marginBottom:20}}>
-    <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:20,position:'relative',zIndex:1}}>
-      <div style={{width:52,height:52,borderRadius:16,overflow:'hidden',border:'2px solid rgba(192,132,252,0.40)',flexShrink:0}}>
-        <img src="/icon-512.png" alt="Oitava Music" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-      </div>
-      <div>
-        <div style={{fontFamily:'Montserrat, sans-serif',fontWeight:900,fontSize:20,color:C.textPrimary,lineHeight:1.1}}>
-          Olá, <span style={{background:'linear-gradient(90deg, #c084fc, #f08070)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Oitava Music</span> 👋
-        </div>
-        <div style={{fontSize:12,color:C.textSecondary,marginTop:3}}>
-          {upcoming.length>0?`Próxima escala em ${Math.ceil((new Date(upcoming[0].date+'T12:00:00')-new Date())/86400000)}d · ${upcoming[0].name}`:'Nenhuma escala agendada'}
-        </div>
-      </div>
-    </div>
-    <div className="hero-stat-grid" style={{position:'relative',zIndex:1}}>
-      {[
-        {emoji:'👥',label:'Membros',  val:counts.members, page:'members'},
-        {emoji:'🎸',label:'Grupos',   val:counts.groups,  page:'groups'},
-        {emoji:'🎵',label:'Músicas',  val:counts.songs,   page:'songs'},
-        {emoji:'📅',label:'Escalas',  val:counts.scales,  page:'scales'},
-      ].map(item=>(
-        <div key={item.label} className="hero-stat" onClick={()=>onNav(item.page)}>
-          <div className="hero-stat-icon">{item.emoji}</div>
-          <div className="hero-stat-num">{item.val}</div>
-          <div className="hero-stat-lbl">{item.label}</div>
-        </div>
-      ))}
-    </div>
-  </div>
+<div style={{ padding: '40px 24px', maxWidth: 580, margin: '0 auto' }}>
+<div style={{ textAlign: 'center', marginBottom: 32 }}>
+<div style={{
+width: 88, height: 88, borderRadius: '50%', margin: '0 auto 20px',
+overflow: 'hidden', border: `2px solid ${C.accent}`,
+boxShadow: `0 12px 40px rgba(99,57,255,0.25)`,
+}}>
+<img src={LOGO_HOME} alt="Oitava Music" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</div>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800, fontSize: 22, color: C.accent, marginBottom: 4, letterSpacing: '-0.5px' }}>Oitava Music Betim</h1>
+</div>
 
-  {/* Upcoming */}
-  <div className="home-section">
-    <div className="section-header"><Clock size={13}/>{upcoming.length>0?'Próximas Escalas':'Escalas'}</div>
-    {upcoming.length===0?(
-      <div style={{padding:16,background:'rgba(255,255,255,0.04)',borderRadius:12,border:'1px solid rgba(255,255,255,0.08)',fontSize:13,color:C.textSecondary,textAlign:'center'}}>Nenhuma escala agendada</div>
-    ):(
-      <div style={{display:'grid',gap:8}}>
-        {upcoming.map(sc=>{
-          const g=groups.find(x=>x.id===sc.groupId);
-          const daysUntil=Math.ceil((new Date(sc.date+'T12:00:00')-new Date())/86400000);
-          const[,mm,dd]=sc.date.split('-');
-          return(
-            <div key={sc.id} className="scale-card-c2" style={{cursor:'pointer'}} onClick={()=>onNav('scales')}>
-              <div className="scale-date-block">
-                <div className="scale-date-day">{dd}</div>
-                <div className="scale-date-mon">{months[parseInt(mm)-1]}</div>
-              </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:700,color:C.textPrimary,fontSize:14,marginBottom:5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{sc.name}</div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                  {g&&<span className="tag" style={{fontSize:10}}>{g.name}</span>}
-                </div>
-              </div>
-              <div style={{flexShrink:0}}>
-                {daysUntil===0?<span style={{fontSize:12,fontWeight:700,color:C.success}}>Hoje!</span>
-                :daysUntil===1?<span style={{fontSize:12,fontWeight:700,color:C.accent}}>Amanhã</span>
-                :<span style={{fontSize:12,color:C.textSecondary}}>{daysUntil}d</span>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    )}
-  </div>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 8 }}>
+{[
+{ emoji: '👥', label: 'Membros',    val: counts.members,  sub: 'cadastrado', page: 'members' },
+{ emoji: '🎸', label: 'Grupos',     val: counts.groups,   sub: 'formado',    page: 'groups'  },
+{ emoji: '🎵', label: 'Repertório', val: counts.songs,    sub: 'música',     page: 'songs'   },
+{ emoji: '📅', label: 'Escalas',    val: counts.scales,   sub: 'criada',     page: 'scales'  },
+].map(item => (
+<div key={item.label} className="card" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => onNav(item.page)}>
+<div style={{ fontSize: 20, marginBottom: 6 }}>{item.emoji}</div>
+<div style={{ fontSize: 24, fontWeight: 800, color: C.accent, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{item.val}</div>
+<div style={{ fontSize: 11.5, color: C.textSecondary, marginTop: 2 }}>
+{item.label} {item.val !== 1 ? item.sub + 's' : item.sub}
+</div>
+</div>
+))}
+</div>
 
-  {/* Birthdays */}
-  <div className="home-section">
-    <div className="section-header"><Cake size={13}/>Aniversariantes do Mês</div>
-    {birthdayMembers.length===0?(
-      <div style={{padding:16,background:'rgba(255,255,255,0.04)',borderRadius:12,border:'1px solid rgba(255,255,255,0.08)',fontSize:13,color:C.textSecondary,textAlign:'center'}}>Nenhum aniversariante este mês</div>
-    ):(
-      <div style={{display:'grid',gap:8}}>
-        {birthdayMembers.map(m=>{
-          const day=parseInt(m.birthdate.split('-')[2],10);
-          const isBday=isToday(m.birthdate);
-          return(
-            <div key={m.id} className="card" style={{display:'flex',alignItems:'center',gap:12}}>
-              <Avatar member={m} size={40}/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:600,color:C.textPrimary,fontSize:14,display:'flex',alignItems:'center',gap:6,overflow:'hidden'}}>
-                  <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{m.name}</span>
-                  {isBday&&<span style={{flexShrink:0}}>🎂</span>}
-                </div>
-                <div style={{fontSize:12,color:C.textSecondary}}>{(m.roles||[]).map(r=>ROLES.find(x=>x.key===r)?.label).filter(Boolean).join(', ')||'Sem função'}</div>
-              </div>
-              <div style={{textAlign:'right',flexShrink:0}}>
-                <div style={{fontSize:22,fontWeight:900,color:isBday?C.accent:C.textPrimary,fontFamily:'Montserrat, sans-serif'}}>{day}</div>
-                {isBday&&<div style={{fontSize:10,color:C.accent,fontWeight:700}}>HOJE!</div>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    )}
-  </div>
+<div className="home-section">
+<div className="section-header">
+<Clock size={14} />{upcoming.length > 0 ? 'Próximas Escalas' : 'Escalas'}
+</div>
+{upcoming.length === 0 ? (
+<div style={{ padding: '16px', background: C.bgCard, borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, color: C.textSecondary, textAlign: 'center' }}>
+Nenhuma escala agendada
+</div>
+) : (
+<div style={{ display: 'grid', gap: 8 }}>
+{upcoming.map(sc => {
+const g = groups.find(x => x.id === sc.groupId);
+const daysUntil = Math.ceil((new Date(sc.date + 'T12:00:00') - new Date()) / (1000 * 60 * 60 * 24));
+return (
+<div key={sc.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => onNav('scales')}>
+<div style={{ minWidth: 0, flex: 1 }}>
+<div style={{ fontWeight: 700, color: C.textPrimary, fontSize: 14, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sc.name}</div>
+<div style={{ fontSize: 12, color: C.textSecondary, display: 'flex', alignItems: 'center', gap: 8 }}>
+📅 {fmtDate(sc.date)}
+{g && <span className="tag" style={{ fontSize: 10 }}>{g.name}</span>}
+</div>
+</div>
+<div style={{ textAlign: 'right', flexShrink: 0 }}>
+{daysUntil === 0
+? <span style={{ fontSize: 12, fontWeight: 700, color: C.success }}>Hoje!</span>
+: daysUntil === 1
+? <span style={{ fontSize: 12, fontWeight: 600, color: C.accent }}>Amanhã</span>
+: <span style={{ fontSize: 12, color: C.textSecondary }}>{daysUntil}d</span>
+}
+</div>
+</div>
+);
+})}
+</div>
+)}
+</div>
+
+<div className="home-section">
+<div className="section-header">
+<Cake size={14} />Aniversariantes do Mês
+</div>
+{birthdayMembers.length === 0 ? (
+<div style={{ padding: '16px', background: C.bgCard, borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, color: C.textSecondary, textAlign: 'center' }}>
+Nenhum aniversariante este mês
+</div>
+) : (
+<div style={{ display: 'grid', gap: 8 }}>
+{birthdayMembers.map(m => {
+const day = parseInt(m.birthdate.split('-')[2], 10);
+const isBday = isToday(m.birthdate);
+return (
+<div key={m.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+<Avatar member={m} size={40} />
+<div style={{ flex: 1, minWidth: 0 }}>
+<div style={{ fontWeight: 600, color: C.textPrimary, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+<span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</span>
+{isBday && <span style={{ flexShrink: 0, fontSize: 14 }}>🎂</span>}
+</div>
+<div style={{ fontSize: 12, color: C.textSecondary }}>
+{(m.roles || []).map(r => ROLES.find(x => x.key === r)?.label).filter(Boolean).join(', ') || 'Sem função'}
+</div>
+</div>
+<div style={{ textAlign: 'right', flexShrink: 0 }}>
+<div style={{ fontSize: 20, fontWeight: 700, color: isBday ? C.accent : C.textPrimary, fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800 }}>{day}</div>
+{isBday && <div style={{ fontSize: 10, color: C.accent, fontWeight: 600 }}>HOJE!</div>}
+</div>
+</div>
+);
+})}
+</div>
+)}
+</div>
 </div>
 );
 }
-
 
 // ─── Members ────────────────────────────────────────────────
 
@@ -727,14 +675,13 @@ const filtered = members
 .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
 
 // Separar roles em instrumentais e vocais para exibição organizada
-const ROLES_INSTRUMENTAL = ROLES.filter(r => !['tenor','soprano','contralto'].includes(r.key));
-const ROLES_VOCAL = ROLES.filter(r => ['tenor','soprano','contralto'].includes(r.key));
+
 
 return (
-<div style={{ padding: '24px 16px', maxWidth: 860, boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
+<div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, color: C.accent }}>Membros</h1>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Membros</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{members.length} membro{members.length !== 1 ? 's' : ''}</p>
 </div>
 <div style={{ display: 'flex', gap: 8 }}>
@@ -751,23 +698,20 @@ return (
 {filtered.length === 0 ? (
 <div className="empty-state"><Users size={38} style={{ marginBottom: 12, opacity: 0.25 }} /><p>Nenhum membro encontrado</p></div>
 ) : (
-<div style={{
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-    gap: 10
-  }}>
+<div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
 {filtered.map(m => (
-<div key={m.id} className="member-card">
-<div className="member-card-ava">
-{m.photo ? <img src={m.photo} alt=""/> : (m.name?.[0]||'?')}
+<div key={m.id} className="card" style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+<Avatar member={m} />
+<div style={{ flex: 1, minWidth: 0 }}>
+<div style={{ fontWeight: 700, color: C.textPrimary, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+{m.email && <div style={{ fontSize: 12, color: C.textSecondary, marginBottom: 6 }}>{m.email}</div>}
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+{(m.roles || []).map(r => { const ro = ROLES.find(x => x.key === r); return ro ? <span key={r} className="tag">{ro.emoji} {ro.label}</span> : null; })}
 </div>
-<div className="member-card-name">{m.name}</div>
-<div className="member-card-tags">
-{(m.roles||[]).map(r=>{const ro=ROLES.find(x=>x.key===r);return ro?<span key={r} className="member-card-tag">{ro.emoji} {ro.label}</span>:null;})}
 </div>
-<div style={{display:'flex',justifyContent:'center',gap:4,marginTop:10}}>
-<Btn variant="ghost" onClick={()=>openEdit(m)} style={{padding:'4px 8px'}}><Edit2 size={13}/></Btn>
-<Btn variant="ghost" className="del" onClick={()=>setConfirm(m.id)} style={{padding:'4px 8px'}}><Trash2 size={13}/></Btn>
+<div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+<Btn variant="ghost" onClick={() => openEdit(m)}><Edit2 size={14} /></Btn>
+<Btn variant="ghost" className="del" onClick={() => setConfirm(m.id)}><Trash2 size={14} /></Btn>
 </div>
 </div>
 ))}
@@ -827,21 +771,9 @@ return (
 </Field>
 
 {/* ── FUNÇÕES: Instrumentais ── */}
-<Field label="Funções — Instrumentos">
+<Field label="Funções">
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
-{ROLES_INSTRUMENTAL.map(r => (
-<div key={r.key} className={`role-chip${form.roles.includes(r.key) ? ' selected' : ''}`} onClick={() => toggleRole(r.key)}>
-<span>{r.emoji}</span>{r.label}
-{form.roles.includes(r.key) && <Check size={13} style={{ marginLeft: 'auto' }} />}
-</div>
-))}
-</div>
-</Field>
-
-{/* ── FUNÇÕES: Vocais ── */}
-<Field label="Funções — Vocal">
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
-{ROLES_VOCAL.map(r => (
+{ROLES.map(r => (
 <div key={r.key} className={`role-chip${form.roles.includes(r.key) ? ' selected' : ''}`} onClick={() => toggleRole(r.key)}>
 <span>{r.emoji}</span>{r.label}
 {form.roles.includes(r.key) && <Check size={13} style={{ marginLeft: 'auto' }} />}
@@ -885,10 +817,10 @@ const del = id => { setGroups(p => p.filter(g => g.id !== id)); setConfirm(null)
 const filteredM = members.filter(m => m.name.toLowerCase().includes(mSearch.toLowerCase()));
 
 return (
-<div style={{ padding: '24px 16px', maxWidth: 860, boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
+<div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, color: C.accent }}>Grupos</h1>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Grupos</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{groups.length} grupo{groups.length !== 1 ? 's' : ''}</p>
 </div>
 <Btn onClick={openAdd}><Plus size={15} />Novo Grupo</Btn>
@@ -1015,10 +947,10 @@ setImportModal(false); setPreview([]);
 const filtered = songs.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
 
 return (
-<div style={{ padding: '24px 16px', maxWidth: 860, boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
+<div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, color: C.accent }}>Repertório</h1>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Repertório</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{songs.length} música{songs.length !== 1 ? 's' : ''}</p>
 </div>
 <div style={{ display: 'flex', gap: 8 }}>
@@ -1041,7 +973,7 @@ const hues = [200, 260, 320, 30, 160, 50, 290, 10];
 const hue = hues[i % hues.length];
 return (
 <div key={s.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-<div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: `hsl(${hue},60%,22%)`, border: `1.5px solid hsl(${hue},60%,35%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: `hsl(${hue},80%,65%)`, fontFamily: 'Montserrat, sans-serif' }}>
+<div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: `hsl(${hue},60%,22%)`, border: `1.5px solid hsl(${hue},60%,35%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: `hsl(${hue},80%,65%)`, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
 {s.name.trim()[0]?.toUpperCase() || '🎵'}
 </div>
 <div style={{ flex: 1, minWidth: 0 }}>
@@ -1215,10 +1147,10 @@ const scaleMembers = sc => (sc.scaleMembers || []).map(sm => ({ ...sm, member: m
 const scaleSongs = sc => (sc.scaleSongs || []).map(ss => ({ ...ss, song: songs.find(s => s.id === ss.songId) })).filter(x => x.song);
 
 return (
-<div style={{ padding: '24px 16px', maxWidth: 860, boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
+<div style={{ padding: 24, maxWidth: 860 }}>
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
 <div>
-<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, color: C.accent }}>Escalas</h1>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent }}>Escalas</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>{scales.length} escala{scales.length !== 1 ? 1 ? 's' : '' : 's'}</p>
 </div>
 <Btn onClick={openAdd}><Plus size={15} />Nova Escala</Btn>
@@ -1231,39 +1163,36 @@ const today = new Date().toISOString().split('T')[0];
 const active   = [...scales].filter(s => s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
 const archived = [...scales].filter(s => s.date < today).sort((a, b) => b.date.localeCompare(a.date));
 
-const months = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
-    const ScaleCard = ({ sc }) => {
-      const g=groups.find(x=>x.id===sc.groupId);
-      const sm=scaleMembers(sc);
-      const ss=scaleSongs(sc);
-      const[,mm,dd]=sc.date.split('-');
-      return(
-        <div className="scale-card-c2">
-          <div className="scale-date-block">
-            <div className="scale-date-day">{dd}</div>
-            <div className="scale-date-mon">{months[parseInt(mm)-1]}</div>
-          </div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:8,marginBottom:5}}>
-              <span style={{fontWeight:700,color:C.textPrimary,fontSize:15}}>{sc.name}</span>
-              {g&&<span className="tag">{g.name}</span>}
-            </div>
-            <div style={{fontSize:12,color:C.textSecondary,marginBottom:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-              {sm.slice(0,5).map(x => shortName(x.member.name)).join(' · ')}
-              {sm.length>5 && ` · +${sm.length-5}`}
-            </div>
-            <div style={{fontSize:12,color:C.textSecondary}}>{ss.length} música{ss.length!==1?'s':''}</div>
-          </div>
-          <div style={{display:'flex',gap:2,flexShrink:0}}>
-            <Btn variant="ghost" onClick={()=>setViewModal(sc)}><Eye size={14}/></Btn>
-            <Btn variant="ghost" onClick={()=>openEdit(sc)}><Edit2 size={14}/></Btn>
-            <Btn variant="ghost" style={{color:'#1FAD4A'}} onClick={()=>shareToWhatsApp(sc,members,groups,songs)}><Share2 size={14}/></Btn>
-            <Btn variant="ghost" className="del" onClick={()=>setConfirm(sc.id)}><Trash2 size={14}/></Btn>
-          </div>
-        </div>
-      );
-    };
-    return (
+const ScaleCard = ({ sc }) => {
+const g = groups.find(x => x.id === sc.groupId);
+const sm = scaleMembers(sc);
+const ss = scaleSongs(sc);
+return (
+<div className="card">
+<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+<div style={{ flex: 1, minWidth: 0 }}>
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+<span style={{ fontWeight: 700, color: C.textPrimary, fontSize: 15 }}>{sc.name}</span>
+{g && <span className="tag">{g.name}</span>}
+</div>
+<div style={{ color: C.textSecondary, fontSize: 12, marginBottom: 10 }}>📅 {fmtDate(sc.date)}</div>
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+{sm.map(x => <span key={x.memberId} className={`tag${x.isSub ? ' sub' : ''}`}>{x.isSub ? '↔ ' : ''}{x.member.name}</span>)}
+</div>
+<div style={{ fontSize: 12, color: C.textSecondary }}>{ss.length} música{ss.length !== 1 ? 's' : ''}</div>
+</div>
+<div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+<Btn variant="ghost" onClick={() => setViewModal(sc)} style={{ fontSize: 12 }}><Eye size={14} /></Btn>
+<Btn variant="ghost" onClick={() => openEdit(sc)}><Edit2 size={14} /></Btn>
+<Btn variant="ghost" style={{ color: '#1FAD4A' }} onClick={() => shareToWhatsApp(sc, members, groups, songs)}><Share2 size={14} /></Btn>
+<Btn variant="ghost" className="del" onClick={() => setConfirm(sc.id)}><Trash2 size={14} /></Btn>
+</div>
+</div>
+</div>
+);
+};
+
+return (
 <div style={{ display: 'grid', gap: 16 }}>
 {active.length > 0 && (
 <div>
@@ -1329,7 +1258,7 @@ if (!soloist) return null;
 const vocalRole = (soloist.roles || []).find(r => ['tenor','soprano','contralto'].includes(r));
 const roleLabel = vocalRole ? ROLES.find(ro => ro.key === vocalRole)?.label : '';
 return (
-<span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 6, padding: '2px 8px' }}>
+<span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 6, padding: '2px 8px' }}>
 🎙️ Solo: {soloist.name}{roleLabel ? ` · ${roleLabel}` : ''}
 </span>
 );
@@ -1495,15 +1424,16 @@ onChange={e => updateSong(ss.songId, 'key', e.target.value)} style={{ fontSize: 
 <input className="input-field" placeholder="Observações..." value={ss.notes}
 onChange={e => updateSong(ss.songId, 'notes', e.target.value)} style={{ fontSize: 12 }} />
 </div>
-{/* ── Seleção de solista: apenas membros cuja FUNÇÃO NA ESCALA é vocal ── */}
+{/* ── Seleção de solista: membros escalados com Tenor/Soprano/Contralto no cadastro ── */}
 {(() => {
 const VOCAL_KEYS = ['tenor', 'soprano', 'contralto'];
 const vocalists = form.scaleMembers
-.filter(sm => VOCAL_KEYS.includes(sm.role))
 .map(sm => {
 const m = members.find(x => x.id === sm.memberId);
 if (!m) return null;
-const roleLabel = ROLES.find(r => r.key === sm.role)?.label || '';
+const vocalRole = (m.roles || []).find(r => VOCAL_KEYS.includes(r));
+if (!vocalRole) return null;
+const roleLabel = ROLES.find(r => r.key === vocalRole)?.label || '';
 return { member: m, roleLabel };
 })
 .filter(Boolean);
@@ -1563,7 +1493,7 @@ const max = ranked[0]?.n || 1;
 return (
 <div style={{ padding: 24, maxWidth: 760 }}>
 <div style={{ marginBottom: 24 }}>
-<h1 style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 21, color: C.accent, marginBottom: 3 }}>Relatórios</h1>
+<h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 21, fontWeight: 800, color: C.accent, marginBottom: 3 }}>Relatórios</h1>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>Músicas mais escaladas no período selecionado</p>
 </div>
 
@@ -1609,7 +1539,7 @@ border: `1px solid ${i < 3 ? C.accent + '44' : C.border}`,
 </div>
 <div className="bar-bg"><div className="bar-fill" style={{ width: `${(r.n / max) * 100}%` }} /></div>
 </div>
-<div style={{ fontWeight: 700, color: C.accent, fontSize: 20, fontFamily: 'Montserrat, sans-serif', flexShrink: 0 }}>{r.n}</div>
+<div style={{ fontWeight: 700, color: C.accent, fontSize: 20, fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800, flexShrink: 0 }}>{r.n}</div>
 </div>
 </div>
 ))}
@@ -1654,7 +1584,18 @@ const loadAll = async () => {
 const [m, g, s, sc] = await Promise.all([
 dbGet('members'), dbGet('groups'), dbGet('songs'), dbGet('scales')
 ]);
-if (m) setMembers(m);
+if (m) {
+// Remove função 'vocal' de todos os membros e salva se necessário
+const cleaned = m.map(mb => ({
+...mb,
+roles: (mb.roles || []).filter(r => r !== 'vocal')
+}));
+const hadVocal = m.some(mb => (mb.roles || []).includes('vocal'));
+setMembers(cleaned);
+if (hadVocal) await dbSet('members', cleaned);
+} else {
+setMembers([]);
+}
 if (g) setGroups(g);
 if (s) setSongs(s);
 if (sc) setScales(sc);
@@ -1719,7 +1660,7 @@ if (!autenticado) return (
 <div style={{ width: 80, height: 80, borderRadius: '50%', margin: '0 auto 16px', overflow: 'hidden', border: `2px solid ${C.accent}`, boxShadow: `0 8px 24px ${C.accentGlow}` }}>
 <img src={LOGO_HOME} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </div>
-<h2 style={{ fontFamily: 'Montserrat, sans-serif', color: C.accent, marginBottom: 8, fontSize: 22 }}>Acesso Restrito</h2>
+<h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800, color: C.accent, marginBottom: 8, fontSize: 22 }}>Acesso Restrito</h2>
 <p style={{ color: C.textSecondary, fontSize: 13 }}>Insira o código de acesso da equipe</p>
 </div>
 <div style={{ width: '100%', maxWidth: 280 }}>
@@ -1738,10 +1679,8 @@ return (
 <style>{GLOBAL_CSS}</style>
 <div className={`sidebar${sideOpen ? ' open' : ''}`}>
 <div style={{ padding: '16px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-<div style={{width:40,height:40,borderRadius:12,overflow:'hidden',border:'2px solid rgba(192,132,252,0.35)',flexShrink:0}}>
-<img src={LOGO_SIDEBAR} alt="Logo" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-</div>
-<div style={{ fontFamily: 'Montserrat, sans-serif', color: C.accent, fontSize: 13, fontWeight: 900, lineHeight: 1.3 }}>
+<img src={LOGO_SIDEBAR} alt="Logo" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+<div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.accent, fontSize: 13, fontWeight: 800, lineHeight: 1.3 }}>
 Oitava Music<br />Betim
 </div>
 </div>
@@ -1752,24 +1691,19 @@ Oitava Music<br />Betim
 </div>
 ))}
 </nav>
-<div className="sidebar-mini-stats">
-<div className="sidebar-mini-row"><span className="sidebar-mini-label">Membros</span><span className="sidebar-mini-val">{members.length}</span></div>
-<div className="sidebar-mini-row"><span className="sidebar-mini-label">Músicas</span><span className="sidebar-mini-val">{songs.length}</span></div>
-<div className="sidebar-mini-row"><span className="sidebar-mini-label">Escalas ativas</span><span className="sidebar-mini-val">{scales.filter(s=>s.date>=new Date().toISOString().split('T')[0]).length}</span></div>
-</div>
-<div style={{ padding: '10px 16px', borderTop: `1px solid rgba(192,132,252,0.10)`, fontSize: 11, color: C.textSecondary, lineHeight: 1.5 }}>
-☁️ Sincronizado entre todos os dispositivos
+<div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.textSecondary, lineHeight: 1.5 }}>
+☁️ Sincronizado entre<br />todos os dispositivos
 </div>
 </div>
 
 {sideOpen && <div onClick={() => setSideOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 199 }} />}
 
 <div className="main-content" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', width: '100%' }}>
-<div style={{ height: 54, background: 'rgba(30,21,37,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(192,132,252,0.12)', display: 'flex', alignItems: 'center', padding: '0 18px', gap: 12, position: 'sticky', top: 0, zIndex: 100 }}>
+<div style={{ height: 54, background: 'rgba(7,9,26,0.90)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(167,139,250,0.10)', display: 'flex', alignItems: 'center', padding: '0 18px', gap: 12, position: 'sticky', top: 0, zIndex: 100 }}>
 <button className="topbar-menu-btn btn-ghost btn" onClick={() => setSideOpen(x => !x)} style={{ padding: '6px 8px' }}>
 <Menu size={19} />
 </button>
-<span style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 900, color: C.accent, fontSize: 13, flex: 1 }}>
+<span style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800, color: C.accent, fontSize: 13, flex: 1 }}>
 {current?.emoji} {current?.label}
 </span>
 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: syncing ? C.textSecondary : syncOk === true ? C.success : syncOk === false ? C.danger : C.textSecondary }}>
