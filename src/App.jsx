@@ -27,6 +27,7 @@ danger:       '#f87171',
 success:      '#4ade80',
 blue:         '#60a5fa',
 };
+
 const LIGHT = {
 bg:           '#F0F2F8',
 bgSecondary:  '#FFFFFF',
@@ -37,7 +38,7 @@ accent:       '#6339ff',
 accentAlt:    '#d946a8',
 accentDark:   '#4620cc',
 accentGlow:   'rgba(99,57,255,0.10)',
-accentGlow2:  'rgba(217,70,168,0.08)',
+accentGlow2:  'rgba(217,70,168,0.06)',
 border:       '#D8DCF0',
 textPrimary:  '#111827',
 textSecondary:'#6B7280',
@@ -46,10 +47,14 @@ success:      '#16A34A',
 blue:         '#2563EB',
 };
 
-// C is resolved at render time via the App state; components read window.__appTheme
-// For module-level references (CSS string, etc.) we keep a mutable ref:
-let _themeRef = { C: DARK };
-
+// Mutable reference — App.applyTheme() overwrites these keys in-place
+// so every component that reads C always gets the current theme
+// without needing props or context.
+const C = { ...DARK };
+function applyTheme(dark) {
+  const src = dark ? DARK : LIGHT;
+  Object.keys(src).forEach(k => { C[k] = src[k]; });
+}
 
 const ROLES = [
 { key: 'bateria',   label: 'Bateria',   emoji: '🥁' },
@@ -270,34 +275,6 @@ const GLOBAL_CSS = `
  .birthday-chip:hover { border-color: rgba(167,139,250,0.25); }
 
  @keyframes spin { to { transform: rotate(360deg); } }
-`;
-
-const LIGHT_CSS_OVERRIDE = `
-  html, body {
-    background: #F0F2F8 !important;
-    background-image: radial-gradient(ellipse 60% 40% at 15% 0%, rgba(99,57,255,0.05) 0%, transparent 70%),
-                      radial-gradient(ellipse 40% 50% at 85% 80%, rgba(217,70,168,0.04) 0%, transparent 70%) !important;
-  }
-  .sidebar { background: rgba(255,255,255,0.95) !important; border-right-color: #D8DCF0 !important; }
-  .nav-item:hover { background: rgba(0,0,0,0.04) !important; }
-  .nav-item.active { background: rgba(99,57,255,0.08) !important; }
-  .card { background: rgba(255,255,255,0.9) !important; border-color: #D8DCF0 !important; }
-  .card:hover { border-color: rgba(99,57,255,0.30) !important; }
-  .input-field { background: #F5F7FC !important; border-color: #D8DCF0 !important; color: #111827 !important; }
-  .input-field:focus { border-color: #6339ff !important; }
-  .modal-box { background: #FFFFFF !important; border-color: rgba(99,57,255,0.15) !important; }
-  .modal-header { background: rgba(99,57,255,0.04) !important; border-bottom-color: #E8EBF4 !important; }
-  .modal-overlay { background: rgba(30,20,60,0.40) !important; }
-  .song-item { background: #E8EBF4 !important; color: #111827 !important; }
-  .song-item:hover { background: rgba(99,57,255,0.08) !important; }
-  .scale-song-row { background: #E8EBF4 !important; border-color: #D8DCF0 !important; }
-  .btn-secondary { color: #6B7280 !important; border-color: #D8DCF0 !important; }
-  .btn-ghost { color: #6B7280 !important; }
-  .btn-ghost:hover { color: #111827 !important; background: rgba(0,0,0,0.04) !important; }
-  .section-header { color: #6B7280 !important; }
-  .field-label { color: #6B7280 !important; }
-  .bar-bg { background: #E8EBF4 !important; }
-  ::-webkit-scrollbar-thumb { background: #D8DCF0 !important; }
 `;
 
 // ═══════════════════════════════════
@@ -1630,16 +1607,18 @@ const [syncOk, setSyncOk]     = useState(null);
 const [autenticado, setAutenticado] = useState(false);
 const [codigo, setCodigo] = useState('');
 const [dark, setDark] = useState(() => {
-try { return localStorage.getItem('omTheme') !== 'light'; } catch { return true; }
+  try { return localStorage.getItem('omTheme') !== 'light'; } catch { return true; }
 });
-const C = dark ? DARK : LIGHT;
-_themeRef.C = C;
 
-const toggleTheme = () => setDark(d => {
-const next = !d;
-try { localStorage.setItem('omTheme', next ? 'dark' : 'light'); } catch {}
-return next;
-});
+// Keep module-level C in sync before every render
+applyTheme(dark);
+
+const toggleTheme = () => {
+  const next = !dark;
+  applyTheme(next);
+  try { localStorage.setItem('omTheme', next ? 'dark' : 'light'); } catch {}
+  setDark(next);
+};
 
 useEffect(() => {
 window.history.replaceState({ page: 'home' }, '', '#home');
@@ -1715,7 +1694,7 @@ const current = NAV.find(n => n.id === page);
 
 if (!ready) return (
 <>
-<style>{GLOBAL_CSS}</style>{!dark && <style>{LIGHT_CSS_OVERRIDE}</style>}
+<style>{GLOBAL_CSS}</style>
 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', color: C.textSecondary, gap: 16 }}>
 <img src={LOGO_HOME} alt="" style={{ width: 64, height: 64, borderRadius: '50%', border: `2px solid ${C.accent}` }} />
 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1729,7 +1708,7 @@ Conectando ao Firebase...
 
 if (!autenticado) return (
 <>
-<style>{GLOBAL_CSS}</style>{!dark && <style>{LIGHT_CSS_OVERRIDE}</style>}
+<style>{GLOBAL_CSS}</style>
 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', padding: 24, background: C.bg }}>
 <div style={{ textAlign: 'center', marginBottom: 32 }}>
 <div style={{ width: 80, height: 80, borderRadius: '50%', margin: '0 auto 16px', overflow: 'hidden', border: `2px solid ${C.accent}`, boxShadow: `0 8px 24px ${C.accentGlow}` }}>
@@ -1751,7 +1730,7 @@ if (codigo === "8itav@123") { setAutenticado(true); } else { alert("Código inco
 
 return (
 <>
-<style>{GLOBAL_CSS}</style>{!dark && <style>{LIGHT_CSS_OVERRIDE}</style>}
+<style>{GLOBAL_CSS}</style>
 <div className={`sidebar${sideOpen ? ' open' : ''}`}>
 <div style={{ padding: '16px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
 <img src={LOGO_SIDEBAR} alt="Logo" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
@@ -1770,23 +1749,20 @@ Oitava Music<br />Betim
 <button
 onClick={toggleTheme}
 style={{
-width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-padding: '9px 12px', borderRadius: 10, marginBottom: 10,
-background: 'rgba(255,255,255,0.04)',
-border: `1px solid ${C.border}`,
-color: C.textSecondary, cursor: 'pointer',
-fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif",
-fontWeight: 600, transition: 'all 0.15s',
+  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+  padding: '9px 12px', borderRadius: 10, marginBottom: 10,
+  background: 'rgba(255,255,255,0.04)',
+  border: `1px solid ${C.border}`,
+  color: C.textSecondary, cursor: 'pointer',
+  fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif",
+  fontWeight: 600,
 }}
 >
 {dark ? <Sun size={15} color={C.accent} /> : <Moon size={15} color={C.accent} />}
 {dark ? 'Tema Claro' : 'Tema Escuro'}
-<span style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 8px', borderRadius: 20, background: C.accentGlow, color: C.accent, border: `1px solid ${C.accent}44` }}>
-{dark ? '☀️' : '🌙'}
-</span>
 </button>
 <div style={{ fontSize: 11, color: C.textSecondary, lineHeight: 1.5, paddingLeft: 2 }}>
-☁️ Sincronizado entre<br />todos os dispositivos
+  ☁️ Sincronizado entre<br />todos os dispositivos
 </div>
 </div>
 </div>
@@ -1802,8 +1778,8 @@ fontWeight: 600, transition: 'all 0.15s',
 {current?.emoji} {current?.label}
 </span>
 <button onClick={toggleTheme} title={dark ? 'Tema Claro' : 'Tema Escuro'}
-style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textSecondary, display: 'flex', alignItems: 'center', padding: '4px 6px', borderRadius: 6 }}>
-{dark ? <Sun size={16} /> : <Moon size={16} />}
+style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textSecondary, display: 'flex', alignItems: 'center', padding: '4px 8px', borderRadius: 8 }}>
+{dark ? <Sun size={17} /> : <Moon size={17} />}
 </button>
 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: syncing ? C.textSecondary : syncOk === true ? C.success : syncOk === false ? C.danger : C.textSecondary }}>
 {syncing
@@ -1822,6 +1798,33 @@ style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textSec
 {page === 'reports' && <ReportsPage scales={scales} songs={songs} />}
 </div>
 </div>
+
+{/* Dynamic body background for light mode */}
+{!dark && <style>{`
+  html, body {
+    background: #F0F2F8 !important;
+    background-image: none !important;
+  }
+  .sidebar { background: rgba(255,255,255,0.97) !important; }
+  .card { background: rgba(255,255,255,0.92) !important; border-color: #D8DCF0 !important; }
+  .card:hover { border-color: rgba(99,57,255,0.25) !important; }
+  .input-field { background: #F5F7FC !important; border-color: #D8DCF0 !important; color: #111827 !important; }
+  .modal-box { background: #FFFFFF !important; border-color: rgba(99,57,255,0.15) !important; }
+  .modal-header { background: rgba(99,57,255,0.04) !important; }
+  .modal-overlay { background: rgba(20,10,50,0.40) !important; }
+  .song-item { background: #E8EBF4 !important; color: #111827 !important; }
+  .song-item:hover { background: rgba(99,57,255,0.08) !important; }
+  .scale-song-row { background: #E8EBF4 !important; border-color: #D8DCF0 !important; }
+  .btn-ghost { color: #6B7280 !important; }
+  .btn-ghost:hover { color: #111827 !important; background: rgba(0,0,0,0.05) !important; }
+  .btn-secondary { border-color: #D8DCF0 !important; }
+  .bar-bg { background: #E8EBF4 !important; }
+  .nav-item:hover { background: rgba(0,0,0,0.04) !important; color: #374151 !important; }
+  .nav-item.active { background: rgba(99,57,255,0.08) !important; }
+  .role-chip { border-color: #D8DCF0 !important; }
+  .member-pick { border-color: #D8DCF0 !important; }
+  .member-pick:hover { background: rgba(99,57,255,0.06) !important; }
+`}</style>}
 </>
 );
 }
