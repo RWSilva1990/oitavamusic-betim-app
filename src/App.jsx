@@ -4,7 +4,7 @@ import {
   Users, Music, BookOpen, Calendar, BarChart2,
   Plus, Edit2, Trash2, X, Check, Search, Youtube,
   Upload, Menu, AlertCircle, Eye, Share2, Cake, Clock
-} from "lucide-react";
+} from "lucide-react"; 
 
 // ═══════════════════════════════════
 // THEME & CONSTANTS (Refatorado para Variáveis CSS)
