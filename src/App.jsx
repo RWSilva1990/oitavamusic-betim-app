@@ -3,13 +3,13 @@ import Papa from "papaparse";
 import {
 Users, Music, BookOpen, Calendar, BarChart2,
 Plus, Edit2, Trash2, X, Check, Search, Youtube,
-Upload, Menu, AlertCircle, Eye, Share2, Cake, Clock, Sun, Moon
+Upload, Menu, AlertCircle, Eye, Share2, Cake, Clock
 } from "lucide-react";
 
 // ═══════════════════════════════════
 // THEME & CONSTANTS
 // ═══════════════════════════════════
-const DARK = {
+const C = {
 bg:           '#04050d',
 bgSecondary:  '#07091a',
 bgCard:       '#0c0e1f',
@@ -27,34 +27,6 @@ danger:       '#f87171',
 success:      '#4ade80',
 blue:         '#60a5fa',
 };
-
-const LIGHT = {
-bg:           '#F0F2F8',
-bgSecondary:  '#FFFFFF',
-bgCard:       '#FFFFFF',
-bgHover:      '#E8EBF4',
-bgInput:      '#F5F7FC',
-accent:       '#6339ff',
-accentAlt:    '#d946a8',
-accentDark:   '#4620cc',
-accentGlow:   'rgba(99,57,255,0.10)',
-accentGlow2:  'rgba(217,70,168,0.06)',
-border:       '#D8DCF0',
-textPrimary:  '#111827',
-textSecondary:'#6B7280',
-danger:       '#DC2626',
-success:      '#16A34A',
-blue:         '#2563EB',
-};
-
-// Mutable reference — App.applyTheme() overwrites these keys in-place
-// so every component that reads C always gets the current theme
-// without needing props or context.
-const C = { ...DARK };
-function applyTheme(dark) {
-  const src = dark ? DARK : LIGHT;
-  Object.keys(src).forEach(k => { C[k] = src[k]; });
-}
 
 const ROLES = [
 { key: 'bateria',   label: 'Bateria',   emoji: '🥁' },
@@ -339,7 +311,7 @@ const activeRoles = x.roles || (x.role ? [x.role] : []);
 const roleLabel = activeRoles.length > 0
 ? activeRoles.map(r => { const ro = ROLES.find(ro => ro.key === r); return ro ? `${ro.emoji} ${ro.label}` : null; }).filter(Boolean).join(' + ')
 : ((x.member.roles || []).map(r => ROLES.find(ro => ro.key === r)?.label).filter(Boolean).join(', '));
-txt += `• ${shortName(x.member.name)}${roleLabel ? ` — ${roleLabel}` : ''}\n`;
+txt += `• ${shortName(x.member.name)}${x.isSub ? ' ↔ (substituto)' : ''}${roleLabel ? ` — ${roleLabel}` : ''}\n`;
 });
 txt += `\n`;
 }
@@ -353,35 +325,39 @@ return m ? m[1] : null;
 
 if (scSongs.length > 0) {
 txt += `*🎵 Repertório:*\n`;
-  
-// Criamos um array para guardar os IDs de todos os vídeos da escala
+
 const playlistIds = [];
 
 scSongs.forEach((x, i) => {
-txt += `${i + 1}. *${x.song.name}*`;
-if (x.key) txt += ` — Tom: ${x.key}`;
-if (x.song.bpm) txt += ` | BPM: ${x.song.bpm}`;
+// Nome numerado em negrito — linha própria
+txt += `\n*${i + 1}. ${x.song.name}*\n`;
+
+// Tom e BPM na mesma linha (só aparece se preenchido)
+const tomBpm = [
+x.key ? `Tom: *${x.key}*` : null,
+x.song.bpm ? `BPM: *${x.song.bpm}*` : null,
+].filter(Boolean).join('  |  ');
+if (tomBpm) txt += `${tomBpm}\n`;
+
+// Solo
 if (x.soloMemberId) {
 const soloist = members.find(m => m.id === x.soloMemberId);
 if (soloist) {
 const vocalRole = (soloist.roles || []).find(r => ['tenor','soprano','contralto'].includes(r));
 const roleLabel = vocalRole ? ROLES.find(ro => ro.key === vocalRole)?.label : '';
-txt += ` | 🎙️ Solo: ${shortName(soloist.name)}${roleLabel ? ` (${roleLabel})` : ''}`;
+txt += `🎙️ Solo: *${shortName(soloist.name)}*${roleLabel ? ` (${roleLabel})` : ''}\n`;
 }
 }
-if (x.notes) txt += ` | ${x.notes}`;
 
-// Em vez de adicionar o link no texto, guardamos o ID na nossa lista
+// Observações
+if (x.notes) txt += `Obs: ${x.notes}\n`;
+
+// Coleta ID do YouTube para a playlist
 const ytId = getYtId(x.song.youtubeUrl);
-if (ytId) {
-playlistIds.push(ytId);
-}
-
-// Quebra a linha para a próxima música
-txt += `\n`;
+if (ytId) playlistIds.push(ytId);
 });
 
-// Se encontramos algum ID de vídeo, geramos o link da Playlist no final
+// Playlist no final
 if (playlistIds.length > 0) {
 const joinedIds = playlistIds.join(',');
 txt += `\n▶️ *Playlist:* https://www.youtube.com/watch_videos?video_ids=${joinedIds}\n`;
@@ -1218,7 +1194,7 @@ return (
 </div>
 <div style={{ color: C.textSecondary, fontSize: 12, marginBottom: 10 }}>📅 {fmtDate(sc.date)}</div>
 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-{sm.map(x => <span key={x.memberId} className="tag">{x.member.name}</span>)}
+{sm.map(x => <span key={x.memberId} className={`tag${x.isSub ? ' sub' : ''}`}>{x.isSub ? '↔ ' : ''}{x.member.name}</span>)}
 </div>
 <div style={{ fontSize: 12, color: C.textSecondary }}>{ss.length} música{ss.length !== 1 ? 's' : ''}</div>
 </div>
@@ -1267,10 +1243,10 @@ Nenhuma escala agendada
 const activeRoles = x.roles || (x.role ? [x.role] : []);
 const roleLabels = activeRoles.map(r => ROLES.find(ro => ro.key === r)).filter(Boolean);
 return (
-<div key={x.memberId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: C.accentGlow, borderRadius: 20, border: `1px solid ${C.accent + '44'}` }}>
+<div key={x.memberId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: x.isSub ? 'rgba(79,128,225,0.1)' : C.accentGlow, borderRadius: 20, border: `1px solid ${x.isSub ? C.blue + '44' : C.accent + '44'}` }}>
 <Avatar member={x.member} size={24} />
 <div>
-<span style={{ fontSize: 13, color: C.accent }}>{x.member.name}</span>
+<span style={{ fontSize: 13, color: x.isSub ? C.blue : C.accent }}>{x.isSub ? '↔ ' : ''}{x.member.name}</span>
 {roleLabels.length > 0 && (
 <span style={{ fontSize: 11, color: C.textSecondary, marginLeft: 4 }}>
 · {roleLabels.map(r => `${r.emoji} ${r.label}`).join(', ')}
@@ -1359,10 +1335,10 @@ if (!m) return null;
 const memberRoles = (m.roles || []).map(r => ROLES.find(x => x.key === r)).filter(Boolean);
 const activeRoles = sm.roles || (sm.role ? [sm.role] : []);
 return (
-<div key={sm.memberId} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', marginBottom: 6, background: C.accentGlow, border: `1px solid ${C.accent + '33'}`, borderRadius: 10 }}>
+<div key={sm.memberId} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', marginBottom: 6, background: sm.isSub ? 'rgba(79,128,225,0.08)' : C.accentGlow, border: `1px solid ${sm.isSub ? C.blue + '44' : C.accent + '33'}`, borderRadius: 10 }}>
 <Avatar member={m} size={28} style={{ flexShrink: 0, marginTop: 2 }} />
 <div style={{ flex: 1, minWidth: 0 }}>
-<div style={{ fontSize: 13, fontWeight: 600, color: C.accent, marginBottom: 5 }}>{m.name}</div>
+<div style={{ fontSize: 13, fontWeight: 600, color: sm.isSub ? C.blue : C.accent, marginBottom: 5 }}>{sm.isSub ? '↔ ' : ''}{m.name}</div>
 {memberRoles.length > 0 ? (
 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
 {memberRoles.map(r => {
@@ -1396,7 +1372,7 @@ border: `1px solid ${active ? C.accent + '88' : C.border}`,
 );
 })}
 <div style={{ border: `1px dashed ${C.border}`, borderRadius: 8, padding: 10 }}>
-<div style={{ fontSize: 12, color: C.textSecondary, marginBottom: 7 }}>Adicionar membro:</div>
+<div style={{ fontSize: 12, color: C.textSecondary, marginBottom: 7 }}>Adicionar membro / substituto:</div>
 <div style={{ position: 'relative', marginBottom: 7 }}>
 <Search size={12} color={C.textSecondary} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)' }} />
 <input className="input-field" placeholder="Buscar..." value={mSearch} onChange={e => setMSearch(e.target.value)} style={{ paddingLeft: 26, fontSize: 12 }} />
@@ -1606,19 +1582,6 @@ const [syncing, setSyncing]   = useState(false);
 const [syncOk, setSyncOk]     = useState(null);
 const [autenticado, setAutenticado] = useState(false);
 const [codigo, setCodigo] = useState('');
-const [dark, setDark] = useState(() => {
-  try { return localStorage.getItem('omTheme') !== 'light'; } catch { return true; }
-});
-
-// Keep module-level C in sync before every render
-applyTheme(dark);
-
-const toggleTheme = () => {
-  const next = !dark;
-  applyTheme(next);
-  try { localStorage.setItem('omTheme', next ? 'dark' : 'light'); } catch {}
-  setDark(next);
-};
 
 useEffect(() => {
 window.history.replaceState({ page: 'home' }, '', '#home');
@@ -1745,25 +1708,8 @@ Oitava Music<br />Betim
 </div>
 ))}
 </nav>
-<div style={{ padding: '10px 10px 14px', borderTop: `1px solid ${C.border}` }}>
-<button
-onClick={toggleTheme}
-style={{
-  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-  padding: '9px 12px', borderRadius: 10, marginBottom: 10,
-  background: 'rgba(255,255,255,0.04)',
-  border: `1px solid ${C.border}`,
-  color: C.textSecondary, cursor: 'pointer',
-  fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif",
-  fontWeight: 600,
-}}
->
-{dark ? <Sun size={15} color={C.accent} /> : <Moon size={15} color={C.accent} />}
-{dark ? 'Tema Claro' : 'Tema Escuro'}
-</button>
-<div style={{ fontSize: 11, color: C.textSecondary, lineHeight: 1.5, paddingLeft: 2 }}>
-  ☁️ Sincronizado entre<br />todos os dispositivos
-</div>
+<div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.textSecondary, lineHeight: 1.5 }}>
+☁️ Sincronizado entre<br />todos os dispositivos
 </div>
 </div>
 
@@ -1777,10 +1723,6 @@ style={{
 <span style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 800, color: C.accent, fontSize: 13, flex: 1 }}>
 {current?.emoji} {current?.label}
 </span>
-<button onClick={toggleTheme} title={dark ? 'Tema Claro' : 'Tema Escuro'}
-style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textSecondary, display: 'flex', alignItems: 'center', padding: '4px 8px', borderRadius: 8 }}>
-{dark ? <Sun size={17} /> : <Moon size={17} />}
-</button>
 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: syncing ? C.textSecondary : syncOk === true ? C.success : syncOk === false ? C.danger : C.textSecondary }}>
 {syncing
 ? <div style={{ width: 8, height: 8, borderRadius: '50%', border: `1.5px solid ${C.textSecondary}44`, borderTopColor: C.textSecondary, animation: 'spin 0.8s linear infinite' }} />
@@ -1798,33 +1740,6 @@ style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textSec
 {page === 'reports' && <ReportsPage scales={scales} songs={songs} />}
 </div>
 </div>
-
-{/* Dynamic body background for light mode */}
-{!dark && <style>{`
-  html, body {
-    background: #F0F2F8 !important;
-    background-image: none !important;
-  }
-  .sidebar { background: rgba(255,255,255,0.97) !important; }
-  .card { background: rgba(255,255,255,0.92) !important; border-color: #D8DCF0 !important; }
-  .card:hover { border-color: rgba(99,57,255,0.25) !important; }
-  .input-field { background: #F5F7FC !important; border-color: #D8DCF0 !important; color: #111827 !important; }
-  .modal-box { background: #FFFFFF !important; border-color: rgba(99,57,255,0.15) !important; }
-  .modal-header { background: rgba(99,57,255,0.04) !important; }
-  .modal-overlay { background: rgba(20,10,50,0.40) !important; }
-  .song-item { background: #E8EBF4 !important; color: #111827 !important; }
-  .song-item:hover { background: rgba(99,57,255,0.08) !important; }
-  .scale-song-row { background: #E8EBF4 !important; border-color: #D8DCF0 !important; }
-  .btn-ghost { color: #6B7280 !important; }
-  .btn-ghost:hover { color: #111827 !important; background: rgba(0,0,0,0.05) !important; }
-  .btn-secondary { border-color: #D8DCF0 !important; }
-  .bar-bg { background: #E8EBF4 !important; }
-  .nav-item:hover { background: rgba(0,0,0,0.04) !important; color: #374151 !important; }
-  .nav-item.active { background: rgba(99,57,255,0.08) !important; }
-  .role-chip { border-color: #D8DCF0 !important; }
-  .member-pick { border-color: #D8DCF0 !important; }
-  .member-pick:hover { background: rgba(99,57,255,0.06) !important; }
-`}</style>}
 </>
 );
 }
