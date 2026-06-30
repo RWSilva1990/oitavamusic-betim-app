@@ -47,8 +47,8 @@ success:      '#16A34A',
 blue:         '#2563EB',
 };
 
-// Objeto mutável — App chama applyTheme() antes de cada render,
-// atualizando C no lugar. Todos os componentes leem C do módulo normalmente.
+// Objeto mutável — App chama applyTheme() antes de cada render.
+// Todos os componentes leem C normalmente do módulo.
 const C = { ...DARK };
 function applyTheme(isDark) {
   const src = isDark ? DARK : LIGHT;
@@ -1604,17 +1604,17 @@ const [syncOk, setSyncOk]     = useState(null);
 const [autenticado, setAutenticado] = useState(false);
 const [codigo, setCodigo] = useState('');
 const [dark, setDark] = useState(() => {
-try { return localStorage.getItem('omTheme') !== 'light'; } catch { return true; }
+  try { return localStorage.getItem('omTheme') !== 'light'; } catch { return true; }
 });
 
-// Sincroniza o C mutável antes de cada render
+// Sincroniza C antes de cada render
 applyTheme(dark);
 
 const toggleTheme = () => {
-const next = !dark;
-applyTheme(next);
-try { localStorage.setItem('omTheme', next ? 'dark' : 'light'); } catch {}
-setDark(next);
+  const next = !dark;
+  applyTheme(next);
+  try { localStorage.setItem('omTheme', next ? 'dark' : 'light'); } catch {}
+  setDark(next);
 };
 
 useEffect(() => {
@@ -1746,20 +1746,19 @@ Oitava Music<br />Betim
 <button
 onClick={toggleTheme}
 style={{
-width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-padding: '9px 12px', borderRadius: 10, marginBottom: 10,
-background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
-border: `1px solid ${C.border}`,
-color: C.textSecondary, cursor: 'pointer',
-fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif",
-fontWeight: 600,
+  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+  padding: '9px 12px', borderRadius: 10, marginBottom: 10,
+  background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+  border: `1px solid ${C.border}`,
+  color: C.textSecondary, cursor: 'pointer',
+  fontSize: 13, fontWeight: 600,
 }}
 >
-{dark ? <Sun size={15} color={C.accent} /> : <Moon size={15} color={C.accent} />}
-{dark ? 'Tema Claro' : 'Tema Escuro'}
+  {dark ? <Sun size={15} color={C.accent} /> : <Moon size={15} color={C.accent} />}
+  {dark ? 'Tema Claro' : 'Tema Escuro'}
 </button>
 <div style={{ fontSize: 11, color: C.textSecondary, lineHeight: 1.5, paddingLeft: 2 }}>
-☁️ Sincronizado entre<br />todos os dispositivos
+  ☁️ Sincronizado entre<br />todos os dispositivos
 </div>
 </div>
 </div>
@@ -1775,8 +1774,8 @@ fontWeight: 600,
 {current?.emoji} {current?.label}
 </span>
 <button onClick={toggleTheme} title={dark ? 'Tema Claro' : 'Tema Escuro'}
-style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textSecondary, display: 'flex', alignItems: 'center', padding: '4px 8px', borderRadius: 8 }}>
-{dark ? <Sun size={17} /> : <Moon size={17} />}
+  style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textSecondary, display: 'flex', alignItems: 'center', padding: '4px 8px', borderRadius: 8 }}>
+  {dark ? <Sun size={17} /> : <Moon size={17} />}
 </button>
 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: syncing ? C.textSecondary : syncOk === true ? C.success : syncOk === false ? C.danger : C.textSecondary }}>
 {syncing
@@ -1800,30 +1799,51 @@ style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textSec
   html, body {
     background: #F0F2F8 !important;
     background-image: none !important;
+    color: #111827 !important;
   }
-  .sidebar { background: rgba(255,255,255,0.97) !important; border-right-color: #D8DCF0 !important; }
-  .nav-item:hover { background: rgba(0,0,0,0.04) !important; color: #374151 !important; }
-  .nav-item.active { background: rgba(99,57,255,0.08) !important; }
-  .card { background: rgba(255,255,255,0.92) !important; border-color: #D8DCF0 !important; }
+  /* Sidebar */
+  .sidebar { background: #FFFFFF !important; border-right-color: #D8DCF0 !important; }
+  .nav-item { color: #6B7280 !important; }
+  .nav-item:hover { background: rgba(0,0,0,0.04) !important; color: #111827 !important; }
+  .nav-item.active { background: rgba(99,57,255,0.08) !important; color: #6339ff !important; }
+
+  /* Cards */
+  .card { background: #FFFFFF !important; border-color: #D8DCF0 !important; color: #111827 !important; }
   .card:hover { border-color: rgba(99,57,255,0.25) !important; }
+
+  /* Inputs */
   .input-field { background: #F5F7FC !important; border-color: #D8DCF0 !important; color: #111827 !important; }
   .input-field:focus { border-color: #6339ff !important; }
-  .modal-box { background: #FFFFFF !important; border-color: rgba(99,57,255,0.15) !important; }
+  select.input-field option { background: #FFFFFF !important; color: #111827 !important; }
+
+  /* Modais */
+  .modal-box { background: #FFFFFF !important; border-color: rgba(99,57,255,0.15) !important; color: #111827 !important; }
   .modal-header { background: rgba(99,57,255,0.04) !important; border-bottom-color: #E8EBF4 !important; }
   .modal-overlay { background: rgba(20,10,50,0.40) !important; }
-  .song-item { background: #E8EBF4 !important; color: #111827 !important; }
-  .song-item:hover { background: rgba(99,57,255,0.08) !important; }
-  .scale-song-row { background: #E8EBF4 !important; border-color: #D8DCF0 !important; }
+
+  /* Botões */
   .btn-ghost { color: #6B7280 !important; }
   .btn-ghost:hover { color: #111827 !important; background: rgba(0,0,0,0.05) !important; }
-  .btn-secondary { border-color: #D8DCF0 !important; }
-  .bar-bg { background: #E8EBF4 !important; }
-  .role-chip { border-color: #D8DCF0 !important; }
-  .member-pick { border-color: #D8DCF0 !important; }
-  .member-pick:hover { background: rgba(99,57,255,0.06) !important; }
-  .section-header { color: #6B7280 !important; }
+  .btn-secondary { color: #6B7280 !important; border-color: #D8DCF0 !important; }
+
+  /* Tipografia */
   .field-label { color: #6B7280 !important; }
+  .section-header { color: #6B7280 !important; }
+  .empty-state { color: #6B7280 !important; }
+
+  /* Listas e itens */
+  .song-item { background: #E8EBF4 !important; color: #111827 !important; }
+  .song-item:hover { background: rgba(99,57,255,0.08) !important; color: #111827 !important; }
+  .scale-song-row { background: #E8EBF4 !important; border-color: #D8DCF0 !important; color: #111827 !important; }
+  .role-chip { border-color: #D8DCF0 !important; color: #6B7280 !important; }
+  .role-chip.selected { color: #6339ff !important; }
+  .member-pick { border-color: #D8DCF0 !important; color: #111827 !important; }
+  .member-pick:hover { background: rgba(99,57,255,0.06) !important; }
+
+  /* Outros */
+  .bar-bg { background: #E8EBF4 !important; }
   ::-webkit-scrollbar-thumb { background: #D8DCF0 !important; }
+  ::placeholder { color: #9CA3AF !important; }
 `}</style>}
 </>
 );
