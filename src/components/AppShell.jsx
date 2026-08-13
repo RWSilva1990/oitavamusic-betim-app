@@ -1,0 +1,114 @@
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
+import { Menu, LogOut } from 'lucide-react';
+import { C, NAV, LOGO_HOME, LOGO_SIDEBAR } from '@/lib/theme';
+import { Btn } from './ui-kit';
+import { useAuth } from '@/lib/auth';
+import { useData } from '@/lib/data';
+
+export function Loader({ label = 'Conectando ao Firebase...' }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', color: C.textSecondary, gap: 16 }}>
+      <img src={LOGO_HOME} alt="" style={{ width: 64, height: 64, borderRadius: '50%', border: `2px solid ${C.accent}` }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 18, height: 18, border: `2px solid ${C.accent}44`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function SetupRequired() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', padding: 24, textAlign: 'center' }}>
+      <img src={LOGO_HOME} alt="" style={{ width: 72, height: 72, borderRadius: '50%', border: `2px solid ${C.accent}` }} />
+      <h2 style={{ marginTop: 18, color: C.accent, fontSize: 20 }}>Firebase não configurado</h2>
+      <p style={{ marginTop: 8, maxWidth: 440, color: C.textSecondary, fontSize: 13, lineHeight: 1.6 }}>
+        Este ambiente ainda não recebeu as variáveis do Firebase. Configure-as no Vercel e faça um novo deploy.
+      </p>
+    </div>
+  );
+}
+
+export default function AppShell({ children }) {
+  const [sideOpen, setSideOpen] = useState(false);
+  const auth = useAuth();
+  const { syncing, syncOk, ready } = useData();
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    if (!auth.configured || auth.loading) return;
+    if (!auth.user) navigate({ to: '/entrar', replace: true });
+    else if (auth.role === 'membro') navigate({ to: '/minhas-escalas', replace: true });
+  }, [auth.configured, auth.loading, auth.user, auth.role, navigate]);
+
+  if (auth.loading) return <Loader label="Verificando acesso..." />;
+  if (!auth.configured) return <SetupRequired />;
+  if (!auth.user || auth.role !== 'admin') return <Loader label="Redirecionando..." />;
+
+  if (!ready) return <Loader />;
+
+  const current = NAV.find((n) => n.to === pathname) || NAV[0];
+
+  return (
+    <>
+      <div className={`sidebar${sideOpen ? ' open' : ''}`}>
+        <div style={{ padding: '16px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src={LOGO_SIDEBAR} alt="Logo" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+          <div style={{ color: C.accent, fontSize: 13, fontWeight: 800, lineHeight: 1.3 }}>
+            Oitava Music<br />Betim
+          </div>
+        </div>
+        <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
+          {NAV.map((n) => (
+            <Link
+              key={n.id}
+              to={n.to}
+              className={`nav-item${pathname === n.to ? ' active' : ''}`}
+              onClick={() => setSideOpen(false)}
+            >
+              <span style={{ fontSize: 18 }}>{n.emoji}</span>
+              {n.label}
+            </Link>
+          ))}
+        </nav>
+        <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.textSecondary, lineHeight: 1.5 }}>
+          {auth.configured && auth.user ? (
+            <>
+              <div style={{ marginBottom: 8, wordBreak: 'break-all' }}>👤 {auth.email}</div>
+              <Btn variant="secondary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => auth.logout().then(() => navigate({ to: '/entrar', replace: true }))}>
+                <LogOut size={13} />Sair
+              </Btn>
+            </>
+          ) : (
+            <>☁️ Sincronizado entre<br />todos os dispositivos</>
+          )}
+        </div>
+      </div>
+
+      {sideOpen && (
+        <div onClick={() => setSideOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 199 }} />
+      )}
+
+      <div className="main-content" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', width: '100%' }}>
+        <div style={{ height: 54, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: '0 18px', gap: 12, position: 'sticky', top: 0, zIndex: 100 }}>
+          <button className="topbar-menu-btn btn-ghost btn" onClick={() => setSideOpen((x) => !x)} style={{ padding: '6px 8px' }}>
+            <Menu size={19} />
+          </button>
+          <span style={{ fontWeight: 800, color: C.accent, fontSize: 13, flex: 1 }}>
+            {current?.emoji} {current?.label}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            {syncing ? (
+              <div style={{ width: 8, height: 8, borderRadius: '50%', border: `1.5px solid ${C.textSecondary}44`, borderTopColor: C.textSecondary, animation: 'spin 0.8s linear infinite' }} />
+            ) : (
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: syncOk === true ? C.success : syncOk === false ? C.danger : C.textSecondary + '44' }} />
+            )}
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>{children}</div>
+      </div>
+    </>
+  );
+}
