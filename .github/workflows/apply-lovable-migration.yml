@@ -5,7 +5,7 @@ on:
     branches:
       - lovable-migration
     paths:
-      - '.migration/READY'
+      - '.github/workflows/apply-lovable-migration.yml'
 
 permissions:
   contents: write
