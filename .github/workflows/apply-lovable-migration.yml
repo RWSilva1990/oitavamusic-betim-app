@@ -24,9 +24,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat .migration/part*.b64 | base64 --decode > /tmp/lovable-migration.zip
+          cat .migration/part*.b64 | base64 --decode > /tmp/lovable-migration.tar.xz
           mkdir -p /tmp/lovable-migration
-          unzip -q /tmp/lovable-migration.zip -d /tmp/lovable-migration
+          tar -xJf /tmp/lovable-migration.tar.xz -C /tmp/lovable-migration
           test -f /tmp/lovable-migration/divine-playlist-main/package.json
 
       - name: Replace branch source with Lovable version
@@ -36,6 +36,8 @@ jobs:
           rsync -a --delete \
             --exclude='.git' \
             --exclude='.github' \
+            --exclude='public/icon-192.png' \
+            --exclude='public/icon-512.png' \
             /tmp/lovable-migration/divine-playlist-main/ ./
           rm -rf .migration
 
