@@ -6,6 +6,11 @@ import { Btn } from './ui-kit';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 
+const MEMBER_NAV = [
+  { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
+  { id: 'songs', label: 'Repertório', emoji: '🎵', to: '/repertorio' },
+];
+
 export function Loader({ label = 'Conectando ao Firebase...' }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', color: C.textSecondary, gap: 16 }}>
@@ -30,26 +35,29 @@ function SetupRequired() {
   );
 }
 
-export default function AppShell({ children }) {
+export default function AppShell({ children, allowMember = false }) {
   const [sideOpen, setSideOpen] = useState(false);
   const auth = useAuth();
   const { syncing, syncOk, ready } = useData();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const memberAllowed = allowMember && auth.role === 'membro';
+  const navItems = memberAllowed ? MEMBER_NAV : NAV;
 
   useEffect(() => {
     if (!auth.configured || auth.loading) return;
     if (!auth.user) navigate({ to: '/entrar', replace: true });
-    else if (auth.role === 'membro') navigate({ to: '/minhas-escalas', replace: true });
-  }, [auth.configured, auth.loading, auth.user, auth.role, navigate]);
+    else if (auth.role === 'membro' && !allowMember) navigate({ to: '/minhas-escalas', replace: true });
+  }, [auth.configured, auth.loading, auth.user, auth.role, allowMember, navigate]);
 
   if (auth.loading) return <Loader label="Verificando acesso..." />;
   if (!auth.configured) return <SetupRequired />;
-  if (!auth.user || auth.role !== 'admin') return <Loader label="Redirecionando..." />;
+  if (!auth.user) return <Loader label="Redirecionando..." />;
+  if (auth.role !== 'admin' && !memberAllowed) return <Loader label="Redirecionando..." />;
 
   if (!ready) return <Loader />;
 
-  const current = NAV.find((n) => n.to === pathname) || NAV[0];
+  const current = navItems.find((n) => n.to === pathname) || navItems[0];
 
   return (
     <>
@@ -61,7 +69,7 @@ export default function AppShell({ children }) {
           </div>
         </div>
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
-          {NAV.map((n) => (
+          {navItems.map((n) => (
             <Link
               key={n.id}
               to={n.to}
