@@ -3,11 +3,75 @@ import { Cake, Clock } from 'lucide-react';
 import { C, ROLES, LOGO_HOME } from '@/lib/theme';
 import { fmtDate, todayISO } from '@/lib/db';
 import { Avatar } from '../ui-kit';
+import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 
 export default function HomePage() {
+  const auth = useAuth();
   const { members, groups, songs, scales } = useData();
   const today = todayISO();
+
+  if (auth.role === 'membro') {
+    const me = auth.memberFor(members);
+    const myUpcoming = me
+      ? scales
+          .filter((sc) => sc.date >= today && (sc.scaleMembers || []).some((sm) => sm.memberId === me.id))
+          .sort((a, b) => a.date.localeCompare(b.date))
+      : [];
+    const nextScale = myUpcoming[0];
+    const nextGroup = nextScale ? groups.find((g) => g.id === nextScale.groupId) : null;
+    const firstName = (me?.name || '').trim().split(/\s+/)[0];
+
+    return (
+      <div style={{ padding: '36px 24px', maxWidth: 620, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{ width: 76, height: 76, borderRadius: '50%', margin: '0 auto 16px', overflow: 'hidden', border: `2px solid ${C.accent}`, boxShadow: '0 10px 30px rgba(99,57,255,0.20)' }}>
+            <img src={LOGO_HOME} alt="Oitava Music Betim" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+          <h1 style={{ fontWeight: 800, fontSize: 22, color: C.accent, marginBottom: 4 }}>
+            {firstName ? `Olá, ${firstName}` : 'Oitava Music Betim'}
+          </h1>
+          <p style={{ color: C.textSecondary, fontSize: 13 }}>O que você precisa acessar agora?</p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 20 }}>
+          <Link to="/minhas-escalas" className="card" style={{ textDecoration: 'none', padding: 18, minHeight: 128, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 28 }}>📅</div>
+            <div>
+              <div style={{ color: C.textPrimary, fontWeight: 800, fontSize: 15 }}>Minhas Escalas</div>
+              <div style={{ color: C.textSecondary, fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>Datas, músicas, tons e áudios das suas escalas.</div>
+            </div>
+          </Link>
+
+          <Link to="/repertorio" className="card" style={{ textDecoration: 'none', padding: 18, minHeight: 128, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 28 }}>🎵</div>
+            <div>
+              <div style={{ color: C.textPrimary, fontWeight: 800, fontSize: 15 }}>Repertório</div>
+              <div style={{ color: C.textSecondary, fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>Estude as músicas e ouça todos os áudios disponíveis.</div>
+            </div>
+          </Link>
+        </div>
+
+        <div className="section-header" style={{ marginBottom: 10 }}><Clock size={14} />Próxima escala</div>
+        {nextScale ? (
+          <Link to="/minhas-escalas" className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, textDecoration: 'none', padding: 16 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: C.textPrimary, fontWeight: 700, fontSize: 14, marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nextScale.name}</div>
+              <div style={{ color: C.textSecondary, fontSize: 12 }}>
+                📅 {fmtDate(nextScale.date)}{nextGroup ? ` · ${nextGroup.name}` : ''}
+              </div>
+            </div>
+            <span style={{ color: C.accent, fontWeight: 700, fontSize: 12, flexShrink: 0 }}>Ver escala →</span>
+          </Link>
+        ) : (
+          <div style={{ padding: 16, background: C.bgCard, borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, color: C.textSecondary, textAlign: 'center' }}>
+            Você não possui escala futura no momento.
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const thisMonth = new Date().getMonth() + 1;
 
   const counts = {
