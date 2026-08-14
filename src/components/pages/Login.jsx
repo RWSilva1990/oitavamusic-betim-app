@@ -48,7 +48,7 @@ export default function LoginPage() {
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <form onSubmit={submit} style={{ width: '100%', maxWidth: 340 }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <img src={LOGO_HOME} alt="" style={{ width: 76, height: 76, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${C.accent}`, boxShadow: `0 8px 24px ${C.accentGlow}` }} />
+          <img src={LOGO_HOME} alt="" style={{ display: 'block', margin: '0 auto', width: 76, height: 76, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${C.accent}`, boxShadow: `0 8px 24px ${C.accentGlow}` }} />
           <h1 style={{ fontSize: 21, fontWeight: 800, color: C.accent, marginTop: 14 }}>Oitava Music Betim</h1>
           <p style={{ color: C.textSecondary, fontSize: 13 }}>Entre com seu e-mail e senha</p>
         </div>
