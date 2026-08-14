@@ -58,11 +58,19 @@ export function AuthProvider({ children }) {
         const clean = mail.trim().toLowerCase();
         const { auth, mod } = await getFirebaseAuth();
         const cfg = await loadFirebaseConfig();
-        const origin = cfg.appUrl || window.location.origin;
-        await mod.sendSignInLinkToEmail(auth, clean, {
-          url: `${origin}/convite`,
-          handleCodeInApp: true,
-        });
+        const origin = (cfg.appUrl || window.location.origin).replace(/\/$/, '');
+        const continueUrl = `${origin}/convite`;
+        try {
+          await mod.sendSignInLinkToEmail(auth, clean, {
+            url: continueUrl,
+            handleCodeInApp: true,
+          });
+        } catch (error) {
+          if (error?.code === 'auth/unauthorized-continue-uri') {
+            throw new Error(`Firebase recusou o domínio de retorno. URL usada: ${continueUrl}`);
+          }
+          throw error;
+        }
         const users = (await dbGet('users')) || {};
         if (!users[clean]) users[clean] = { role: 'membro' };
         await dbSet('users', users);
@@ -143,7 +151,7 @@ export function AuthProvider({ children }) {
       async resetPassword(mail) {
         const { auth, mod } = await getFirebaseAuth();
         const cfg = await loadFirebaseConfig();
-        const origin = cfg.appUrl || window.location.origin;
+        const origin = (cfg.appUrl || window.location.origin).replace(/\/$/, '');
         await mod.sendPasswordResetEmail(auth, mail.trim(), {
           url: `${origin}/entrar`,
         });
