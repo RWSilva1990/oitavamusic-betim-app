@@ -114,9 +114,12 @@ export function AuthProvider({ children }) {
           .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
       },
 
-      async acceptRegistration(registration, memberId) {
+      async acceptRegistration(registration, memberId, membersSnapshot) {
         if (role !== 'admin') throw new Error('Apenas administradores podem concluir cadastros.');
         const clean = registration.email.trim().toLowerCase();
+
+        await dbSet('members', membersSnapshot);
+
         const users = (await dbGet('users')) || {};
         users[clean] = { ...(users[clean] || {}), role: 'membro', memberId };
         await dbSet('users', users);
