@@ -24,30 +24,38 @@ service cloud.firestore {
         && request.auth.token.email in ['rwsilivatec@gmail.com'];
     }
 
-    // Um membro só é autorizado quando o e-mail autenticado está no diretório
-    // /oitava/users e já está vinculado a um memberId.
+    // Cada membro autorizado possui um documento próprio em
+    // /accessUsers/{email}. Isso permite que as Rules validem o acesso sem
+    // depender do JSON legado armazenado em /oitava/users.
     function isMember() {
       return isSignedIn()
         && request.auth.token.email_verified == true
-        && request.auth.token.email in get(/databases/$(database)/documents/oitava/users).data
-        && get(/databases/$(database)/documents/oitava/users).data[request.auth.token.email].role == 'membro'
-        && get(/databases/$(database)/documents/oitava/users).data[request.auth.token.email].memberId is string;
+        && get(/databases/$(database)/documents/accessUsers/$(request.auth.token.email)).data.role == 'membro'
+        && get(/databases/$(database)/documents/accessUsers/$(request.auth.token.email)).data.memberId is string;
     }
 
     function isAuthorized() {
       return isAdmin() || isMember();
     }
 
-    // Dados principais do app: somente administradores e membros já vinculados leem.
+    // Dados principais do app: somente administradores e membros vinculados leem.
     // Apenas administradores gravam nos documentos compartilhados.
     match /oitava/{docId} {
       allow read: if isAuthorized();
       allow write: if isAdmin();
     }
 
+    // Cada usuário pode ler apenas o próprio vínculo. Administradores podem
+    // consultar e gerenciar a coleção para sincronizar os acessos.
+    match /accessUsers/{email} {
+      allow read: if isSignedIn()
+        && (request.auth.token.email == email || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
     // Cadastro preenchido pela própria pessoa convidada.
-    // O convidado ainda não possui memberId, então esta coleção precisa continuar
-    // acessível somente ao próprio UID enquanto o cadastro estiver pendente.
+    // O convidado ainda não possui accessUsers/memberId, então esta coleção
+    // continua acessível somente ao próprio UID enquanto estiver pendente.
     match /memberRegistrations/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
 
@@ -97,14 +105,13 @@ service firebase.storage {
         && request.auth.token.email in ['rwsilivatec@gmail.com'];
     }
 
-    // O Storage consulta o mesmo diretório de acessos do Firestore para impedir
-    // que uma conta apenas autenticada, mas não vinculada, leia os áudios.
+    // O Storage consulta o mesmo documento individual de acesso usado pelo
+    // Firestore. O caminho precisa ser completo e variáveis usam $(...).
     function isMember() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email in firestore.get(/databases/(default)/documents/oitava/users).data
-        && firestore.get(/databases/(default)/documents/oitava/users).data[request.auth.token.email].role == 'membro'
-        && firestore.get(/databases/(default)/documents/oitava/users).data[request.auth.token.email].memberId is string;
+        && firestore.get(/databases/(default)/documents/accessUsers/$(request.auth.token.email)).data.role == 'membro'
+        && firestore.get(/databases/(default)/documents/accessUsers/$(request.auth.token.email)).data.memberId is string;
     }
 
     function isAuthorized() {
@@ -118,7 +125,6 @@ service firebase.storage {
         && request.resource.size < 25 * 1024 * 1024
         && request.resource.contentType.matches('audio/.*');
 
-      // Em exclusões request.resource é nulo; a regra precisa ser separada.
       allow delete: if isAdmin();
     }
 
@@ -129,21 +135,32 @@ service firebase.storage {
 }
 ```
 
-> Na primeira publicação de uma regra do Storage que usa `firestore.get()`, o
-> Firebase pode pedir autorização para o Storage consultar o Firestore. Aceite
-> essa vinculação no console. Essas consultas são feitas apenas ao banco
-> Firestore `(default)`.
+> O Storage Security Rules pode consultar documentos do Firestore com
+> `firestore.get()`. O console pode pedir uma autorização IAM na primeira
+> publicação; essa autorização já pode ter sido anexada anteriormente.
+
+## Ordem segura de migração
+
+1. Publique temporariamente regras de Firestore que mantenham `/oitava` legível
+   para usuários autenticados e permitam ao administrador gravar em
+   `/accessUsers/{email}`.
+2. No app, execute **Membros → Sincronizar acessos**. Isso cria um documento
+   individual para cada membro válido em `/accessUsers/{email}`.
+3. Depois de confirmar a sincronização sem conflitos, publique as regras finais
+   de Firestore acima.
+4. Por último, publique as regras finais do Storage acima.
 
 ## Observações
 
 - As senhas são gerenciadas pelo Firebase Authentication e não ficam nos
   documentos do Firestore.
 - **Primeiro acesso / esqueci minha senha:** o link por e-mail autentica o
-  endereço, mas somente e-mails já presentes em `/oitava/users` com `memberId`
-  conseguem ler os dados compartilhados do app.
+  endereço, mas somente e-mails com documento válido em `/accessUsers/{email}`
+  conseguem acessar os dados do ministério.
 - O convite de novo membro continua separado. O convidado pode preencher somente
-  o próprio documento em `/memberRegistrations/{uid}`; ele só ganha acesso aos
-  dados do ministério depois que o administrador aprova o cadastro e vincula um
-  `memberId`.
+  o próprio documento em `/memberRegistrations/{uid}`; o documento em
+  `/accessUsers/{email}` só é criado quando o administrador aprova o cadastro.
+- O documento legado `/oitava/users` continua existindo por compatibilidade, mas
+  não é mais usado pelas Security Rules para decidir autorização.
 - A regra administrativa usa a identidade autenticada do Firebase. O aplicativo
   não possui código/senha alternativa embutida no frontend.
