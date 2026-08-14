@@ -57,6 +57,7 @@ export function AuthProvider({ children }) {
       async sendInvite(mail) {
         const clean = mail.trim().toLowerCase();
         const { auth, mod } = await getFirebaseAuth();
+        auth.languageCode = 'pt-BR';
         const cfg = await loadFirebaseConfig();
         const origin = (cfg.appUrl || window.location.origin).replace(/\/$/, '');
         const continueUrl = `${origin}/convite`;
