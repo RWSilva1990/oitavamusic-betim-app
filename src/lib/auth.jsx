@@ -85,8 +85,38 @@ export function AuthProvider({ children }) {
       isAdmin: role === 'admin',
 
       async signIn(mail, password) {
+        const clean = mail.trim().toLowerCase();
         const { auth, mod } = await getFirebaseAuth();
-        await mod.signInWithEmailAndPassword(auth, mail.trim(), password);
+        const credential = await mod.signInWithEmailAndPassword(auth, clean, password);
+        const signedEmail = credential.user?.email?.trim().toLowerCase();
+
+        if (!signedEmail) {
+          await mod.signOut(auth);
+          throw new Error('Não foi possível identificar o e-mail desta conta.');
+        }
+
+        if (adminEmails.includes(signedEmail)) {
+          setAccessEntry({ role: 'admin', email: signedEmail });
+          return credential.user;
+        }
+
+        try {
+          const { db, mod: fireMod } = await getFirebaseFirestore();
+          const snap = await fireMod.getDoc(fireMod.doc(db, 'accessUsers', signedEmail));
+          const entry = snap.exists() ? snap.data() : null;
+          if (entry?.role !== 'membro' || !entry?.memberId) {
+            await mod.signOut(auth);
+            setAccessEntry(null);
+            throw new Error('Este e-mail não está liberado para acessar o aplicativo.');
+          }
+          setAccessEntry(entry);
+          return credential.user;
+        } catch (error) {
+          if (auth.currentUser) await mod.signOut(auth);
+          setAccessEntry(null);
+          if (error?.message?.includes('não está liberado')) throw error;
+          throw new Error('Não foi possível validar a liberação deste acesso.');
+        }
       },
 
       async sendInvite(mail) {
