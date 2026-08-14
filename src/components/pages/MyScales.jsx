@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Calendar, LogOut, Music2, Youtube } from 'lucide-react';
+import { Calendar, House, LogOut, Music2, Youtube } from 'lucide-react';
 import { C, ROLES, LOGO_HOME } from '@/lib/theme';
 import { fmtDate, todayISO } from '@/lib/db';
 import { Avatar, Btn } from '../ui-kit';
@@ -83,6 +83,7 @@ export default function MyScalesPage() {
           <p style={{ color: C.textSecondary, fontSize: 13 }}>{me?.name || auth.email}</p>
         </div>
         {me && <Avatar member={me} size={40} />}
+        <Btn variant="secondary" onClick={() => navigate({ to: '/' })}><House size={14} />Início</Btn>
         <Btn variant="secondary" onClick={() => navigate({ to: '/repertorio' })}><Music2 size={14} />Repertório</Btn>
         <Btn variant="secondary" onClick={logout}><LogOut size={14} />Sair</Btn>
       </div>
