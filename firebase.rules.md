@@ -19,17 +19,24 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // O e-mail principal permanece como fallback administrativo.
+    // Outros administradores são definidos em /accessUsers/{email}
+    // com role = 'admin'.
     function isAdmin() {
       return isSignedIn()
-        && request.auth.token.email in ['rwsilvatec@gmail.com'];
+        && (
+          request.auth.token.email in ['rwsilvatec@gmail.com']
+          || (
+            exists(/databases/$(database)/documents/accessUsers/$(request.auth.token.email))
+            && get(/databases/$(database)/documents/accessUsers/$(request.auth.token.email)).data.role == 'admin'
+          )
+        );
     }
 
-    // Cada membro autorizado possui um documento próprio em
-    // /accessUsers/{email}. Isso permite que as Rules validem o acesso sem
-    // depender do JSON legado armazenado em /oitava/users.
     function isMember() {
       return isSignedIn()
         && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/accessUsers/$(request.auth.token.email))
         && get(/databases/$(database)/documents/accessUsers/$(request.auth.token.email)).data.role == 'membro'
         && get(/databases/$(database)/documents/accessUsers/$(request.auth.token.email)).data.memberId is string;
     }
@@ -38,15 +45,15 @@ service cloud.firestore {
       return isAdmin() || isMember();
     }
 
-    // Dados principais do app: somente administradores e membros vinculados leem.
+    // Dados principais do app: administradores e membros vinculados leem.
     // Apenas administradores gravam nos documentos compartilhados.
     match /oitava/{docId} {
       allow read: if isAuthorized();
       allow write: if isAdmin();
     }
 
-    // Cada usuário pode ler apenas o próprio vínculo. Administradores podem
-    // consultar e gerenciar a coleção para sincronizar os acessos.
+    // Cada usuário pode ler o próprio vínculo. Administradores podem consultar
+    // e gerenciar a coleção, inclusive para aprovação e sincronização de acessos.
     match /accessUsers/{email} {
       allow read: if isSignedIn()
         && (request.auth.token.email == email || isAdmin());
@@ -54,8 +61,6 @@ service cloud.firestore {
     }
 
     // Cadastro preenchido pela própria pessoa convidada.
-    // O convidado ainda não possui accessUsers/memberId, então esta coleção
-    // continua acessível somente ao próprio UID enquanto estiver pendente.
     match /memberRegistrations/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
 
@@ -90,9 +95,6 @@ service cloud.firestore {
 }
 ```
 
-Para adicionar outro administrador, inclua o e-mail na lista de `isAdmin()` e
-na variável `ADMIN_EMAILS` do Vercel.
-
 ## Storage → Regras
 
 ```text
@@ -102,16 +104,31 @@ service firebase.storage {
 
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email in ['rwsilvatec@gmail.com'];
+        && (
+          request.auth.token.email in ['rwsilvatec@gmail.com']
+          || (
+            firestore.exists(
+              /databases/(default)/documents/accessUsers/$(request.auth.token.email)
+            )
+            && firestore.get(
+              /databases/(default)/documents/accessUsers/$(request.auth.token.email)
+            ).data.role == 'admin'
+          )
+        );
     }
 
-    // O Storage consulta o mesmo documento individual de acesso usado pelo
-    // Firestore. O caminho precisa ser completo e variáveis usam $(...).
     function isMember() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && firestore.get(/databases/(default)/documents/accessUsers/$(request.auth.token.email)).data.role == 'membro'
-        && firestore.get(/databases/(default)/documents/accessUsers/$(request.auth.token.email)).data.memberId is string;
+        && firestore.exists(
+          /databases/(default)/documents/accessUsers/$(request.auth.token.email)
+        )
+        && firestore.get(
+          /databases/(default)/documents/accessUsers/$(request.auth.token.email)
+        ).data.role == 'membro'
+        && firestore.get(
+          /databases/(default)/documents/accessUsers/$(request.auth.token.email)
+        ).data.memberId is string;
     }
 
     function isAuthorized() {
@@ -135,32 +152,39 @@ service firebase.storage {
 }
 ```
 
-> O Storage Security Rules pode consultar documentos do Firestore com
-> `firestore.get()`. O console pode pedir uma autorização IAM na primeira
-> publicação; essa autorização já pode ter sido anexada anteriormente.
+> O Storage Security Rules consulta o mesmo documento individual de acesso usado
+> pelo Firestore. Leituras feitas pelas regras podem contar para cota/faturamento
+> do Firestore. Chamadas repetidas ao mesmo documento podem ser armazenadas em cache.
 
-## Ordem segura de migração
+## Como promover um membro a administrador
 
-1. Publique temporariamente regras de Firestore que mantenham `/oitava` legível
-   para usuários autenticados e permitam ao administrador gravar em
-   `/accessUsers/{email}`.
-2. No app, execute **Membros → Sincronizar acessos**. Isso cria um documento
-   individual para cada membro válido em `/accessUsers/{email}`.
-3. Depois de confirmar a sincronização sem conflitos, publique as regras finais
-   de Firestore acima.
-4. Por último, publique as regras finais do Storage acima.
+No console do Firebase, abra **Firestore Database → Dados → accessUsers** e localize
+o documento cujo ID é o e-mail do membro.
+
+Altere apenas:
+
+```text
+role: "membro"
+```
+
+para:
+
+```text
+role: "admin"
+```
+
+Mantenha `email` e `memberId` existentes. Para remover o acesso administrativo,
+basta voltar `role` para `"membro"`.
+
+O e-mail `rwsilvatec@gmail.com` permanece como administrador principal por meio da
+configuração do aplicativo e das regras, independentemente do documento em
+`accessUsers`.
 
 ## Observações
 
-- As senhas são gerenciadas pelo Firebase Authentication e não ficam nos
-  documentos do Firestore.
-- **Primeiro acesso / esqueci minha senha:** o link por e-mail autentica o
-  endereço, mas somente e-mails com documento válido em `/accessUsers/{email}`
-  conseguem acessar os dados do ministério.
-- O convite de novo membro continua separado. O convidado pode preencher somente
-  o próprio documento em `/memberRegistrations/{uid}`; o documento em
-  `/accessUsers/{email}` só é criado quando o administrador aprova o cadastro.
-- O documento legado `/oitava/users` continua existindo por compatibilidade, mas
-  não é mais usado pelas Security Rules para decidir autorização.
-- A regra administrativa usa a identidade autenticada do Firebase. O aplicativo
-  não possui código/senha alternativa embutida no frontend.
+- As senhas são gerenciadas pelo Firebase Authentication e não ficam nos documentos do Firestore.
+- O login aceita como administrador tanto o e-mail principal configurado quanto um documento válido em `/accessUsers/{email}` com `role: "admin"`.
+- Membros comuns continuam exigindo `role: "membro"` e um `memberId` válido.
+- O convite de novo membro continua separado. O documento em `/accessUsers/{email}` só é criado quando o administrador aprova o cadastro.
+- A sincronização de acessos preserva cadastros que já estejam marcados como `admin`.
+- O documento legado `/oitava/users` continua existindo por compatibilidade, mas não é usado pelas Security Rules para decidir autorização.
