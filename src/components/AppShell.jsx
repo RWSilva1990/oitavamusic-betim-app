@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 
 const MEMBER_NAV = [
+  { id: 'home', label: 'Início', emoji: '🏠', to: '/' },
   { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
   { id: 'songs', label: 'Repertório', emoji: '🎵', to: '/repertorio' },
 ];
@@ -47,7 +48,7 @@ export default function AppShell({ children, allowMember = false }) {
   useEffect(() => {
     if (!auth.configured || auth.loading) return;
     if (!auth.user) navigate({ to: '/entrar', replace: true });
-    else if (auth.role === 'membro' && !allowMember) navigate({ to: '/minhas-escalas', replace: true });
+    else if (auth.role === 'membro' && !allowMember) navigate({ to: '/', replace: true });
   }, [auth.configured, auth.loading, auth.user, auth.role, allowMember, navigate]);
 
   if (auth.loading) return <Loader label="Verificando acesso..." />;
