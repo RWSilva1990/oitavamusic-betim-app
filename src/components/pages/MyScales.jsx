@@ -91,8 +91,8 @@ export default function MyScalesPage() {
       ) : !me ? (
         <div className="empty-state">
           <Calendar size={38} style={{ marginBottom: 12, opacity: 0.25 }} />
-          <p>Seu e-mail ({auth.email}) ainda não está vinculado a um membro cadastrado.</p>
-          <p style={{ fontSize: 13, marginTop: 8 }}>Peça ao administrador para cadastrar este e-mail na aba Membros.</p>
+          <p>Seu cadastro ainda está aguardando liberação pelo administrador.</p>
+          <p style={{ fontSize: 13, marginTop: 8 }}>Quando a liberação for concluída, suas escalas e os áudios destinados a você aparecerão aqui.</p>
         </div>
       ) : (
         <>
