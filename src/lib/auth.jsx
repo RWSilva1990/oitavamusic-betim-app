@@ -104,6 +104,12 @@ export function AuthProvider({ children }) {
           const { db, mod: fireMod } = await getFirebaseFirestore();
           const snap = await fireMod.getDoc(fireMod.doc(db, 'accessUsers', signedEmail));
           const entry = snap.exists() ? snap.data() : null;
+
+          if (entry?.role === 'admin') {
+            setAccessEntry(entry);
+            return credential.user;
+          }
+
           if (entry?.role !== 'membro' || !entry?.memberId) {
             await mod.signOut(auth);
             setAccessEntry(null);
@@ -138,8 +144,6 @@ export function AuthProvider({ children }) {
           throw error;
         }
 
-        // Mantemos o diretório legado por compatibilidade com os dados atuais.
-        // O convidado só ganha um documento em /accessUsers depois da aprovação.
         const users = (await dbGet('users')) || {};
         if (!users[clean]) users[clean] = { role: 'membro' };
         await dbSet('users', users);
@@ -190,6 +194,13 @@ export function AuthProvider({ children }) {
           const { db, mod: fireMod } = await getFirebaseFirestore();
           const snap = await fireMod.getDoc(fireMod.doc(db, 'accessUsers', clean));
           const entry = snap.exists() ? snap.data() : null;
+
+          if (entry?.role === 'admin') {
+            setAccessEntry(entry);
+            window.localStorage.removeItem(ACCESS_EMAIL_KEY);
+            return { user: credential.user, role: 'admin' };
+          }
+
           if (entry?.role !== 'membro' || !entry?.memberId) {
             await mod.signOut(auth);
             throw new Error('Este e-mail ainda não está vinculado a um membro liberado.');
