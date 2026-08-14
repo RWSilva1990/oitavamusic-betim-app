@@ -21,7 +21,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn()
-        && request.auth.token.email in ['rwsilivatec@gmail.com'];
+        && request.auth.token.email in ['rwsilvatec@gmail.com'];
     }
 
     // Cada membro autorizado possui um documento próprio em
@@ -102,7 +102,7 @@ service firebase.storage {
 
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email in ['rwsilivatec@gmail.com'];
+        && request.auth.token.email in ['rwsilvatec@gmail.com'];
     }
 
     // O Storage consulta o mesmo documento individual de acesso usado pelo
