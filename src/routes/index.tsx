@@ -12,7 +12,7 @@ export const Route = createFileRoute("/")({
     ],
   }),
   component: () => (
-    <AppShell>
+    <AppShell allowMember>
       <HomePage />
     </AppShell>
   ),
