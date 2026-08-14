@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppShell from "@/components/AppShell";
+import MemberInvitePanel from "@/components/MemberInvitePanel";
 import Page from "@/components/pages/Members";
 
 export const Route = createFileRoute("/membros")({
@@ -13,6 +14,10 @@ export const Route = createFileRoute("/membros")({
   }),
   component: () => (
     <AppShell>
+      <style>{`button[title="Convidar por e-mail"] { display: none !important; }`}</style>
+      <div style={{ padding: "24px 24px 0", maxWidth: 860 }}>
+        <MemberInvitePanel />
+      </div>
       <Page />
     </AppShell>
   ),
