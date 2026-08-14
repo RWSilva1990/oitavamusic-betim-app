@@ -8,6 +8,16 @@ function env(...names: string[]) {
   return '';
 }
 
+function vercelAppUrl() {
+  const vercelEnv = env('VERCEL_ENV');
+  const branchUrl = env('VERCEL_BRANCH_URL');
+  const productionUrl = env('VERCEL_PROJECT_PRODUCTION_URL');
+
+  if (vercelEnv === 'preview' && branchUrl) return `https://${branchUrl}`;
+  if (productionUrl) return `https://${productionUrl}`;
+  return '';
+}
+
 export const getFirebaseConfig = createServerFn({ method: 'GET' }).handler(async () => {
   // Accept both the names Lovable originally requested and server-only names
   // that are more appropriate on Vercel. Firebase Web config values are public,
@@ -27,7 +37,11 @@ export const getFirebaseConfig = createServerFn({ method: 'GET' }).handler(async
     .split(',')
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
-  const appUrl = env('APP_URL', 'VITE_APP_URL').replace(/\/$/, '');
+
+  // APP_URL can override everything, but on Vercel we prefer the stable branch
+  // alias for previews instead of the unique URL generated for every deployment.
+  // This means Firebase only needs the branch alias authorized once.
+  const appUrl = (env('APP_URL', 'VITE_APP_URL') || vercelAppUrl()).replace(/\/$/, '');
 
   return {
     apiKey,
