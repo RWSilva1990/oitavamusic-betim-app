@@ -82,33 +82,36 @@ export default function MemberInvitePanel() {
     <>
       <Btn variant="secondary" onClick={() => { setMessage(''); setOpen(true); }}><Mail size={15} />Convidar membro</Btn>
 
-      {(pending.length > 0 || error) && (
-        <div className="card" style={{ marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <UserCheck size={17} color={C.accent} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800, color: C.textPrimary }}>Cadastros recebidos</div>
-              <div style={{ fontSize: 12, color: C.textSecondary }}>Dados preenchidos pelas pessoas que receberam seu convite.</div>
-            </div>
-            <Btn variant="ghost" title="Atualizar" onClick={refresh}><RefreshCw size={14} /></Btn>
+      <div className="card" style={{ marginTop: 12, marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <UserCheck size={17} color={C.accent} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, color: C.textPrimary }}>Cadastros recebidos</div>
+            <div style={{ fontSize: 12, color: C.textSecondary }}>Dados preenchidos pelas pessoas que receberam seu convite.</div>
           </div>
-          {error && <div style={{ color: C.danger, fontSize: 12, marginBottom: 10 }}>{error}</div>}
-          <div style={{ display: 'grid', gap: 8 }}>
-            {pending.map((r) => (
-              <div key={r.uid} style={{ padding: '10px 12px', background: C.bgHover, borderRadius: 9, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 220 }}>
-                  <div style={{ fontWeight: 700, color: C.textPrimary }}>{r.name}</div>
-                  <div style={{ fontSize: 12, color: C.textSecondary }}>{r.email} · {r.phone}</div>
-                  <div style={{ fontSize: 11, color: C.textSecondary, marginTop: 2 }}>Nascimento: {fmtDate(r.birthdate)}</div>
-                </div>
-                <Btn disabled={busyUid === r.uid} onClick={() => accept(r)}>
-                  <Check size={14} />{busyUid === r.uid ? 'Adicionando...' : 'Adicionar membro'}
-                </Btn>
-              </div>
-            ))}
-          </div>
+          <Btn variant="ghost" title="Atualizar" onClick={refresh}><RefreshCw size={14} /></Btn>
         </div>
-      )}
+        {error && <div style={{ color: C.danger, fontSize: 12, marginBottom: 10 }}>{error}</div>}
+        {!error && pending.length === 0 && (
+          <div style={{ padding: '12px 14px', background: C.bgInput, borderRadius: 8, color: C.textSecondary, fontSize: 12 }}>
+            Nenhum cadastro pendente no momento.
+          </div>
+        )}
+        <div style={{ display: 'grid', gap: 8 }}>
+          {pending.map((r) => (
+            <div key={r.uid} style={{ padding: '10px 12px', background: C.bgHover, borderRadius: 9, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ fontWeight: 700, color: C.textPrimary }}>{r.name}</div>
+                <div style={{ fontSize: 12, color: C.textSecondary }}>{r.email} · {r.phone}</div>
+                <div style={{ fontSize: 11, color: C.textSecondary, marginTop: 2 }}>Nascimento: {fmtDate(r.birthdate)}</div>
+              </div>
+              <Btn disabled={busyUid === r.uid} onClick={() => accept(r)}>
+                <Check size={14} />{busyUid === r.uid ? 'Adicionando...' : 'Adicionar membro'}
+              </Btn>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {open && (
         <Modal title="Convidar novo membro" onClose={() => setOpen(false)}>
