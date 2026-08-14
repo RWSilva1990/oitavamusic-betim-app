@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Calendar, House, LogOut, Music2, Youtube } from 'lucide-react';
+import { Calendar, Youtube } from 'lucide-react';
 import { C, ROLES, LOGO_HOME } from '@/lib/theme';
 import { fmtDate, todayISO } from '@/lib/db';
-import { Avatar, Btn } from '../ui-kit';
+import { Avatar } from '../ui-kit';
 import { AudioPlayerList } from '../AudioSection';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
@@ -27,8 +27,6 @@ export default function MyScalesPage() {
     : [];
   const upcoming = mine.filter((s) => s.date >= today);
   const past = mine.filter((s) => s.date < today).reverse();
-
-  const logout = () => auth.logout().then(() => navigate({ to: '/entrar', replace: true }));
 
   const Card = ({ sc }) => {
     const g = groups.find((x) => x.id === sc.groupId);
@@ -83,9 +81,6 @@ export default function MyScalesPage() {
           <p style={{ color: C.textSecondary, fontSize: 13 }}>{me?.name || auth.email}</p>
         </div>
         {me && <Avatar member={me} size={40} />}
-        <Btn variant="secondary" onClick={() => navigate({ to: '/' })}><House size={14} />Início</Btn>
-        <Btn variant="secondary" onClick={() => navigate({ to: '/repertorio' })}><Music2 size={14} />Repertório</Btn>
-        <Btn variant="secondary" onClick={logout}><LogOut size={14} />Sair</Btn>
       </div>
 
       {!ready ? (
