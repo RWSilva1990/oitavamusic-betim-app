@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Mail, RefreshCw, UserCheck } from 'lucide-react';
+import { Check, Link2, Mail, RefreshCw, UserCheck } from 'lucide-react';
 import { C } from '@/lib/theme';
 import { fmtDate, genId, normalizeStr } from '@/lib/db';
 import { Btn, Inp, Modal } from './ui-kit';
@@ -16,6 +16,8 @@ export default function MemberInvitePanel() {
   const [registrations, setRegistrations] = useState([]);
   const [busyUid, setBusyUid] = useState('');
   const [error, setError] = useState('');
+  const [syncingAccess, setSyncingAccess] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
 
   const refresh = async () => {
     if (!auth.isAdmin) return;
@@ -44,6 +46,19 @@ export default function MemberInvitePanel() {
       setMessage(e?.message || 'Falha ao enviar convite.');
     } finally {
       setSending(false);
+    }
+  };
+
+  const syncAccessDirectory = async () => {
+    setSyncResult(null);
+    setSyncingAccess(true);
+    try {
+      const result = await auth.syncMemberDirectory(members);
+      setSyncResult(result);
+    } catch (e) {
+      setSyncResult({ error: e?.message || 'Não foi possível sincronizar os acessos.' });
+    } finally {
+      setSyncingAccess(false);
     }
   };
 
@@ -80,7 +95,30 @@ export default function MemberInvitePanel() {
 
   return (
     <>
-      <Btn variant="secondary" onClick={() => { setMessage(''); setOpen(true); }}><Mail size={15} />Convidar membro</Btn>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Btn variant="secondary" onClick={() => { setMessage(''); setOpen(true); }}><Mail size={15} />Convidar membro</Btn>
+        <Btn variant="secondary" disabled={syncingAccess} onClick={syncAccessDirectory}>
+          <Link2 size={15} />{syncingAccess ? 'Sincronizando...' : 'Sincronizar acessos'}
+        </Btn>
+      </div>
+
+      {syncResult && (
+        <div style={{ marginTop: 10, padding: '10px 12px', background: C.bgInput, borderRadius: 8, fontSize: 12, color: syncResult.error ? C.danger : C.textSecondary, lineHeight: 1.6 }}>
+          {syncResult.error ? (
+            syncResult.error
+          ) : (
+            <>
+              <strong style={{ color: C.textPrimary }}>Sincronização concluída.</strong>{' '}
+              {syncResult.linked} novo(s) vínculo(s), {syncResult.alreadyLinked} já vinculado(s), {syncResult.withoutEmail} sem e-mail, {syncResult.invalidEmail} e-mail(s) inválido(s), {syncResult.duplicates} e-mail(s) duplicado(s) e {syncResult.conflicts} conflito(s).
+              {(syncResult.duplicates > 0 || syncResult.conflicts > 0) && (
+                <div style={{ marginTop: 5, color: C.accent }}>
+                  Duplicidades e conflitos foram ignorados automaticamente para não trocar o acesso de ninguém.
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="card" style={{ marginTop: 12, marginBottom: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
