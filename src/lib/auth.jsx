@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getFirebaseAuth, getFirebaseFirestore, loadFirebaseConfig } from './firebase';
-import { dbGet, dbSet, normalizeStr } from './db';
+import { dbGet, dbSet } from './db';
 
 const AuthCtx = createContext(null);
 
@@ -10,9 +10,10 @@ const ACCESS_EMAIL_KEY = 'oitava:access-email';
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [accessLoading, setAccessLoading] = useState(false);
   const [configured, setConfigured] = useState(false);
   const [adminEmails, setAdminEmails] = useState([]);
-  const [directory, setDirectory] = useState({});
+  const [accessEntry, setAccessEntry] = useState(null);
 
   useEffect(() => {
     let unsub = () => {};
@@ -26,6 +27,7 @@ export function AuthProvider({ children }) {
       const { auth, mod } = await getFirebaseAuth();
       unsub = mod.onAuthStateChanged(auth, (u) => {
         setUser(u);
+        setAccessLoading(Boolean(u));
         setLoading(false);
       });
     })().catch(() => setLoading(false));
@@ -33,20 +35,52 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!user) { setDirectory({}); return; }
-    dbGet('users').then((d) => setDirectory(d || {})).catch(() => setDirectory({}));
-  }, [user]);
+    let alive = true;
+    const resolveAccess = async () => {
+      const clean = user?.email?.trim().toLowerCase();
+      if (!clean) {
+        setAccessEntry(null);
+        setAccessLoading(false);
+        return;
+      }
+
+      if (adminEmails.includes(clean)) {
+        setAccessEntry({ role: 'admin', email: clean });
+        setAccessLoading(false);
+        return;
+      }
+
+      setAccessLoading(true);
+      try {
+        const { db, mod } = await getFirebaseFirestore();
+        const snap = await mod.getDoc(mod.doc(db, 'accessUsers', clean));
+        if (alive) setAccessEntry(snap.exists() ? snap.data() : null);
+      } catch {
+        if (alive) setAccessEntry(null);
+      } finally {
+        if (alive) setAccessLoading(false);
+      }
+    };
+
+    resolveAccess();
+    return () => { alive = false; };
+  }, [user?.uid, user?.email, adminEmails]);
 
   const email = user?.email?.toLowerCase() || null;
-  const entry = email ? directory[email] : null;
-  const role = !user ? null : adminEmails.includes(email) || entry?.role === 'admin' ? 'admin' : 'membro';
+  const role = !user
+    ? null
+    : adminEmails.includes(email) || accessEntry?.role === 'admin'
+      ? 'admin'
+      : accessEntry?.role === 'membro' && accessEntry?.memberId
+        ? 'membro'
+        : null;
 
   const api = useMemo(
     () => ({
       user,
       email,
       role,
-      loading,
+      loading: loading || accessLoading,
       configured,
       isAdmin: role === 'admin',
 
@@ -73,10 +107,12 @@ export function AuthProvider({ children }) {
           }
           throw error;
         }
+
+        // Mantemos o diretório legado por compatibilidade com os dados atuais.
+        // O convidado só ganha um documento em /accessUsers depois da aprovação.
         const users = (await dbGet('users')) || {};
         if (!users[clean]) users[clean] = { role: 'membro' };
         await dbSet('users', users);
-        setDirectory(users);
       },
 
       async sendAccessLink(mail) {
@@ -108,35 +144,44 @@ export function AuthProvider({ children }) {
         }
 
         const credential = await mod.signInWithEmailLink(auth, clean, window.location.href);
-        let users;
-        try {
-          users = (await dbGet('users')) || {};
-        } catch {
+        const signedEmail = credential.user?.email?.trim().toLowerCase();
+        if (!signedEmail || signedEmail !== clean) {
           await mod.signOut(auth);
+          throw new Error('O e-mail informado não corresponde ao link recebido.');
+        }
+
+        if (adminEmails.includes(clean)) {
+          setAccessEntry({ role: 'admin', email: clean });
+          window.localStorage.removeItem(ACCESS_EMAIL_KEY);
+          return { user: credential.user, role: 'admin' };
+        }
+
+        try {
+          const { db, mod: fireMod } = await getFirebaseFirestore();
+          const snap = await fireMod.getDoc(fireMod.doc(db, 'accessUsers', clean));
+          const entry = snap.exists() ? snap.data() : null;
+          if (entry?.role !== 'membro' || !entry?.memberId) {
+            await mod.signOut(auth);
+            throw new Error('Este e-mail ainda não está vinculado a um membro liberado.');
+          }
+          setAccessEntry(entry);
+          window.localStorage.removeItem(ACCESS_EMAIL_KEY);
+          return { user: credential.user, role: 'membro' };
+        } catch (error) {
+          if (auth.currentUser) await mod.signOut(auth);
+          if (error?.message?.includes('ainda não está vinculado')) throw error;
           throw new Error('Este e-mail não está liberado para acessar o aplicativo.');
         }
-
-        const directoryEntry = users[clean];
-        const accessRole = adminEmails.includes(clean) || directoryEntry?.role === 'admin'
-          ? 'admin'
-          : directoryEntry?.role === 'membro' && directoryEntry?.memberId
-            ? 'membro'
-            : null;
-
-        if (!accessRole) {
-          await mod.signOut(auth);
-          throw new Error('Este e-mail ainda não está vinculado a um membro liberado.');
-        }
-
-        setDirectory(users);
-        window.localStorage.removeItem(ACCESS_EMAIL_KEY);
-        return { user: credential.user, role: accessRole };
       },
 
       async syncMemberDirectory(members) {
         if (role !== 'admin') throw new Error('Apenas administradores podem sincronizar acessos.');
 
         const users = (await dbGet('users')) || {};
+        const { db, mod } = await getFirebaseFirestore();
+        const accessSnap = await mod.getDocs(mod.collection(db, 'accessUsers'));
+        const accessUsers = Object.fromEntries(accessSnap.docs.map((d) => [d.id.toLowerCase(), d.data()]));
+
         const emailOwners = new Map();
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -164,36 +209,56 @@ export function AuthProvider({ children }) {
           conflictEmails: [],
         };
 
-        let changed = false;
+        let legacyChanged = false;
+        const batch = mod.writeBatch(db);
+        let batchWrites = 0;
+        const now = new Date().toISOString();
+
         for (const member of members || []) {
           const clean = String(member?.email || '').trim().toLowerCase();
           if (!clean) { result.withoutEmail += 1; continue; }
           if (!emailRegex.test(clean)) { result.invalidEmail += 1; continue; }
           if (duplicateEmails.has(clean)) continue;
 
-          const existing = users[clean];
-          if (existing?.memberId && existing.memberId !== member.id) {
+          const legacy = users[clean];
+          const access = accessUsers[clean];
+          const conflictingMemberId =
+            (legacy?.memberId && legacy.memberId !== member.id)
+            || (access?.memberId && access.memberId !== member.id);
+
+          if (conflictingMemberId) {
             result.conflicts += 1;
             result.conflictEmails.push(clean);
             continue;
           }
 
-          if (existing?.memberId === member.id) {
-            result.alreadyLinked += 1;
-            continue;
+          const targetRole = adminEmails.includes(clean) || legacy?.role === 'admin' || access?.role === 'admin'
+            ? 'admin'
+            : 'membro';
+
+          const legacyCorrect = legacy?.memberId === member.id && legacy?.role === targetRole;
+          const accessCorrect = access?.memberId === member.id && access?.role === targetRole;
+
+          if (!legacyCorrect) {
+            users[clean] = { ...(legacy || {}), role: targetRole, memberId: member.id };
+            legacyChanged = true;
           }
 
-          users[clean] = {
-            ...(existing || {}),
-            role: existing?.role || 'membro',
-            memberId: member.id,
-          };
-          result.linked += 1;
-          changed = true;
+          if (!accessCorrect) {
+            batch.set(
+              mod.doc(db, 'accessUsers', clean),
+              { email: clean, role: targetRole, memberId: member.id, updatedAt: now },
+              { merge: true }
+            );
+            batchWrites += 1;
+          }
+
+          if (legacyCorrect && accessCorrect) result.alreadyLinked += 1;
+          else result.linked += 1;
         }
 
-        if (changed) await dbSet('users', users);
-        setDirectory(users);
+        if (legacyChanged) await dbSet('users', users);
+        if (batchWrites > 0) await batch.commit();
         return result;
       },
 
@@ -251,14 +316,19 @@ export function AuthProvider({ children }) {
         const users = (await dbGet('users')) || {};
         users[clean] = { ...(users[clean] || {}), role: 'membro', memberId };
         await dbSet('users', users);
-        setDirectory(users);
 
         const { db, mod } = await getFirebaseFirestore();
+        const now = new Date().toISOString();
+        await mod.setDoc(
+          mod.doc(db, 'accessUsers', clean),
+          { email: clean, role: 'membro', memberId, updatedAt: now },
+          { merge: true }
+        );
         await mod.updateDoc(mod.doc(db, 'memberRegistrations', registration.uid), {
           status: 'accepted',
           memberId,
-          acceptedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          acceptedAt: now,
+          updatedAt: now,
         });
       },
 
@@ -281,15 +351,15 @@ export function AuthProvider({ children }) {
       async logout() {
         const { auth, mod } = await getFirebaseAuth();
         await mod.signOut(auth);
+        setAccessEntry(null);
       },
 
       memberFor(members) {
-        if (!email) return null;
-        const linked = entry?.memberId ? members.find((m) => m.id === entry.memberId) : null;
-        return linked || members.find((m) => normalizeStr(m.email) === normalizeStr(email)) || null;
+        if (!email || !accessEntry?.memberId) return null;
+        return members.find((m) => m.id === accessEntry.memberId) || null;
       },
     }),
-    [user, email, role, loading, configured, entry, adminEmails]
+    [user, email, role, loading, accessLoading, configured, accessEntry, adminEmails]
   );
 
   return <AuthCtx.Provider value={api}>{children}</AuthCtx.Provider>;
