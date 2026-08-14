@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import AppShell from "@/components/AppShell";
 import MyScalesPage from "@/components/pages/MyScales";
 
 export const Route = createFileRoute("/minhas-escalas")({
@@ -10,5 +11,9 @@ export const Route = createFileRoute("/minhas-escalas")({
       { property: "og:description", content: "Suas escalas, músicas, tons e áudios de voz." },
     ],
   }),
-  component: MyScalesPage,
+  component: () => (
+    <AppShell allowMember>
+      <MyScalesPage />
+    </AppShell>
+  ),
 });
