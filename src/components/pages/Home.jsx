@@ -34,7 +34,7 @@ export default function HomePage() {
           <p style={{ color: C.textSecondary, fontSize: 13 }}>O que você precisa acessar agora?</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 20 }}>
           <Link to="/minhas-escalas" className="card" style={{ textDecoration: 'none', padding: 18, minHeight: 128, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div style={{ fontSize: 28 }}>📅</div>
             <div>
