@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { LogIn, AlertCircle } from 'lucide-react';
+import { LogIn, AlertCircle, KeyRound } from 'lucide-react';
 import { C, LOGO_HOME } from '@/lib/theme';
 import { Btn, Inp } from '../ui-kit';
 import { useAuth } from '@/lib/auth';
@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [linkBusy, setLinkBusy] = useState(false);
 
   const submit = async (e) => {
     e?.preventDefault?.();
@@ -27,14 +28,19 @@ export default function LoginPage() {
     }
   };
 
-  const reset = async () => {
-    if (!email.trim()) { setErr('Informe seu e-mail para redefinir a senha.'); return; }
-    setErr(''); setMsg('');
+  const requestAccess = async () => {
+    if (!email.trim()) {
+      setErr('Informe seu e-mail para receber o link de acesso.');
+      return;
+    }
+    setErr(''); setMsg(''); setLinkBusy(true);
     try {
-      await auth.resetPassword(email);
-      setMsg('Enviamos um link de redefinição de senha para o seu e-mail.');
+      await auth.sendAccessLink(email);
+      setMsg('Enviamos um link para criar ou redefinir sua senha. O acesso só será liberado para e-mails vinculados a membros cadastrados.');
     } catch (e2) {
       setErr(traduz(e2));
+    } finally {
+      setLinkBusy(false);
     }
   };
 
@@ -61,13 +67,19 @@ export default function LoginPage() {
             <AlertCircle size={14} />{err}
           </div>
         )}
-        {msg && <div style={{ color: C.success, fontSize: 13, marginBottom: 12 }}>{msg}</div>}
+        {msg && <div style={{ color: C.success, fontSize: 13, lineHeight: 1.5, marginBottom: 12 }}>{msg}</div>}
 
-        <Btn type="submit" disabled={busy || !auth.configured} style={{ width: '100%', justifyContent: 'center', padding: 12 }}>
+        <Btn type="submit" disabled={busy || linkBusy || !auth.configured} style={{ width: '100%', justifyContent: 'center', padding: 12 }}>
           <LogIn size={15} />{busy ? 'Entrando...' : 'Entrar'}
         </Btn>
-        <button type="button" onClick={reset} style={{ marginTop: 14, width: '100%', background: 'none', border: 'none', color: C.textSecondary, fontSize: 12, cursor: 'pointer' }}>
-          Esqueci minha senha
+        <button
+          type="button"
+          disabled={linkBusy || !auth.configured}
+          onClick={requestAccess}
+          style={{ marginTop: 14, width: '100%', background: 'none', border: 'none', color: C.accent, fontSize: 12, fontWeight: 700, cursor: linkBusy ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+        >
+          <KeyRound size={14} />
+          {linkBusy ? 'Enviando link...' : 'Primeiro acesso ou esqueci minha senha'}
         </button>
       </form>
     </div>
@@ -79,5 +91,5 @@ function traduz(e) {
   if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return 'E-mail ou senha incorretos.';
   if (code.includes('too-many-requests')) return 'Muitas tentativas. Tente novamente mais tarde.';
   if (code.includes('invalid-email')) return 'E-mail inválido.';
-  return e?.message || 'Não foi possível entrar.';
+  return e?.message || 'Não foi possível concluir a operação.';
 }
