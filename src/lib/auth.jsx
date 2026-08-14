@@ -78,6 +78,70 @@ export function AuthProvider({ children }) {
         setDirectory(users);
       },
 
+      async syncMemberDirectory(members) {
+        if (role !== 'admin') throw new Error('Apenas administradores podem sincronizar acessos.');
+
+        const users = (await dbGet('users')) || {};
+        const emailOwners = new Map();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        for (const member of members || []) {
+          const clean = String(member?.email || '').trim().toLowerCase();
+          if (!clean) continue;
+          const owners = emailOwners.get(clean) || [];
+          owners.push(member);
+          emailOwners.set(clean, owners);
+        }
+
+        const duplicateEmails = new Set(
+          [...emailOwners.entries()].filter(([, owners]) => owners.length > 1).map(([mail]) => mail),
+        );
+
+        const result = {
+          total: (members || []).length,
+          linked: 0,
+          alreadyLinked: 0,
+          withoutEmail: 0,
+          invalidEmail: 0,
+          duplicates: duplicateEmails.size,
+          conflicts: 0,
+          duplicateEmails: [...duplicateEmails],
+          conflictEmails: [],
+        };
+
+        let changed = false;
+        for (const member of members || []) {
+          const clean = String(member?.email || '').trim().toLowerCase();
+          if (!clean) { result.withoutEmail += 1; continue; }
+          if (!emailRegex.test(clean)) { result.invalidEmail += 1; continue; }
+          if (duplicateEmails.has(clean)) continue;
+
+          const existing = users[clean];
+          if (existing?.memberId && existing.memberId !== member.id) {
+            result.conflicts += 1;
+            result.conflictEmails.push(clean);
+            continue;
+          }
+
+          if (existing?.memberId === member.id) {
+            result.alreadyLinked += 1;
+            continue;
+          }
+
+          users[clean] = {
+            ...(existing || {}),
+            role: existing?.role || 'membro',
+            memberId: member.id,
+          };
+          result.linked += 1;
+          changed = true;
+        }
+
+        if (changed) await dbSet('users', users);
+        setDirectory(users);
+        return result;
+      },
+
       isInviteLink() {
         return typeof window !== 'undefined' && window.location.href.includes('apiKey=');
       },
@@ -151,6 +215,7 @@ export function AuthProvider({ children }) {
 
       async resetPassword(mail) {
         const { auth, mod } = await getFirebaseAuth();
+        auth.languageCode = 'pt-BR';
         const cfg = await loadFirebaseConfig();
         const origin = (cfg.appUrl || window.location.origin).replace(/\/$/, '');
         await mod.sendPasswordResetEmail(auth, mail.trim(), {
