@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { getFirebaseAuth, loadFirebaseConfig } from './firebase';
+import { getFirebaseAuth, getFirebaseFirestore, loadFirebaseConfig } from './firebase';
 import { dbGet, dbSet, normalizeStr } from './db';
 
 const AuthCtx = createContext(null);
@@ -79,8 +79,56 @@ export function AuthProvider({ children }) {
         if (!mod.isSignInWithEmailLink(auth, window.location.href)) {
           throw new Error('Link de convite inválido ou expirado.');
         }
-        await mod.signInWithEmailLink(auth, clean, window.location.href);
+        const credential = await mod.signInWithEmailLink(auth, clean, window.location.href);
         window.localStorage.removeItem(INVITE_EMAIL_KEY);
+        return credential.user;
+      },
+
+      async saveRegistration(profile) {
+        const { auth } = await getFirebaseAuth();
+        const current = auth.currentUser;
+        if (!current?.uid || !current.email) throw new Error('Sessão expirada. Abra novamente o link do convite.');
+        const { db, mod } = await getFirebaseFirestore();
+        const now = new Date().toISOString();
+        await mod.setDoc(
+          mod.doc(db, 'memberRegistrations', current.uid),
+          {
+            name: profile.name.trim(),
+            birthdate: profile.birthdate,
+            phone: profile.phone.trim(),
+            email: current.email.toLowerCase(),
+            status: 'pending',
+            createdAt: profile.createdAt || now,
+            updatedAt: now,
+          },
+          { merge: true }
+        );
+      },
+
+      async listRegistrations() {
+        if (role !== 'admin') return [];
+        const { db, mod } = await getFirebaseFirestore();
+        const snap = await mod.getDocs(mod.collection(db, 'memberRegistrations'));
+        return snap.docs
+          .map((docSnap) => ({ uid: docSnap.id, ...docSnap.data() }))
+          .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+      },
+
+      async acceptRegistration(registration, memberId) {
+        if (role !== 'admin') throw new Error('Apenas administradores podem concluir cadastros.');
+        const clean = registration.email.trim().toLowerCase();
+        const users = (await dbGet('users')) || {};
+        users[clean] = { ...(users[clean] || {}), role: 'membro', memberId };
+        await dbSet('users', users);
+        setDirectory(users);
+
+        const { db, mod } = await getFirebaseFirestore();
+        await mod.updateDoc(mod.doc(db, 'memberRegistrations', registration.uid), {
+          status: 'accepted',
+          memberId,
+          acceptedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
       },
 
       async definePassword(password) {
