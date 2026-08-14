@@ -5,6 +5,7 @@ import { dbGet, dbSet, normalizeStr } from './db';
 const AuthCtx = createContext(null);
 
 const INVITE_EMAIL_KEY = 'oitava:invite-email';
+const ACCESS_EMAIL_KEY = 'oitava:access-email';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -76,6 +77,60 @@ export function AuthProvider({ children }) {
         if (!users[clean]) users[clean] = { role: 'membro' };
         await dbSet('users', users);
         setDirectory(users);
+      },
+
+      async sendAccessLink(mail) {
+        const clean = mail.trim().toLowerCase();
+        const { auth, mod } = await getFirebaseAuth();
+        auth.languageCode = 'pt-BR';
+        const cfg = await loadFirebaseConfig();
+        const origin = (cfg.appUrl || window.location.origin).replace(/\/$/, '');
+        const continueUrl = `${origin}/acesso`;
+        try {
+          await mod.sendSignInLinkToEmail(auth, clean, {
+            url: continueUrl,
+            handleCodeInApp: true,
+          });
+          window.localStorage.setItem(ACCESS_EMAIL_KEY, clean);
+        } catch (error) {
+          if (error?.code === 'auth/unauthorized-continue-uri') {
+            throw new Error(`Firebase recusou o domínio de retorno. URL usada: ${continueUrl}`);
+          }
+          throw error;
+        }
+      },
+
+      async completeAccess(mail) {
+        const clean = mail.trim().toLowerCase();
+        const { auth, mod } = await getFirebaseAuth();
+        if (!mod.isSignInWithEmailLink(auth, window.location.href)) {
+          throw new Error('Link inválido ou expirado. Solicite um novo link na tela de acesso.');
+        }
+
+        const credential = await mod.signInWithEmailLink(auth, clean, window.location.href);
+        let users;
+        try {
+          users = (await dbGet('users')) || {};
+        } catch {
+          await mod.signOut(auth);
+          throw new Error('Este e-mail não está liberado para acessar o aplicativo.');
+        }
+
+        const directoryEntry = users[clean];
+        const accessRole = adminEmails.includes(clean) || directoryEntry?.role === 'admin'
+          ? 'admin'
+          : directoryEntry?.role === 'membro' && directoryEntry?.memberId
+            ? 'membro'
+            : null;
+
+        if (!accessRole) {
+          await mod.signOut(auth);
+          throw new Error('Este e-mail ainda não está vinculado a um membro liberado.');
+        }
+
+        setDirectory(users);
+        window.localStorage.removeItem(ACCESS_EMAIL_KEY);
+        return { user: credential.user, role: accessRole };
       },
 
       async syncMemberDirectory(members) {
@@ -234,7 +289,7 @@ export function AuthProvider({ children }) {
         return linked || members.find((m) => normalizeStr(m.email) === normalizeStr(email)) || null;
       },
     }),
-    [user, email, role, loading, configured, entry]
+    [user, email, role, loading, configured, entry, adminEmails]
   );
 
   return <AuthCtx.Provider value={api}>{children}</AuthCtx.Provider>;
