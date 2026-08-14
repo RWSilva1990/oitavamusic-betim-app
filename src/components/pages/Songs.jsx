@@ -4,11 +4,14 @@ import { Music, Plus, Edit2, Trash2, Check, Search, Upload, Youtube, AlertCircle
 import { C } from '@/lib/theme';
 import { genId } from '@/lib/db';
 import { Btn, Confirm, Field, Inp, Modal, PageTitle } from '../ui-kit';
-import AudioSection from '../AudioSection';
+import AudioSection, { AudioPlayerList } from '../AudioSection';
 import { useData } from '@/lib/data';
+import { useAuth } from '@/lib/auth';
 
 export default function SongsPage() {
   const { songs, setSongs } = useData();
+  const auth = useAuth();
+  const readOnly = !auth.isAdmin;
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(null);
   const [audioModal, setAudioModal] = useState(null);
@@ -18,28 +21,49 @@ export default function SongsPage() {
   const [preview, setPreview] = useState([]);
   const [dupWarning, setDupWarning] = useState('');
 
-  const openAdd = () => { setForm({ name: '', youtubeUrl: '', bpm: '' }); setDupWarning(''); setModal('add'); };
-  const openEdit = (s) => { setForm({ id: s.id, name: s.name, youtubeUrl: s.youtubeUrl || '', bpm: s.bpm || '' }); setDupWarning(''); setModal(s); };
+  const openAdd = () => {
+    if (readOnly) return;
+    setForm({ name: '', youtubeUrl: '', bpm: '' });
+    setDupWarning('');
+    setModal('add');
+  };
+
+  const openEdit = (s) => {
+    if (readOnly) return;
+    setForm({ id: s.id, name: s.name, youtubeUrl: s.youtubeUrl || '', bpm: s.bpm || '' });
+    setDupWarning('');
+    setModal(s);
+  };
 
   const save = () => {
-    if (!form.name.trim()) return;
+    if (readOnly || !form.name.trim()) return;
     const isDup = songs.some(
       (s) => s.name.trim().toLowerCase() === form.name.trim().toLowerCase() && (modal === 'add' || s.id !== form.id)
     );
-    if (isDup) { setDupWarning(`"${form.name.trim()}" já está no repertório.`); return; }
+    if (isDup) {
+      setDupWarning(`"${form.name.trim()}" já está no repertório.`);
+      return;
+    }
     setDupWarning('');
     if (modal === 'add') setSongs((p) => [...p, { ...form, audios: [], id: genId() }]);
     else setSongs((p) => p.map((s) => (s.id === form.id ? { ...s, ...form } : s)));
     setModal(null);
   };
-  const del = (id) => { setSongs((p) => p.filter((s) => s.id !== id)); setConfirm(null); };
+
+  const del = (id) => {
+    if (readOnly) return;
+    setSongs((p) => p.filter((s) => s.id !== id));
+    setConfirm(null);
+  };
 
   const setAudios = (songId, audios) => {
+    if (readOnly) return;
     setSongs((p) => p.map((s) => (s.id === songId ? { ...s, audios } : s)));
     setAudioModal((m) => (m && m.id === songId ? { ...m, audios } : m));
   };
 
   const handleCSV = (e) => {
+    if (readOnly) return;
     const file = e.target.files[0];
     if (!file) return;
     Papa.parse(file, {
@@ -52,7 +76,11 @@ export default function SongsPage() {
             const nk = keys.find((k) => /nome|name|musica|titulo|title/i.test(k)) || keys[0];
             const uk = keys.find((k) => /url|link|youtube/i.test(k)) || keys[1];
             const bk = keys.find((k) => /bpm/i.test(k));
-            return { name: row[nk]?.trim() || '', youtubeUrl: uk ? row[uk]?.trim() || '' : '', bpm: bk ? row[bk]?.trim() || '' : '' };
+            return {
+              name: row[nk]?.trim() || '',
+              youtubeUrl: uk ? row[uk]?.trim() || '' : '',
+              bpm: bk ? row[bk]?.trim() || '' : '',
+            };
           })
           .filter((r) => r.name);
         setPreview(rows);
@@ -62,6 +90,7 @@ export default function SongsPage() {
   };
 
   const doImport = () => {
+    if (readOnly) return;
     setSongs((p) => [...p, ...preview.map((s) => ({ ...s, audios: [], id: genId() }))]);
     setImportModal(false);
     setPreview([]);
@@ -71,10 +100,23 @@ export default function SongsPage() {
 
   return (
     <div style={{ padding: 24, maxWidth: 860 }}>
-      <PageTitle title="Repertório" subtitle={`${songs.length} música${songs.length !== 1 ? 's' : ''}`}>
-        <Btn variant="secondary" onClick={() => { setPreview([]); setImportModal(true); }}><Upload size={15} />Importar CSV</Btn>
-        <Btn onClick={openAdd}><Plus size={15} />Nova Música</Btn>
+      <PageTitle
+        title="Repertório"
+        subtitle={readOnly ? `${songs.length} música${songs.length !== 1 ? 's' : ''} disponíveis para estudo` : `${songs.length} música${songs.length !== 1 ? 's' : ''}`}
+      >
+        {!readOnly && (
+          <>
+            <Btn variant="secondary" onClick={() => { setPreview([]); setImportModal(true); }}><Upload size={15} />Importar CSV</Btn>
+            <Btn onClick={openAdd}><Plus size={15} />Nova Música</Btn>
+          </>
+        )}
       </PageTitle>
+
+      {readOnly && (
+        <div style={{ marginBottom: 16, padding: '11px 13px', background: C.bgInput, borderRadius: 9, fontSize: 12, color: C.textSecondary, lineHeight: 1.6 }}>
+          Aqui você pode consultar todo o repertório, abrir a referência no YouTube e ouvir os áudios de estudo disponíveis.
+        </div>
+      )}
 
       <div className="search-wrap">
         <Search size={15} color={C.textSecondary} />
@@ -104,16 +146,18 @@ export default function SongsPage() {
                     ) : (
                       <span style={{ fontSize: 12, color: C.textSecondary }}>Sem link</span>
                     )}
-                    {s.bpm && (
-                      <span style={{ fontSize: 11, fontWeight: 700, color: C.accent, background: C.accentGlow, border: `1px solid ${C.accent}33`, borderRadius: 6, padding: '1px 7px' }}>♩ {s.bpm} BPM</span>
-                    )}
+                    {s.bpm && <span style={{ fontSize: 11, fontWeight: 700, color: C.accent, background: C.accentGlow, border: `1px solid ${C.accent}33`, borderRadius: 6, padding: '1px 7px' }}>♩ {s.bpm} BPM</span>}
                     {nAudios > 0 && <span className="tag green">🎧 {nAudios} áudio{nAudios !== 1 ? 's' : ''}</span>}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 2 }}>
-                  <Btn variant="ghost" title="Áudios de voz" onClick={() => setAudioModal(s)}><Mic2 size={14} /></Btn>
-                  <Btn variant="ghost" onClick={() => openEdit(s)}><Edit2 size={14} /></Btn>
-                  <Btn variant="ghost" className="del" onClick={() => setConfirm(s.id)}><Trash2 size={14} /></Btn>
+                  <Btn variant="ghost" title={readOnly ? 'Ouvir áudios' : 'Áudios de voz'} onClick={() => setAudioModal(s)}><Mic2 size={14} /></Btn>
+                  {!readOnly && (
+                    <>
+                      <Btn variant="ghost" onClick={() => openEdit(s)}><Edit2 size={14} /></Btn>
+                      <Btn variant="ghost" className="del" onClick={() => setConfirm(s.id)}><Trash2 size={14} /></Btn>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -123,14 +167,31 @@ export default function SongsPage() {
 
       {audioModal && (
         <Modal title={`Áudios · ${audioModal.name}`} onClose={() => setAudioModal(null)} wide>
-          <p style={{ fontSize: 13, color: C.textSecondary, marginBottom: 14, lineHeight: 1.6 }}>
-            Envie arquivos de voz (MP3, M4A, WAV, OGG) para esta música. Os membros escalados ouvem esses áudios na área deles.
-          </p>
-          <AudioSection song={audioModal} onChange={(audios) => setAudios(audioModal.id, audios)} />
+          {readOnly ? (
+            <>
+              <p style={{ fontSize: 13, color: C.textSecondary, marginBottom: 14, lineHeight: 1.6 }}>
+                Ouça os áudios disponíveis para estudar esta música.
+              </p>
+              {(audioModal.audios || []).length > 0 ? (
+                <AudioPlayerList audios={audioModal.audios || []} />
+              ) : (
+                <div style={{ padding: '10px 14px', background: C.bgInput, borderRadius: 8, fontSize: 13, color: C.textSecondary }}>
+                  Nenhum áudio disponível para esta música.
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 13, color: C.textSecondary, marginBottom: 14, lineHeight: 1.6 }}>
+                Envie arquivos de voz (MP3, M4A, WAV, OGG) para esta música. Os membros autorizados podem ouvir esses áudios no repertório e nas escalas.
+              </p>
+              <AudioSection song={audioModal} onChange={(audios) => setAudios(audioModal.id, audios)} />
+            </>
+          )}
         </Modal>
       )}
 
-      {modal && (
+      {!readOnly && modal && (
         <Modal title={modal === 'add' ? 'Nova Música' : 'Editar Música'} onClose={() => setModal(null)}>
           <Inp label="Nome da Música *" value={form.name} onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); setDupWarning(''); }} placeholder="Ex: Oceanos" />
           {dupWarning && (
@@ -152,7 +213,7 @@ export default function SongsPage() {
         </Modal>
       )}
 
-      {importModal && (
+      {!readOnly && importModal && (
         <Modal title="Importar Músicas via CSV" onClose={() => { setImportModal(false); setPreview([]); }} wide>
           <div style={{ padding: 14, background: C.bgInput, borderRadius: 8, marginBottom: 16, fontSize: 13, color: C.textSecondary, lineHeight: 1.7 }}>
             <strong style={{ color: C.accent }}>Formato esperado:</strong> arquivo <code>.csv</code> com colunas <code>nome</code>, <code>url</code> e opcionalmente <code>bpm</code>.
@@ -181,7 +242,8 @@ export default function SongsPage() {
           )}
         </Modal>
       )}
-      {confirm && <Confirm msg="Excluir esta música do repertório?" onOk={() => del(confirm)} onCancel={() => setConfirm(null)} />}
+
+      {!readOnly && confirm && <Confirm msg="Excluir esta música do repertório?" onOk={() => del(confirm)} onCancel={() => setConfirm(null)} />}
     </div>
   );
 }
