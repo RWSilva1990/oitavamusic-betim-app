@@ -12,7 +12,7 @@ export const Route = createFileRoute("/repertorio")({
     ],
   }),
   component: () => (
-    <AppShell>
+    <AppShell allowMember>
       <Page />
     </AppShell>
   ),
