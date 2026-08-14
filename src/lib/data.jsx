@@ -23,7 +23,7 @@ export function DataProvider({ children }) {
   }, []);
 
   const loadAll = useCallback(async () => {
-    if (!auth.user) return;
+    if (!auth.user || !auth.role) return;
     const [m, g, s, sc] = await Promise.all([
       dbGet('members'),
       dbGet('groups'),
@@ -42,11 +42,11 @@ export function DataProvider({ children }) {
     setGroupsState(g || []);
     setSongsState(s || []);
     setScalesState(sc || []);
-  }, [auth.user, auth.isAdmin]);
+  }, [auth.user, auth.role, auth.isAdmin]);
 
-  // Do not touch Firestore until Firebase Authentication has resolved the
-  // current session. This prevents the initial permission-denied race that can
-  // otherwise make the application look empty immediately after login.
+  // Só carrega os documentos compartilhados depois que a autenticação e a
+  // autorização por /accessUsers estiverem resolvidas. Convidados ainda
+  // pendentes não tentam ler os dados do ministério.
   useEffect(() => {
     if (auth.loading) {
       setReady(false);
@@ -54,7 +54,7 @@ export function DataProvider({ children }) {
       return;
     }
 
-    if (!auth.configured || !auth.user) {
+    if (!auth.configured || !auth.user || !auth.role) {
       clearAll();
       readyRef.current = false;
       setReady(true);
@@ -81,10 +81,10 @@ export function DataProvider({ children }) {
       });
 
     return () => { alive = false; };
-  }, [auth.loading, auth.configured, auth.user?.uid, clearAll, loadAll]);
+  }, [auth.loading, auth.configured, auth.user?.uid, auth.role, clearAll, loadAll]);
 
   useEffect(() => {
-    if (!auth.user) return undefined;
+    if (!auth.user || !auth.role) return undefined;
     const onFocus = () => { if (readyRef.current) loadAll().catch(console.error); };
     window.addEventListener('focus', onFocus);
     const interval = setInterval(() => {
@@ -94,7 +94,7 @@ export function DataProvider({ children }) {
       window.removeEventListener('focus', onFocus);
       clearInterval(interval);
     };
-  }, [auth.user?.uid, loadAll]);
+  }, [auth.user?.uid, auth.role, loadAll]);
 
   const persist = useCallback(async (key, val) => {
     if (!auth.user || !auth.isAdmin) return;
