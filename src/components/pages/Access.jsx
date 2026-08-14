@@ -53,7 +53,7 @@ export default function AccessPage() {
     setBusy(true);
     try {
       await auth.definePassword(pass);
-      navigate({ to: accessRole === 'admin' ? '/' : '/minhas-escalas', replace: true });
+      navigate({ to: '/', replace: true });
     } catch (e) {
       setErr(e?.message || 'Não foi possível salvar a nova senha.');
     } finally {
