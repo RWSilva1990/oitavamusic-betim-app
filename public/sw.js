@@ -1,6 +1,6 @@
-const CACHE_NAME = 'oitava-music-static-v3';
+const CACHE_NAME = 'oitava-music-static-v2';
 const STATIC_ASSETS = [
-  '/manifest-v3.webmanifest',
+  '/manifest.webmanifest',
   '/pwa-icon-192.png',
   '/pwa-icon-512.png',
   '/pwa-icon-maskable-512.png',
