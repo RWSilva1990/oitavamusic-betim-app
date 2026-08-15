@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Calendar, Youtube } from 'lucide-react';
+import { Calendar, Mic, Youtube } from 'lucide-react';
 import { C, ROLES, LOGO_HOME } from '@/lib/theme';
 import { fmtDate, todayISO } from '@/lib/db';
 import { Avatar } from '../ui-kit';
@@ -56,6 +56,15 @@ export default function MyScalesPage() {
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                   {x.key && <span className="tag green">Tom: {x.key}</span>}
                   {x.song.bpm && <span className="tag" style={{ fontSize: 10 }}>♩ {x.song.bpm} BPM</span>}
+                  {(x.song.audios || []).length > 0 && (
+                    <span
+                      title="Áudio disponível"
+                      aria-label="Áudio disponível"
+                      style={{ display: 'flex', alignItems: 'center', color: C.accent }}
+                    >
+                      <Mic size={14} />
+                    </span>
+                  )}
                   {x.soloMemberId === me?.id && <span className="tag" style={{ fontSize: 10 }}>🎙️ Você é o solista</span>}
                   {x.song.youtubeUrl && (
                     <a href={x.song.youtubeUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', color: '#E8463A' }}><Youtube size={14} /></a>
