@@ -7,7 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
@@ -75,6 +75,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "theme-color", content: "#6339ff" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "Oitava Music" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { title: "Oitava Music Betim" },
       { name: "description", content: "Gestão do ministério de louvor: escalas, repertório e membros." },
       { name: "author", content: "Oitava Music Betim" },
@@ -89,6 +94,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -120,11 +126,34 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function ServiceWorkerRegistration() {
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+
+    const registerServiceWorker = () => {
+      navigator.serviceWorker.register("/sw.js").catch((error) => {
+        console.warn("Service worker registration failed:", error);
+      });
+    };
+
+    if (document.readyState === "complete") {
+      registerServiceWorker();
+      return;
+    }
+
+    window.addEventListener("load", registerServiceWorker, { once: true });
+    return () => window.removeEventListener("load", registerServiceWorker);
+  }, []);
+
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ServiceWorkerRegistration />
       <AuthProvider>
         <DataProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
