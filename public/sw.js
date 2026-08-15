@@ -1,9 +1,8 @@
-const CACHE_NAME = 'oitava-music-static-v3';
+const CACHE_NAME = 'oitava-music-static-v4';
 const STATIC_ASSETS = [
   '/manifest.webmanifest',
   '/pwa-icon-192.png',
   '/icon-512.png',
-  '/pwa-icon-maskable-512.png',
 ];
 
 self.addEventListener('install', (event) => {
