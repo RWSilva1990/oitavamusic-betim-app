@@ -108,12 +108,11 @@ export const sendResendTestEmail = createServerFn({ method: 'POST' }).handler(as
                 </tr>
                 <tr>
                   <td style="padding:22px 28px 26px;border-top:1px solid #E8EBF4;text-align:center;background:#FCFCFE;">
-                    <div style="font-size:16px;font-weight:800;color:#6339ff;margin-bottom:4px;">Oitava Music Betim</div>
-                    <div style="font-size:12px;line-height:1.6;color:#6B7280;">Aplicativo do ministério de louvor</div>
+                    <div style="font-size:16px;font-weight:800;color:#6339ff;margin-bottom:6px;">Oitava Betim</div>
+                    <div style="font-size:12px;line-height:1.65;color:#6B7280;">Uma igreja bíblica, contemporânea, acolhedora de pessoas, presente na cidade e parceira na evangelização do mundo</div>
                   </td>
                 </tr>
               </table>
-              <div style="padding:14px 12px 0;text-align:center;font-size:10px;line-height:1.6;color:#9CA3AF;">E-mail de visualização do convite · Oitava Music Betim</div>
             </td>
           </tr>
         </table>
