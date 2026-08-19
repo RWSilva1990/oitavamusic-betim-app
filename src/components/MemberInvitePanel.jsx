@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, Link2, Mail, RefreshCw, UserCheck } from 'lucide-react';
 import { C } from '@/lib/theme';
 import { fmtDate, genId, normalizeStr } from '@/lib/db';
+import { sendCustomInvitation } from '@/lib/invite-client';
 import { Btn, Inp, Modal } from './ui-kit';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
@@ -39,7 +40,7 @@ export default function MemberInvitePanel() {
     if (!clean) { setMessage('Informe o e-mail da pessoa que será convidada.'); return; }
     setSending(true);
     try {
-      await auth.sendInvite(clean);
+      await sendCustomInvitation(clean);
       setMessage(`Convite enviado para ${clean}.`);
       setEmail('');
     } catch (e) {
