@@ -1,7 +1,6 @@
 import { createServerFn } from '@tanstack/react-start';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
 const inviteSchema = z.object({
@@ -68,12 +67,11 @@ async function assertAdmin(idToken: string) {
   const callerEmail = decoded.email?.trim().toLowerCase();
 
   if (!callerEmail) throw new Error('Não foi possível identificar o administrador autenticado.');
-  if (adminEmails().includes(callerEmail)) return { app, auth, callerEmail };
+  if (!adminEmails().includes(callerEmail)) {
+    throw new Error('Apenas administradores autorizados podem enviar convites.');
+  }
 
-  const access = await getFirestore(app).collection('accessUsers').doc(callerEmail).get();
-  if (access.exists && access.data()?.role === 'admin') return { app, auth, callerEmail };
-
-  throw new Error('Apenas administradores podem enviar convites.');
+  return { auth, callerEmail };
 }
 
 function invitationHtml(appUrl: string, inviteLink: string) {
