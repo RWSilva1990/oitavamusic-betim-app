@@ -20,6 +20,7 @@ export const sendResendTestEmail = createServerFn({ method: 'POST' }).handler(as
 
   const appUrl = (env('APP_URL') || 'https://oitavamusicbetim.vercel.app').replace(/\/$/, '');
   const logoUrl = `${appUrl}/icon-512.png`;
+  const watermarkUrl = `${appUrl}/email-watermark.png`;
 
   const html = `
     <!doctype html>
@@ -31,7 +32,7 @@ export const sendResendTestEmail = createServerFn({ method: 'POST' }).handler(as
           @media only screen and (max-width: 520px) {
             .email-shell { padding: 18px 8px !important; }
             .email-card { border-radius: 18px !important; }
-            .content-pad { padding-left: 20px !important; padding-right: 20px !important; }
+            .content-pad { padding-left: 20px !important; padding-right: 20px !important; background-size: 100% auto !important; }
             .headline { font-size: 28px !important; line-height: 1.12 !important; }
             .brand-name { font-size: 21px !important; }
             .feature-label { font-size: 10px !important; }
@@ -50,9 +51,12 @@ export const sendResendTestEmail = createServerFn({ method: 'POST' }).handler(as
                   </td>
                 </tr>
                 <tr>
-                  <td class="content-pad" style="position:relative;padding:22px 42px 36px;overflow:hidden;">
-                    <img src="${logoUrl}" width="330" height="330" alt="" aria-hidden="true" style="position:absolute;right:-105px;top:55px;width:330px;height:330px;border-radius:50%;opacity:0.045;display:block;" />
-                    <div style="position:relative;z-index:1;">
+                  <td
+                    class="content-pad"
+                    background="${watermarkUrl}"
+                    style="padding:22px 42px 36px;background-color:#FFFFFF;background-image:url('${watermarkUrl}');background-repeat:no-repeat;background-position:center top;background-size:620px auto;"
+                  >
+                    <div>
                       <div class="headline" style="margin:0 auto 22px;max-width:510px;text-align:center;font-size:36px;line-height:1.08;font-weight:800;letter-spacing:-1.2px;color:#111827;">
                         Crie seu acesso ao<br />aplicativo do ministério
                       </div>
