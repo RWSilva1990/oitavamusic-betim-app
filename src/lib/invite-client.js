@@ -11,7 +11,15 @@ export async function sendCustomInvitation(mail) {
   if (!currentUser) throw new Error('Sua sessão expirou. Entre novamente como administrador.');
 
   const idToken = await currentUser.getIdToken();
-  await sendInvitationEmail({ data: { email: clean, idToken } });
+  try {
+    await sendInvitationEmail({ data: { email: clean, idToken } });
+  } catch (error) {
+    const message = String(error?.message || error || '');
+    if (message.includes('<!doctype html') || message.includes('<html')) {
+      throw new Error('Não foi possível concluir o envio do convite. Tente novamente em instantes.');
+    }
+    throw error;
+  }
 
   const users = (await dbGet('users')) || {};
   if (!users[clean]) users[clean] = { role: 'membro' };
