@@ -32,9 +32,9 @@ function ResendTestPanel() {
     try {
       const result = await sendResendTestEmail();
       setSuccess(true);
-      setMessage(`E-mail enviado para ${result.to}. Confira a caixa de entrada e o spam.`);
+      setMessage(`Modelo enviado para ${result.to}. Confira a caixa de entrada.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Não foi possível enviar o e-mail de teste.");
+      setMessage(error instanceof Error ? error.message : "Não foi possível enviar o modelo do convite.");
     } finally {
       setSending(false);
     }
@@ -42,12 +42,12 @@ function ResendTestPanel() {
 
   return (
     <div className="card" style={{ marginTop: 12, marginBottom: 16, padding: 16, border: `1px solid ${C.accent}33` }}>
-      <div style={{ fontWeight: 800, color: C.textPrimary, marginBottom: 5 }}>Teste do Resend</div>
+      <div style={{ fontWeight: 800, color: C.textPrimary, marginBottom: 5 }}>Prévia do e-mail de convite</div>
       <div style={{ fontSize: 12, color: C.textSecondary, lineHeight: 1.6, marginBottom: 12 }}>
-        Teste temporário. O envio vai somente para o primeiro endereço configurado em ADMIN_EMAILS.
+        Envia o novo layout para seu e-mail apenas para avaliação visual. Nenhum acesso ou membro será criado neste teste.
       </div>
       <Btn disabled={sending} onClick={send}>
-        <Send size={14} />{sending ? "Enviando..." : "Enviar e-mail de teste"}
+        <Send size={14} />{sending ? "Enviando..." : "Enviar modelo do convite"}
       </Btn>
       {message && (
         <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.6, color: success ? C.success : C.danger }}>
