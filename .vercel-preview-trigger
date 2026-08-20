@@ -2,3 +2,4 @@ Firebase environment variables configured for preview redeploy.
 Resend preview redeploy requested on 2026-08-19.
 Firebase Admin service account configured; force fresh secure-invite preview on 2026-08-19.
 Gmail OAuth credentials refreshed; force fresh Gmail invitation preview on 2026-08-19.
+New Gmail refresh token saved in Vercel; force fresh preview on 2026-08-20.
