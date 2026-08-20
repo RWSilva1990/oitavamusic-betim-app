@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Bell, BellOff, CheckCircle2 } from 'lucide-react';
+import { Bell, BellOff, CheckCircle2, Send } from 'lucide-react';
 import { C } from '@/lib/theme';
 import { Btn } from './ui-kit';
 import {
   disableScaleNotifications,
   enableScaleNotifications,
   getScaleNotificationStatus,
+  sendNotificationTest,
 } from '@/lib/push-client';
 
 export default function NotificationSettings() {
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [testBusy, setTestBusy] = useState(false);
   const [message, setMessage] = useState('');
 
   const refresh = async () => {
@@ -53,6 +55,19 @@ export default function NotificationSettings() {
     }
   };
 
+  const test = async () => {
+    setTestBusy(true);
+    setMessage('');
+    try {
+      await sendNotificationTest();
+      setMessage('Teste enviado. Verifique a barra de notificações do aparelho.');
+    } catch (error) {
+      setMessage(error?.message || 'Não foi possível enviar a notificação de teste.');
+    } finally {
+      setTestBusy(false);
+    }
+  };
+
   if (!status) return null;
 
   const blocked = status.permission === 'denied';
@@ -84,6 +99,11 @@ export default function NotificationSettings() {
               : 'Ative para receber um aviso no aparelho quando você for inserido em uma escala.'}
           </div>
 
+          {status.permission === 'granted' && (
+            <div style={{ marginTop: 7, color: C.success, fontSize: 11, fontWeight: 700 }}>
+              Permissão do aparelho: concedida
+            </div>
+          )}
           {!status.configured && (
             <div style={{ marginTop: 8, color: C.accent, fontSize: 11, fontWeight: 700 }}>
               Configuração de push do Firebase pendente neste ambiente.
@@ -100,21 +120,28 @@ export default function NotificationSettings() {
             </div>
           )}
           {message && (
-            <div style={{ marginTop: 8, color: message.includes('ativadas') ? C.success : C.textSecondary, fontSize: 11 }}>
+            <div style={{ marginTop: 8, color: message.includes('Não foi possível') ? C.danger : C.textSecondary, fontSize: 11, lineHeight: 1.5 }}>
               {message}
             </div>
           )}
         </div>
 
-        {status.enabled ? (
-          <Btn variant="secondary" disabled={busy} onClick={disable}>
-            <BellOff size={14} />{busy ? 'Aguarde...' : 'Desativar'}
-          </Btn>
-        ) : (
-          <Btn disabled={busy || blocked || !status.supported || !status.configured} onClick={enable}>
-            <Bell size={14} />{busy ? 'Ativando...' : 'Ativar notificações'}
-          </Btn>
-        )}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {status.enabled && (
+            <Btn variant="secondary" disabled={testBusy || busy} onClick={test}>
+              <Send size={14} />{testBusy ? 'Enviando...' : 'Testar agora'}
+            </Btn>
+          )}
+          {status.enabled ? (
+            <Btn variant="secondary" disabled={busy || testBusy} onClick={disable}>
+              <BellOff size={14} />{busy ? 'Aguarde...' : 'Desativar'}
+            </Btn>
+          ) : (
+            <Btn disabled={busy || blocked || !status.supported || !status.configured} onClick={enable}>
+              <Bell size={14} />{busy ? 'Ativando...' : 'Ativar notificações'}
+            </Btn>
+          )}
+        </div>
       </div>
     </div>
   );
