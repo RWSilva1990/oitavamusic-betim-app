@@ -1,9 +1,11 @@
-const CACHE_NAME = 'oitava-music-static-v6';
+const CACHE_NAME = 'oitava-music-static-v7';
 const STATIC_ASSETS = [
   '/manifest.webmanifest',
   '/pwa-icon-192.png',
   '/icon-512.png',
 ];
+
+const NOTIFICATION_BADGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAABRUlEQVR42u3cUQ7CIBBFUSHsf8v1yw9jjcZgZxjOXYAt7/KwKOntBgAAAAAAAAAAAACoSttloMdxHE8Db60REBR+JhFt5/AziGjCj5XRfQ2ei/tVngZMaMCVrdCA4FZoQHArNCAYAgjYm7Hj2q0Bws8pICr8yN+Dhpn/KuHKe+nCP5dxVSu68GNFDOHHLk/2AcGtGKvNwCwNmyVBA+wDCAABBIAAAkAAASCAABBAAAggAAQQAAIIAAF1GSvffIVzpEPoxQXMCqzqqelmlhY6Hb3b2f5UT0Grhh/9rohu5i/eAOEHCqgQfvQY7IRXbYClRwMIAAH2AQgSkOW1jyvP/q0bkGUC9eyD+Mc1MrW3Zx7M47NnXiPb0jntZmZvzN4FtcK7QEMEzJTwbVifrrfCg0Kqf8QqPFmlEFBtlgIAAAAAAAAowB3XUph8InDUGgAAAABJRU5ErkJggg==';
 
 function notificationData(payload) {
   if (!payload || typeof payload !== 'object') return {};
@@ -37,7 +39,7 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(title, {
       body,
       icon: '/pwa-icon-192.png',
-      badge: '/pwa-icon-192.png',
+      badge: NOTIFICATION_BADGE,
       tag: data.scaleId ? `scale-added-${data.scaleId}` : 'oitava-music-push',
       data: { url },
       vibrate: [180, 80, 180],
