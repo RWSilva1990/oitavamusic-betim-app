@@ -90,10 +90,9 @@ export default function MyScalesPage() {
           <h1 style={{ fontSize: 20, fontWeight: 800, color: C.accent }}>Minhas Escalas</h1>
           <p style={{ color: C.textSecondary, fontSize: 13 }}>{me?.name || auth.email}</p>
         </div>
+        <NotificationSettings />
         {me && <Avatar member={me} size={40} />}
       </div>
-
-      <NotificationSettings />
 
       {!ready ? (
         <div className="empty-state"><p>Carregando...</p></div>
