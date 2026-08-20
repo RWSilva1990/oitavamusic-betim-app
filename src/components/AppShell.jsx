@@ -5,6 +5,7 @@ import { C, NAV, LOGO_HOME, LOGO_SIDEBAR } from '@/lib/theme';
 import { Btn } from './ui-kit';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
+import { startScaleNotificationRuntime } from '@/lib/push-client';
 
 const MEMBER_NAV = [
   { id: 'home', label: 'Início', emoji: '🏠', to: '/' },
@@ -50,6 +51,25 @@ export default function AppShell({ children, allowMember = false }) {
     if (!auth.user) navigate({ to: '/entrar', replace: true });
     else if (auth.role === 'membro' && !allowMember) navigate({ to: '/', replace: true });
   }, [auth.configured, auth.loading, auth.user, auth.role, allowMember, navigate]);
+
+  useEffect(() => {
+    if (!auth.user || !auth.role) return undefined;
+    let alive = true;
+    let cleanup = () => {};
+
+    startScaleNotificationRuntime().then((fn) => {
+      if (!alive) {
+        fn?.();
+        return;
+      }
+      cleanup = fn || (() => {});
+    }).catch((error) => console.warn('Falha ao iniciar notificações:', error));
+
+    return () => {
+      alive = false;
+      cleanup();
+    };
+  }, [auth.user?.uid, auth.role]);
 
   if (auth.loading) return <Loader label="Verificando acesso..." />;
   if (!auth.configured) return <SetupRequired />;
