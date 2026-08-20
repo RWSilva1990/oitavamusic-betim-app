@@ -204,7 +204,7 @@ function gmailCredentials() {
 }
 
 async function getGmailAccessToken() {
-  const { clientId, clientSecret, refreshToken } = gmailCredentials();
+  const { clientId, clientSecret, refreshToken, senderEmail } = gmailCredentials();
   const body = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
@@ -220,8 +220,16 @@ async function getGmailAccessToken() {
 
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result?.access_token) {
-    const detail = result?.error_description || result?.error || `HTTP ${response.status}`;
-    throw new Error(`Google recusou a renovação do token do Gmail: ${detail}`);
+    const code = String(result?.error || 'unknown_error');
+    const description = String(result?.error_description || `HTTP ${response.status}`);
+    console.error('Gmail OAuth token refresh failed', {
+      status: response.status,
+      code,
+      description,
+      clientIdSuffix: clientId.slice(-18),
+      senderEmail,
+    });
+    throw new Error(`Google recusou a renovação do token do Gmail: ${code} — ${description}`);
   }
 
   return String(result.access_token);
