@@ -5,6 +5,7 @@ import { C, ROLES, LOGO_HOME } from '@/lib/theme';
 import { fmtDate, todayISO } from '@/lib/db';
 import { Avatar } from '../ui-kit';
 import { AudioPlayerList } from '../AudioSection';
+import NotificationSettings from '../NotificationSettings';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 
@@ -91,6 +92,8 @@ export default function MyScalesPage() {
         </div>
         {me && <Avatar member={me} size={40} />}
       </div>
+
+      <NotificationSettings />
 
       {!ready ? (
         <div className="empty-state"><p>Carregando...</p></div>
