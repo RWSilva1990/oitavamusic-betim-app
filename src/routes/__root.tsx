@@ -12,6 +12,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { DataProvider } from "@/lib/data";
+import { firebaseServiceWorkerUrl, loadFirebaseConfig } from "@/lib/firebase";
 import { GLOBAL_CSS } from "@/lib/theme";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -234,10 +235,16 @@ function ServiceWorkerRegistration() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
-    const registerServiceWorker = () => {
-      navigator.serviceWorker.register("/sw.js").catch((error) => {
+    const registerServiceWorker = async () => {
+      try {
+        const cfg = await loadFirebaseConfig();
+        await navigator.serviceWorker.register(firebaseServiceWorkerUrl(cfg));
+      } catch (error) {
         console.warn("Service worker registration failed:", error);
-      });
+        navigator.serviceWorker.register("/sw.js").catch((fallbackError) => {
+          console.warn("Fallback service worker registration failed:", fallbackError);
+        });
+      }
     };
 
     if (document.readyState === "complete") {
