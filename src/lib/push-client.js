@@ -13,6 +13,7 @@ import { sendPushTest } from './push-test.functions';
 
 const PUSH_ENABLED_KEY = 'oitava:push-enabled';
 const PUSH_FID_KEY = 'oitava:push-fid';
+const NOTIFICATION_BADGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAABRUlEQVR42u3cUQ7CIBBFUSHsf8v1yw9jjcZgZxjOXYAt7/KwKOntBgAAAAAAAAAAAACoSttloMdxHE8Db60REBR+JhFt5/AziGjCj5XRfQ2ei/tVngZMaMCVrdCA4FZoQHArNCAYAgjYm7Hj2q0Bws8pICr8yN+Dhpn/KuHKe+nCP5dxVSu68GNFDOHHLk/2AcGtGKvNwCwNmyVBA+wDCAABBIAAAkAAASCAABBAAAggAAQQAAIIAAF1GSvffIVzpEPoxQXMCqzqqelmlhY6Hb3b2f5UT0Grhh/9rohu5i/eAOEHCqgQfvQY7IRXbYClRwMIAAH2AQgSkOW1jyvP/q0bkGUC9eyD+Mc1MrW3Zx7M47NnXiPb0jntZmZvzN4FtcK7QEMEzJTwbVifrrfCg0Kqf8QqPFmlEFBtlgIAAAAAAAAowB3XUph8InDUGgAAAABJRU5ErkJggg==';
 let runtimeCleanup = null;
 let syncPromise = null;
 
@@ -195,7 +196,7 @@ async function showForegroundNotification(payload) {
   await registration.showNotification(data.title || 'Você foi escalado! 🎵', {
     body: data.body || 'Há uma nova escala para você.',
     icon: '/pwa-icon-192.png',
-    badge: '/pwa-icon-192.png',
+    badge: NOTIFICATION_BADGE,
     tag: data.scaleId ? `scale-added-${data.scaleId}` : 'scale-added',
     data: { url: data.url || '/minhas-escalas' },
     vibrate: [180, 80, 180],
