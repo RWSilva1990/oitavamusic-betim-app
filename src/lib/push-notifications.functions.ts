@@ -90,6 +90,10 @@ function installationDocId(fid: string) {
   return createHash('sha256').update(fid).digest('hex');
 }
 
+function debugMemberId(memberId: string) {
+  return createHash('sha256').update(memberId).digest('hex').slice(0, 10);
+}
+
 async function resolveMemberId(app: ReturnType<typeof getPushAdminApp>, email: string) {
   const access = await firestoreRest(
     app,
@@ -189,6 +193,10 @@ export const registerPushInstallation = createServerFn({ method: 'POST' })
       ),
     });
 
+    console.info('[push-debug] installation registered', {
+      member: debugMemberId(memberId),
+    });
+
     return { success: true, memberId };
   });
 
@@ -220,10 +228,23 @@ export const notifyScaleMembersAdded = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const caller = await assertAdmin(data.idToken);
     const memberIds = [...new Set(data.addedMemberIds)].filter(Boolean);
+
+    console.info('[push-debug] scale notification requested', {
+      scaleId: data.scale.id,
+      addedMembers: memberIds.map(debugMemberId),
+      addedCount: memberIds.length,
+    });
+
     if (memberIds.length === 0) return { success: true, sent: 0, failed: 0, devices: 0 };
 
     const installations = await findInstallationsByMemberIds(caller.app, memberIds);
     const fids = [...installations.keys()];
+
+    console.info('[push-debug] installations matched', {
+      addedMembers: memberIds.map(debugMemberId),
+      devices: fids.length,
+    });
+
     if (fids.length === 0) return { success: true, sent: 0, failed: 0, devices: 0 };
 
     const link = `${appUrl()}/minhas-escalas?escala=${encodeURIComponent(data.scale.id)}`;
@@ -266,6 +287,12 @@ export const notifyScaleMembersAdded = createServerFn({ method: 'POST' })
         }
       });
     }
+
+    console.info('[push-debug] delivery result', {
+      devices: fids.length,
+      sent,
+      failed,
+    });
 
     if (stalePaths.length > 0) {
       await Promise.all(
