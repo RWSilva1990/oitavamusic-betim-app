@@ -52,13 +52,6 @@ export async function getFirebaseMessaging() {
   return { messaging: mod.getMessaging(app), mod };
 }
 
-export function firebaseServiceWorkerUrl(cfg) {
-  const params = new URLSearchParams();
-  const publicKeys = ['apiKey', 'appId', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId'];
-  publicKeys.forEach((key) => {
-    const value = cfg?.[key];
-    if (value) params.set(key, value);
-  });
-  const query = params.toString();
-  return query ? `/sw.js?${query}` : '/sw.js';
+export function firebaseServiceWorkerUrl() {
+  return '/sw.js';
 }
