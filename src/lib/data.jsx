@@ -44,9 +44,6 @@ export function DataProvider({ children }) {
     setScalesState(sc || []);
   }, [auth.user, auth.role, auth.isAdmin]);
 
-  // Só carrega os documentos compartilhados depois que a autenticação e a
-  // autorização por /accessUsers estiverem resolvidas. Convidados ainda
-  // pendentes não tentam ler os dados do ministério.
   useEffect(() => {
     if (auth.loading) {
       setReady(false);
@@ -96,8 +93,11 @@ export function DataProvider({ children }) {
     };
   }, [auth.user?.uid, auth.role, loadAll]);
 
-  const persist = useCallback(async (key, val) => {
-    if (!auth.user || !auth.isAdmin) return;
+  const persist = useCallback(async (key, val, throwOnError = false) => {
+    if (!auth.user || !auth.isAdmin) {
+      if (throwOnError) throw new Error('Apenas administradores podem alterar os dados do ministério.');
+      return;
+    }
     setSyncing(true);
     setSyncOk(null);
     try {
@@ -106,6 +106,7 @@ export function DataProvider({ children }) {
     } catch (error) {
       console.error(`Falha ao salvar oitava/${key}`, error);
       setSyncOk(false);
+      if (throwOnError) throw error;
     } finally {
       setSyncing(false);
     }
@@ -117,6 +118,13 @@ export function DataProvider({ children }) {
       if (readyRef.current && auth.isAdmin) persist(key, next);
       return next;
     });
+
+  const saveScales = useCallback(async (next) => {
+    if (!readyRef.current) throw new Error('Os dados ainda estão sendo carregados.');
+    await persist('scales', next, true);
+    setScalesState(next);
+    return next;
+  }, [persist]);
 
   const value = {
     members,
@@ -131,6 +139,7 @@ export function DataProvider({ children }) {
     setGroups: makeSetter('groups', setGroupsState),
     setSongs: makeSetter('songs', setSongsState),
     setScales: makeSetter('scales', setScalesState),
+    saveScales,
   };
 
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;
