@@ -12,7 +12,11 @@ export const Route = createFileRoute("/membros")({
       { property: "og:description", content: "Cadastro de membros, funções e convites de acesso do ministério." },
     ],
   }),
-  component: () => (
+  component: MembersRoute,
+});
+
+function MembersRoute() {
+  return (
     <AppShell>
       <style>{`button[title="Convidar por e-mail"] { display: none !important; }`}</style>
       <div style={{ padding: "24px 24px 0", maxWidth: 860 }}>
@@ -20,5 +24,5 @@ export const Route = createFileRoute("/membros")({
       </div>
       <Page />
     </AppShell>
-  ),
-});
+  );
+}
