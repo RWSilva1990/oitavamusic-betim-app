@@ -1,9 +1,69 @@
-const CACHE_NAME = 'oitava-music-static-v4';
+const CACHE_NAME = 'oitava-music-static-v5';
 const STATIC_ASSETS = [
   '/manifest.webmanifest',
   '/pwa-icon-192.png',
   '/icon-512.png',
 ];
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = event.notification?.data?.url || '/minhas-escalas';
+  const targetUrl = new URL(target, self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
+      const existing = clients.find((client) => new URL(client.url).origin === self.location.origin);
+      if (existing) {
+        if ('navigate' in existing) await existing.navigate(targetUrl);
+        return existing.focus();
+      }
+      return self.clients.openWindow(targetUrl);
+    }),
+  );
+});
+
+const swParams = new URL(self.location.href).searchParams;
+const firebaseConfig = {
+  apiKey: swParams.get('apiKey') || '',
+  appId: swParams.get('appId') || '',
+  authDomain: swParams.get('authDomain') || '',
+  projectId: swParams.get('projectId') || '',
+  storageBucket: swParams.get('storageBucket') || '',
+  messagingSenderId: swParams.get('messagingSenderId') || '',
+};
+
+const messagingConfigured = Boolean(
+  firebaseConfig.apiKey
+  && firebaseConfig.appId
+  && firebaseConfig.projectId
+  && firebaseConfig.messagingSenderId,
+);
+
+if (messagingConfigured) {
+  try {
+    importScripts('https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js');
+    importScripts('https://www.gstatic.com/firebasejs/12.17.1/firebase-messaging-compat.js');
+
+    firebase.initializeApp(firebaseConfig);
+    const messaging = firebase.messaging();
+
+    messaging.onBackgroundMessage((payload) => {
+      const data = payload?.data || {};
+      const title = data.title || 'Você foi escalado! 🎵';
+      const options = {
+        body: data.body || 'Há uma nova escala para você.',
+        icon: '/pwa-icon-192.png',
+        badge: '/pwa-icon-192.png',
+        tag: data.scaleId ? `scale-added-${data.scaleId}` : 'scale-added',
+        data: { url: data.url || '/minhas-escalas' },
+        vibrate: [180, 80, 180],
+      };
+      return self.registration.showNotification(title, options);
+    });
+  } catch (error) {
+    console.warn('Firebase Messaging não pôde ser iniciado no service worker:', error);
+  }
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -37,7 +97,5 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Keep application and Firebase-backed data network-driven.
-  // The service worker does not cache pages, API responses, auth, Firestore or Storage data.
   event.respondWith(fetch(request));
 });
