@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { dbGet, dbSet } from './db';
 import { useAuth } from './auth';
+import { sendScaleAddedNotifications } from './push-client';
 
 const DataCtx = createContext(null);
 
@@ -119,6 +120,38 @@ export function DataProvider({ children }) {
       return next;
     });
 
+  const setScales = (updater) =>
+    setScalesState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+
+      if (readyRef.current && auth.isAdmin) {
+        const notifications = [];
+        for (const scale of next || []) {
+          const previous = (prev || []).find((item) => item.id === scale.id);
+          const previousMemberIds = new Set((previous?.scaleMembers || []).map((item) => item.memberId));
+          const addedMemberIds = (scale.scaleMembers || [])
+            .map((item) => item.memberId)
+            .filter((memberId) => memberId && !previousMemberIds.has(memberId));
+
+          if (addedMemberIds.length > 0) notifications.push({ scale, addedMemberIds });
+        }
+
+        persist('scales', next, true)
+          .then(async () => {
+            for (const item of notifications) {
+              try {
+                await sendScaleAddedNotifications(item.scale, item.addedMemberIds);
+              } catch (error) {
+                console.warn('A escala foi salva, mas a notificação não pôde ser enviada:', error);
+              }
+            }
+          })
+          .catch((error) => console.error('A escala não foi salva; notificações não foram enviadas.', error));
+      }
+
+      return next;
+    });
+
   const saveScales = useCallback(async (next) => {
     if (!readyRef.current) throw new Error('Os dados ainda estão sendo carregados.');
     await persist('scales', next, true);
@@ -138,7 +171,7 @@ export function DataProvider({ children }) {
     setMembers: makeSetter('members', setMembersState),
     setGroups: makeSetter('groups', setGroupsState),
     setSongs: makeSetter('songs', setSongsState),
-    setScales: makeSetter('scales', setScalesState),
+    setScales,
     saveScales,
   };
 
