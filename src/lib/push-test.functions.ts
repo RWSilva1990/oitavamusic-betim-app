@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 import { createServerFn } from '@tanstack/react-start';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { z } from 'zod';
+import { firestoreRest, firestoreString } from './firestore-rest.functions';
 
 const testSchema = z.object({
   idToken: z.string().min(20),
@@ -58,15 +58,20 @@ export const sendPushTest = createServerFn({ method: 'POST' })
     const email = decoded.email?.trim().toLowerCase();
     if (!email) throw new Error('Não foi possível identificar o usuário autenticado.');
 
-    const db = getFirestore(app);
-    const ref = db.collection('pushInstallations').doc(installationDocId(data.fid));
-    const snap = await ref.get();
-    if (!snap.exists) {
+    const id = installationDocId(data.fid);
+    const installation = await firestoreRest(
+      app,
+      `/pushInstallations/${id}`,
+      {},
+      { allowNotFound: true },
+    );
+    if (!installation) {
       throw new Error('Este aparelho ainda não está registrado para receber notificações.');
     }
 
-    const installation = snap.data();
-    if (installation?.uid !== decoded.uid && installation?.email !== email) {
+    const uid = firestoreString(installation, 'uid');
+    const storedEmail = firestoreString(installation, 'email');
+    if (uid !== decoded.uid && storedEmail !== email) {
       throw new Error('Este aparelho não pertence ao usuário autenticado.');
     }
 
