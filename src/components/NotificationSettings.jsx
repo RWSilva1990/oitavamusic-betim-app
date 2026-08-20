@@ -1,19 +1,17 @@
-import { useEffect, useState } from 'react';
-import { Bell, BellOff, CheckCircle2, Send } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Bell, BellOff } from 'lucide-react';
 import { C } from '@/lib/theme';
-import { Btn } from './ui-kit';
 import {
   disableScaleNotifications,
   enableScaleNotifications,
   getScaleNotificationStatus,
-  sendNotificationTest,
 } from '@/lib/push-client';
 
 export default function NotificationSettings() {
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [testBusy, setTestBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(null);
+  const messageTimer = useRef(null);
 
   const refresh = async () => {
     try {
@@ -23,126 +21,109 @@ export default function NotificationSettings() {
     }
   };
 
+  const flash = (text, error = false) => {
+    if (messageTimer.current) window.clearTimeout(messageTimer.current);
+    setMessage({ text, error });
+    messageTimer.current = window.setTimeout(() => setMessage(null), 2800);
+  };
+
   useEffect(() => {
     refresh();
+    return () => {
+      if (messageTimer.current) window.clearTimeout(messageTimer.current);
+    };
   }, []);
 
-  const enable = async () => {
+  const toggle = async () => {
+    if (!status || busy) return;
+
+    if (!status.configured) {
+      flash('Notificações ainda não estão configuradas.', true);
+      return;
+    }
+    if (!status.supported) {
+      flash('Este aparelho não oferece suporte a notificações.', true);
+      return;
+    }
+    if (!status.enabled && status.permission === 'denied') {
+      flash('Notificações bloqueadas para este site no navegador.', true);
+      return;
+    }
+
     setBusy(true);
-    setMessage('');
     try {
-      await enableScaleNotifications();
-      setMessage('Notificações ativadas neste aparelho.');
+      if (status.enabled) {
+        await disableScaleNotifications();
+        flash('Notificações desativadas');
+      } else {
+        await enableScaleNotifications();
+        flash('Notificações ativadas');
+      }
     } catch (error) {
-      setMessage(error?.message || 'Não foi possível ativar as notificações.');
+      flash(error?.message || 'Não foi possível alterar as notificações.', true);
     } finally {
       await refresh();
       setBusy(false);
-    }
-  };
-
-  const disable = async () => {
-    setBusy(true);
-    setMessage('');
-    try {
-      await disableScaleNotifications();
-      setMessage('Notificações desativadas neste aparelho.');
-    } catch (error) {
-      setMessage(error?.message || 'Não foi possível desativar as notificações.');
-    } finally {
-      await refresh();
-      setBusy(false);
-    }
-  };
-
-  const test = async () => {
-    setTestBusy(true);
-    setMessage('');
-    try {
-      await sendNotificationTest();
-      setMessage('Teste enviado. Verifique a barra de notificações do aparelho.');
-    } catch (error) {
-      setMessage(error?.message || 'Não foi possível enviar a notificação de teste.');
-    } finally {
-      setTestBusy(false);
     }
   };
 
   if (!status) return null;
 
-  const blocked = status.permission === 'denied';
+  const enabled = status.enabled;
+  const label = enabled ? 'Desativar notificações' : 'Ativar notificações';
 
   return (
-    <div className="card" style={{ marginBottom: 20, padding: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={busy}
+        aria-label={label}
+        aria-pressed={enabled}
+        title={label}
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          border: `1px solid ${enabled ? `${C.accent}44` : C.border}`,
+          background: enabled ? C.accentGlow : C.bgHover,
+          color: enabled ? C.accent : C.textSecondary,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: busy ? 'wait' : 'pointer',
+          opacity: busy ? 0.6 : 1,
+          transition: 'all 0.18s ease',
+        }}
+      >
+        {enabled ? <Bell size={20} strokeWidth={2.3} /> : <BellOff size={20} strokeWidth={2.1} />}
+      </button>
+
+      {message && (
         <div
+          role="status"
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 12,
-            background: status.enabled ? `${C.success}14` : C.accentGlow,
-            color: status.enabled ? C.success : C.accent,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
+            position: 'absolute',
+            right: 0,
+            top: 48,
+            zIndex: 30,
+            width: 'max-content',
+            maxWidth: 230,
+            padding: '8px 10px',
+            borderRadius: 10,
+            border: `1px solid ${message.error ? `${C.danger}33` : C.border}`,
+            background: C.bgCard,
+            boxShadow: '0 8px 24px rgba(27,20,61,0.14)',
+            color: message.error ? C.danger : C.textPrimary,
+            fontSize: 11,
+            fontWeight: 700,
+            lineHeight: 1.4,
+            textAlign: 'center',
           }}
         >
-          {status.enabled ? <CheckCircle2 size={21} /> : <Bell size={21} />}
+          {message.text}
         </div>
-
-        <div style={{ flex: 1, minWidth: 210 }}>
-          <div style={{ fontWeight: 800, color: C.textPrimary, fontSize: 14 }}>Notificações das escalas</div>
-          <div style={{ marginTop: 4, color: C.textSecondary, fontSize: 12, lineHeight: 1.55 }}>
-            {status.enabled
-              ? 'Este aparelho avisará quando você for adicionado a uma nova escala.'
-              : 'Ative para receber um aviso no aparelho quando você for inserido em uma escala.'}
-          </div>
-
-          {status.permission === 'granted' && (
-            <div style={{ marginTop: 7, color: C.success, fontSize: 11, fontWeight: 700 }}>
-              Permissão do aparelho: concedida
-            </div>
-          )}
-          {!status.configured && (
-            <div style={{ marginTop: 8, color: C.accent, fontSize: 11, fontWeight: 700 }}>
-              Configuração de push do Firebase pendente neste ambiente.
-            </div>
-          )}
-          {!status.supported && status.configured && (
-            <div style={{ marginTop: 8, color: C.textSecondary, fontSize: 11 }}>
-              Este navegador ou aparelho não oferece suporte a notificações push.
-            </div>
-          )}
-          {blocked && (
-            <div style={{ marginTop: 8, color: C.danger, fontSize: 11, lineHeight: 1.5 }}>
-              A permissão foi bloqueada no aparelho. Para reativar, abra as configurações do aplicativo/navegador e permita notificações para o Oitava Music Betim.
-            </div>
-          )}
-          {message && (
-            <div style={{ marginTop: 8, color: message.includes('Não foi possível') ? C.danger : C.textSecondary, fontSize: 11, lineHeight: 1.5 }}>
-              {message}
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {status.enabled && (
-            <Btn variant="secondary" disabled={testBusy || busy} onClick={test}>
-              <Send size={14} />{testBusy ? 'Enviando...' : 'Testar agora'}
-            </Btn>
-          )}
-          {status.enabled ? (
-            <Btn variant="secondary" disabled={busy || testBusy} onClick={disable}>
-              <BellOff size={14} />{busy ? 'Aguarde...' : 'Desativar'}
-            </Btn>
-          ) : (
-            <Btn disabled={busy || blocked || !status.supported || !status.configured} onClick={enable}>
-              <Bell size={14} />{busy ? 'Ativando...' : 'Ativar notificações'}
-            </Btn>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
