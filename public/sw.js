@@ -1,9 +1,49 @@
-const CACHE_NAME = 'oitava-music-static-v5';
+const CACHE_NAME = 'oitava-music-static-v6';
 const STATIC_ASSETS = [
   '/manifest.webmanifest',
   '/pwa-icon-192.png',
   '/icon-512.png',
 ];
+
+function notificationData(payload) {
+  if (!payload || typeof payload !== 'object') return {};
+  return payload.data || payload.message?.data || {};
+}
+
+function notificationInfo(payload) {
+  if (!payload || typeof payload !== 'object') return {};
+  return payload.notification || payload.message?.notification || {};
+}
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data?.json?.() || {};
+  } catch {
+    try {
+      payload = JSON.parse(event.data?.text?.() || '{}');
+    } catch {
+      payload = {};
+    }
+  }
+
+  const data = notificationData(payload);
+  const notification = notificationInfo(payload);
+  const title = data.title || notification.title || 'Você foi escalado! 🎵';
+  const body = data.body || notification.body || 'Há uma nova escala para você.';
+  const url = data.url || payload.fcmOptions?.link || payload.message?.fcmOptions?.link || '/minhas-escalas';
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/pwa-icon-192.png',
+      badge: '/pwa-icon-192.png',
+      tag: data.scaleId ? `scale-added-${data.scaleId}` : 'oitava-music-push',
+      data: { url },
+      vibrate: [180, 80, 180],
+    }),
+  );
+});
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
@@ -21,49 +61,6 @@ self.addEventListener('notificationclick', (event) => {
     }),
   );
 });
-
-const swParams = new URL(self.location.href).searchParams;
-const firebaseConfig = {
-  apiKey: swParams.get('apiKey') || '',
-  appId: swParams.get('appId') || '',
-  authDomain: swParams.get('authDomain') || '',
-  projectId: swParams.get('projectId') || '',
-  storageBucket: swParams.get('storageBucket') || '',
-  messagingSenderId: swParams.get('messagingSenderId') || '',
-};
-
-const messagingConfigured = Boolean(
-  firebaseConfig.apiKey
-  && firebaseConfig.appId
-  && firebaseConfig.projectId
-  && firebaseConfig.messagingSenderId,
-);
-
-if (messagingConfigured) {
-  try {
-    importScripts('https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js');
-    importScripts('https://www.gstatic.com/firebasejs/12.17.1/firebase-messaging-compat.js');
-
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
-
-    messaging.onBackgroundMessage((payload) => {
-      const data = payload?.data || {};
-      const title = data.title || 'Você foi escalado! 🎵';
-      const options = {
-        body: data.body || 'Há uma nova escala para você.',
-        icon: '/pwa-icon-192.png',
-        badge: '/pwa-icon-192.png',
-        tag: data.scaleId ? `scale-added-${data.scaleId}` : 'scale-added',
-        data: { url: data.url || '/minhas-escalas' },
-        vibrate: [180, 80, 180],
-      };
-      return self.registration.showNotification(title, options);
-    });
-  } catch (error) {
-    console.warn('Firebase Messaging não pôde ser iniciado no service worker:', error);
-  }
-}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
