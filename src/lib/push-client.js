@@ -9,7 +9,6 @@ import {
   registerPushInstallation,
   unregisterPushInstallation,
 } from './push-notifications.functions';
-import { sendPushTest } from './push-test.functions';
 
 const PUSH_ENABLED_KEY = 'oitava:push-enabled';
 const PUSH_FID_KEY = 'oitava:push-fid';
@@ -172,21 +171,6 @@ export async function disableScaleNotifications() {
 
   window.localStorage.setItem(PUSH_ENABLED_KEY, 'false');
   window.localStorage.removeItem(PUSH_FID_KEY);
-}
-
-export async function sendNotificationTest() {
-  if (!browserReady()) throw new Error('O teste precisa ser feito no aparelho que receberá a notificação.');
-  const fid = window.localStorage.getItem(PUSH_FID_KEY) || '';
-  if (!fid || !preferenceEnabled() || Notification.permission !== 'granted') {
-    throw new Error('Ative as notificações neste aparelho antes de fazer o teste.');
-  }
-
-  const idToken = await currentIdToken();
-  try {
-    return await sendPushTest({ data: { idToken, fid } });
-  } catch (error) {
-    throw cleanServerError(error, 'Não foi possível enviar a notificação de teste.');
-  }
 }
 
 async function showForegroundNotification(payload) {
