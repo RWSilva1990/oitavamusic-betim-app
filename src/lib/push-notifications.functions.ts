@@ -146,6 +146,7 @@ type InstallationTarget = {
   value: string;
   type: 'fid' | 'token';
   path: string;
+  memberId: string;
 };
 
 async function findInstallationsByMemberIds(
@@ -179,13 +180,14 @@ async function findInstallationsByMemberIds(
     for (const row of Array.isArray(rows) ? rows : []) {
       const document = row?.document;
       const path = firestoreDocumentPath(document);
+      const memberId = firestoreString(document, 'memberId');
       const token = firestoreString(document, 'token');
       const fid = firestoreString(document, 'fid');
       const storedTarget = firestoreString(document, 'target');
       const storedType = firestoreString(document, 'targetType');
       const value = storedTarget || token || fid;
       const type = storedType === 'token' || (!storedType && token) ? 'token' : 'fid';
-      if (value && path) installations.set(value, { value, type, path });
+      if (value && path && memberId) installations.set(value, { value, type, path, memberId });
     }
   }
 
@@ -270,8 +272,11 @@ export const notifyScaleMembersAdded = createServerFn({ method: 'POST' })
     let sent = 0;
     let failed = 0;
     const stalePaths: string[] = [];
-    const webTargets = installations.filter((item) => item.type === 'fid');
     const nativeTargets = installations.filter((item) => item.type === 'token');
+    const membersWithNativePush = new Set(nativeTargets.map((item) => item.memberId));
+    const allWebTargets = installations.filter((item) => item.type === 'fid');
+    const webTargets = allWebTargets.filter((item) => !membersWithNativePush.has(item.memberId));
+    const suppressedWebDevices = allWebTargets.length - webTargets.length;
 
     for (let i = 0; i < webTargets.length; i += 500) {
       const entries = webTargets.slice(i, i + 500);
@@ -341,8 +346,9 @@ export const notifyScaleMembersAdded = createServerFn({ method: 'POST' })
       success: true,
       sent,
       failed,
-      devices: installations.length,
+      devices: webTargets.length + nativeTargets.length,
       webDevices: webTargets.length,
       androidDevices: nativeTargets.length,
+      suppressedWebDevices,
     };
   });
