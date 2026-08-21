@@ -42,6 +42,16 @@ async function permissionStatus(requestPermission = false) {
   return permission.receive;
 }
 
+async function relinkStoredNativePush() {
+  if (!preferenceEnabled()) return false;
+  const token = String(window.localStorage.getItem(NATIVE_PUSH_TOKEN_KEY) || '').trim();
+  if (!token) return false;
+
+  const idToken = await currentIdToken();
+  await registerPushInstallation({ data: { idToken, token } });
+  return true;
+}
+
 async function registerNativePush({ requestPermission = false } = {}) {
   if (!isNativeAndroid()) return null;
   if (registrationPromise) return registrationPromise;
@@ -176,6 +186,7 @@ export async function startNativeScaleNotificationRuntime() {
   };
 
   if (preferenceEnabled()) {
+    relinkStoredNativePush().catch((error) => console.warn('Falha ao reassociar notificações nativas:', error));
     registerNativePush().catch((error) => console.warn('Falha ao renovar notificações nativas:', error));
   }
 
