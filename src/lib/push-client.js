@@ -9,6 +9,13 @@ import {
   registerPushInstallation,
   unregisterPushInstallation,
 } from './push-notifications.functions';
+import {
+  disableNativeScaleNotifications,
+  enableNativeScaleNotifications,
+  getNativeScaleNotificationStatus,
+  isNativeAndroid,
+  startNativeScaleNotificationRuntime,
+} from './push-native';
 
 const PUSH_ENABLED_KEY = 'oitava:push-enabled';
 const PUSH_FID_KEY = 'oitava:push-fid';
@@ -45,6 +52,8 @@ async function ensureServiceWorker(cfg) {
 }
 
 export async function getScaleNotificationStatus() {
+  if (isNativeAndroid()) return getNativeScaleNotificationStatus();
+
   const cfg = await loadFirebaseConfig();
   const supported = browserReady()
     && 'Notification' in window
@@ -65,10 +74,15 @@ export async function getScaleNotificationStatus() {
     configured: Boolean(cfg.messagingConfigured),
     permission: supported ? Notification.permission : 'unsupported',
     enabled: supported && Notification.permission === 'granted' && preferenceEnabled(),
+    native: false,
   };
 }
 
 export async function syncScaleNotifications({ requestPermission = false } = {}) {
+  if (isNativeAndroid()) {
+    return requestPermission ? enableNativeScaleNotifications() : null;
+  }
+
   if (!browserReady()) return null;
   if (syncPromise) return syncPromise;
 
@@ -146,10 +160,12 @@ export async function syncScaleNotifications({ requestPermission = false } = {})
 }
 
 export async function enableScaleNotifications() {
+  if (isNativeAndroid()) return enableNativeScaleNotifications();
   return syncScaleNotifications({ requestPermission: true });
 }
 
 export async function disableScaleNotifications() {
+  if (isNativeAndroid()) return disableNativeScaleNotifications();
   if (!browserReady()) return;
   const fid = window.localStorage.getItem(PUSH_FID_KEY) || '';
 
@@ -188,6 +204,7 @@ async function showForegroundNotification(payload) {
 }
 
 export async function startScaleNotificationRuntime() {
+  if (isNativeAndroid()) return startNativeScaleNotificationRuntime();
   if (!browserReady() || runtimeCleanup) return runtimeCleanup || (() => {});
 
   const cfg = await loadFirebaseConfig();
