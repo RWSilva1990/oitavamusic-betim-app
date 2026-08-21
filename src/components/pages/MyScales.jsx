@@ -5,6 +5,7 @@ import { C, ROLES, LOGO_HOME } from '@/lib/theme';
 import { fmtDate, todayISO } from '@/lib/db';
 import { Avatar } from '../ui-kit';
 import { AudioPlayerList } from '../AudioSection';
+import NotificationSettings from '../NotificationSettings';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 
@@ -89,6 +90,7 @@ export default function MyScalesPage() {
           <h1 style={{ fontSize: 20, fontWeight: 800, color: C.accent }}>Minhas Escalas</h1>
           <p style={{ color: C.textSecondary, fontSize: 13 }}>{me?.name || auth.email}</p>
         </div>
+        <NotificationSettings />
         {me && <Avatar member={me} size={40} />}
       </div>
 

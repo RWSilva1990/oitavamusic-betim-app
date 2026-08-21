@@ -1,0 +1,129 @@
+import { useEffect, useRef, useState } from 'react';
+import { Bell, BellOff } from 'lucide-react';
+import { C } from '@/lib/theme';
+import {
+  disableScaleNotifications,
+  enableScaleNotifications,
+  getScaleNotificationStatus,
+} from '@/lib/push-client';
+
+export default function NotificationSettings() {
+  const [status, setStatus] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+  const messageTimer = useRef(null);
+
+  const refresh = async () => {
+    try {
+      setStatus(await getScaleNotificationStatus());
+    } catch {
+      setStatus({ supported: false, configured: false, permission: 'unsupported', enabled: false });
+    }
+  };
+
+  const flash = (text, error = false) => {
+    if (messageTimer.current) window.clearTimeout(messageTimer.current);
+    setMessage({ text, error });
+    messageTimer.current = window.setTimeout(() => setMessage(null), 2800);
+  };
+
+  useEffect(() => {
+    refresh();
+    return () => {
+      if (messageTimer.current) window.clearTimeout(messageTimer.current);
+    };
+  }, []);
+
+  const toggle = async () => {
+    if (!status || busy) return;
+
+    if (!status.configured) {
+      flash('Notificações ainda não estão configuradas.', true);
+      return;
+    }
+    if (!status.supported) {
+      flash('Este aparelho não oferece suporte a notificações.', true);
+      return;
+    }
+    if (!status.enabled && status.permission === 'denied') {
+      flash('Notificações bloqueadas para este site no navegador.', true);
+      return;
+    }
+
+    setBusy(true);
+    try {
+      if (status.enabled) {
+        await disableScaleNotifications();
+        flash('Notificações desativadas');
+      } else {
+        await enableScaleNotifications();
+        flash('Notificações ativadas');
+      }
+    } catch (error) {
+      flash(error?.message || 'Não foi possível alterar as notificações.', true);
+    } finally {
+      await refresh();
+      setBusy(false);
+    }
+  };
+
+  if (!status) return null;
+
+  const enabled = status.enabled;
+  const label = enabled ? 'Desativar notificações' : 'Ativar notificações';
+
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={busy}
+        aria-label={label}
+        aria-pressed={enabled}
+        title={label}
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          border: `1px solid ${enabled ? `${C.accent}44` : C.border}`,
+          background: enabled ? C.accentGlow : C.bgHover,
+          color: enabled ? C.accent : C.textSecondary,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: busy ? 'wait' : 'pointer',
+          opacity: busy ? 0.6 : 1,
+          transition: 'all 0.18s ease',
+        }}
+      >
+        {enabled ? <Bell size={20} strokeWidth={2.3} /> : <BellOff size={20} strokeWidth={2.1} />}
+      </button>
+
+      {message && (
+        <div
+          role="status"
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 48,
+            zIndex: 30,
+            width: 'max-content',
+            maxWidth: 230,
+            padding: '8px 10px',
+            borderRadius: 10,
+            border: `1px solid ${message.error ? `${C.danger}33` : C.border}`,
+            background: C.bgCard,
+            boxShadow: '0 8px 24px rgba(27,20,61,0.14)',
+            color: message.error ? C.danger : C.textPrimary,
+            fontSize: 11,
+            fontWeight: 700,
+            lineHeight: 1.4,
+            textAlign: 'center',
+          }}
+        >
+          {message.text}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -6,8 +6,10 @@ export function loadFirebaseConfig() {
   if (!configPromise) {
     configPromise = getFirebaseConfig().catch(() => ({
       configured: false,
+      messagingConfigured: false,
       adminEmails: [],
       appUrl: '',
+      vapidKey: '',
     }));
   }
   return configPromise;
@@ -21,7 +23,7 @@ async function getApp() {
       const cfg = await loadFirebaseConfig();
       if (!cfg.configured) throw new Error('Firebase não configurado');
       const { initializeApp, getApps } = await import('firebase/app');
-      const { adminEmails, configured, appUrl, ...options } = cfg;
+      const { adminEmails, configured, messagingConfigured, appUrl, vapidKey, ...options } = cfg;
       return getApps().length ? getApps()[0] : initializeApp(options);
     })();
   }
@@ -41,4 +43,15 @@ export async function getFirebaseFirestore() {
 export async function getFirebaseStorage() {
   const [app, mod] = await Promise.all([getApp(), import('firebase/storage')]);
   return { storage: mod.getStorage(app), mod };
+}
+
+export async function getFirebaseMessaging() {
+  const mod = await import('firebase/messaging');
+  if (!(await mod.isSupported())) throw new Error('Este aparelho não oferece suporte a notificações push do Firebase.');
+  const app = await getApp();
+  return { messaging: mod.getMessaging(app), mod };
+}
+
+export function firebaseServiceWorkerUrl() {
+  return '/sw.js';
 }
