@@ -396,8 +396,12 @@ export function AuthProvider({ children }) {
       },
 
       memberFor(members) {
-        if (!email || !accessEntry?.memberId) return null;
-        return members.find((m) => m.id === accessEntry.memberId) || null;
+        if (!email) return null;
+        if (accessEntry?.memberId) {
+          const linked = members.find((m) => m.id === accessEntry.memberId);
+          if (linked) return linked;
+        }
+        return members.find((m) => String(m?.email || '').trim().toLowerCase() === email) || null;
       },
     }),
     [user, email, role, loading, accessLoading, configured, accessEntry, adminEmails]
