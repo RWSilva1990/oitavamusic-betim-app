@@ -45,9 +45,7 @@ export default function AppShell({ children, allowMember = false }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const memberAllowed = allowMember && auth.role === 'membro';
-  const navItems = memberAllowed
-    ? MEMBER_NAV
-    : [...NAV, { id: 'push-diagnostic', label: 'Diagnóstico Push', emoji: '🧪', to: '/push-diagnostico' }];
+  const navItems = memberAllowed ? MEMBER_NAV : NAV;
   const adminMember = auth.isAdmin ? auth.memberFor(members) : null;
 
   useEffect(() => {
