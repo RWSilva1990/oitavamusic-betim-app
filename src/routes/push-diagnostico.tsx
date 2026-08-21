@@ -19,10 +19,20 @@ export const Route = createFileRoute('/push-diagnostico')({
 
 function PushDiagnosticPage() {
   const auth = useAuth();
-  const { members } = useData();
+  const { members, scales } = useData();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any>(null);
   const me = auth.memberFor(members);
+  const cleanEmail = String(auth.email || '').trim().toLowerCase();
+  const emailMatches = (members || []).filter(
+    (member) => String(member?.email || '').trim().toLowerCase() === cleanEmail,
+  );
+  const matchIds = new Set(emailMatches.map((member) => member.id));
+  const scaleMatches = (scales || []).flatMap((scale) =>
+    (scale.scaleMembers || [])
+      .filter((item) => matchIds.has(item.memberId))
+      .map((item) => ({ scaleId: scale.id, scaleName: scale.name, memberId: item.memberId })),
+  );
 
   const verifyLink = async () => {
     setBusy(true);
@@ -86,7 +96,7 @@ function PushDiagnosticPage() {
         <Btn onClick={sendTest} disabled={busy}>2. Enviar push de teste</Btn>
       </div>
 
-      <div style={{ padding: 14, border: '1px solid #ddd', borderRadius: 10, background: '#fff' }}>
+      <div style={{ padding: 14, border: '1px solid #ddd', borderRadius: 10, background: '#fff', marginBottom: 14 }}>
         <div><strong>Administrador:</strong> {auth.email}</div>
         <div><strong>Membro localizado:</strong> {me?.name || 'não localizado'}</div>
         {result?.type === 'link' && (
@@ -108,6 +118,30 @@ function PushDiagnosticPage() {
         )}
         {result?.type === 'error' && (
           <div style={{ marginTop: 12, color: '#b42318' }}><strong>Erro:</strong> {result.message}</div>
+        )}
+      </div>
+
+      <div style={{ padding: 14, border: '1px solid #ddd', borderRadius: 10, background: '#fff' }}>
+        <div style={{ marginBottom: 8 }}><strong>Cadastros de membro com este e-mail:</strong> {emailMatches.length}</div>
+        {emailMatches.length === 0 ? (
+          <div>Nenhum cadastro encontrado.</div>
+        ) : (
+          emailMatches.map((member) => (
+            <div key={member.id} style={{ marginBottom: 6 }}>
+              • {member.name} — <strong>{member.id}</strong>{member.id === me?.id ? ' (ID usado pelo admin)' : ''}
+            </div>
+          ))
+        )}
+
+        <div style={{ marginTop: 14, marginBottom: 8 }}><strong>Ocorrências desse administrador nas escalas:</strong> {scaleMatches.length}</div>
+        {scaleMatches.length === 0 ? (
+          <div>Nenhuma ocorrência encontrada nas escalas atuais.</div>
+        ) : (
+          scaleMatches.map((item, index) => (
+            <div key={`${item.scaleId}-${item.memberId}-${index}`} style={{ marginBottom: 6 }}>
+              • {item.scaleName} — ID na escala: <strong>{item.memberId}</strong>{item.memberId === me?.id ? ' (igual ao ID do admin)' : ' (DIFERENTE do ID do admin)'}
+            </div>
+          ))
         )}
       </div>
     </div>
