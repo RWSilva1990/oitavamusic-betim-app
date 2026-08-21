@@ -172,7 +172,21 @@ export async function disableNativeScaleNotifications() {
 }
 
 export async function startNativeScaleNotificationRuntime() {
-  if (!isNativeAndroid() || runtimeCleanup) return runtimeCleanup || (() => {});
+  if (!isNativeAndroid()) return () => {};
+
+  // A troca de conta precisa reassociar o token antes de qualquer retorno por
+  // listener já existente. A preferência é do aparelho, mas o vínculo no
+  // servidor deve sempre acompanhar o usuário autenticado atual.
+  if (preferenceEnabled()) {
+    try {
+      await relinkStoredNativePush();
+    } catch (error) {
+      console.warn('Falha ao reassociar notificações nativas:', error);
+    }
+    registerNativePush().catch((error) => console.warn('Falha ao renovar notificações nativas:', error));
+  }
+
+  if (runtimeCleanup) return runtimeCleanup;
 
   const actionHandle = await PushNotifications.addListener('pushNotificationActionPerformed', (event) => {
     const data = event?.notification?.data || {};
@@ -184,11 +198,6 @@ export async function startNativeScaleNotificationRuntime() {
     actionHandle.remove().catch(() => undefined);
     runtimeCleanup = null;
   };
-
-  if (preferenceEnabled()) {
-    relinkStoredNativePush().catch((error) => console.warn('Falha ao reassociar notificações nativas:', error));
-    registerNativePush().catch((error) => console.warn('Falha ao renovar notificações nativas:', error));
-  }
 
   return runtimeCleanup;
 }
