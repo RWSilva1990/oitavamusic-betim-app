@@ -7,10 +7,10 @@ const config: CapacitorConfig = {
   backgroundColor: '#F0F2F8',
   loggingBehavior: 'debug',
   server: {
-    // Somente para o protótipo Android: usa o Preview estável desta branch
-    // para validar recursos nativos sem publicar o código na main.
+    // Somente para o protótipo Android: usa um Preview exato da branch
+    // para evitar o redirecionamento do alias da Vercel para o navegador externo.
     // Remover antes de uma versão Android de produção.
-    url: 'https://oitavamusic-betim-app-git-feature-android-c-a86611-raphaelsilva.vercel.app',
+    url: 'https://oitavamusic-betim-bla32c66w-raphaelsilva.vercel.app',
     cleartext: false,
   },
   android: {
