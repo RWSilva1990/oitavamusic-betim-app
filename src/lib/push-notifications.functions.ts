@@ -13,7 +13,16 @@ import {
 
 const registerSchema = z.object({
   idToken: z.string().min(20),
-  fid: z.string().min(8).max(600),
+  fid: z.string().min(8).max(600).optional(),
+  token: z.string().min(8).max(4096).optional(),
+}).superRefine((data, ctx) => {
+  const targets = [data.fid, data.token].filter(Boolean);
+  if (targets.length !== 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Informe exatamente um identificador de instalação.',
+    });
+  }
 });
 
 const unregisterSchema = registerSchema;
@@ -86,8 +95,14 @@ async function assertAdmin(idToken: string) {
   return caller;
 }
 
-function installationDocId(fid: string) {
-  return createHash('sha256').update(fid).digest('hex');
+function installationTarget(data: { fid?: string; token?: string }) {
+  const token = String(data.token || '').trim();
+  if (token) return { type: 'token' as const, value: token };
+  return { type: 'fid' as const, value: String(data.fid || '').trim() };
+}
+
+function installationDocId(value: string) {
+  return createHash('sha256').update(value).digest('hex');
 }
 
 async function resolveMemberId(app: ReturnType<typeof getPushAdminApp>, email: string) {
@@ -127,11 +142,17 @@ function appUrl() {
   return (env('APP_URL') || 'https://oitavamusicbetim.vercel.app').replace(/\/$/, '');
 }
 
+type InstallationTarget = {
+  value: string;
+  type: 'fid' | 'token';
+  path: string;
+};
+
 async function findInstallationsByMemberIds(
   app: ReturnType<typeof getPushAdminApp>,
   memberIds: string[],
 ) {
-  const installations = new Map<string, string>();
+  const installations = new Map<string, InstallationTarget>();
 
   for (let i = 0; i < memberIds.length; i += 25) {
     const chunk = memberIds.slice(i, i + 25);
@@ -157,13 +178,24 @@ async function findInstallationsByMemberIds(
 
     for (const row of Array.isArray(rows) ? rows : []) {
       const document = row?.document;
-      const fid = firestoreString(document, 'fid');
       const path = firestoreDocumentPath(document);
-      if (fid && path) installations.set(fid, path);
+      const token = firestoreString(document, 'token');
+      const fid = firestoreString(document, 'fid');
+      const storedTarget = firestoreString(document, 'target');
+      const storedType = firestoreString(document, 'targetType');
+      const value = storedTarget || token || fid;
+      const type = storedType === 'token' || (!storedType && token) ? 'token' : 'fid';
+      if (value && path) installations.set(value, { value, type, path });
     }
   }
 
-  return installations;
+  return [...installations.values()];
+}
+
+function isStaleTargetError(code: string) {
+  return code.includes('installation-id-not-registered')
+    || code.includes('registration-token-not-registered')
+    || code.includes('invalid-registration-token');
 }
 
 export const registerPushInstallation = createServerFn({ method: 'POST' })
@@ -175,12 +207,16 @@ export const registerPushInstallation = createServerFn({ method: 'POST' })
       throw new Error('Seu e-mail ainda não está vinculado a um membro do ministério.');
     }
 
-    const id = installationDocId(data.fid);
+    const target = installationTarget(data);
+    const id = installationDocId(target.value);
     await firestoreRest(caller.app, `/pushInstallations/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(
         stringFields({
-          fid: data.fid,
+          target: target.value,
+          targetType: target.type,
+          fid: target.type === 'fid' ? target.value : '',
+          token: target.type === 'token' ? target.value : '',
           memberId,
           email: caller.email,
           uid: caller.uid,
@@ -189,14 +225,15 @@ export const registerPushInstallation = createServerFn({ method: 'POST' })
       ),
     });
 
-    return { success: true, memberId };
+    return { success: true, memberId, targetType: target.type };
   });
 
 export const unregisterPushInstallation = createServerFn({ method: 'POST' })
   .validator(unregisterSchema)
   .handler(async ({ data }) => {
     const caller = await verifyCaller(data.idToken);
-    const id = installationDocId(data.fid);
+    const target = installationTarget(data);
+    const id = installationDocId(target.value);
     const installation = await firestoreRest(
       caller.app,
       `/pushInstallations/${id}`,
@@ -223,26 +260,30 @@ export const notifyScaleMembersAdded = createServerFn({ method: 'POST' })
     if (memberIds.length === 0) return { success: true, sent: 0, failed: 0, devices: 0 };
 
     const installations = await findInstallationsByMemberIds(caller.app, memberIds);
-    const fids = [...installations.keys()];
-    if (fids.length === 0) return { success: true, sent: 0, failed: 0, devices: 0 };
+    if (installations.length === 0) return { success: true, sent: 0, failed: 0, devices: 0 };
 
     const link = `${appUrl()}/minhas-escalas?escala=${encodeURIComponent(data.scale.id)}`;
+    const path = `/minhas-escalas?escala=${encodeURIComponent(data.scale.id)}`;
     const title = 'Você foi escalado! 🎵';
     const body = `Você foi incluído na escala “${data.scale.name}” de ${formatScaleDate(data.scale.date)}.`;
 
     let sent = 0;
     let failed = 0;
     const stalePaths: string[] = [];
+    const webTargets = installations.filter((item) => item.type === 'fid');
+    const nativeTargets = installations.filter((item) => item.type === 'token');
 
-    for (let i = 0; i < fids.length; i += 500) {
-      const chunk = fids.slice(i, i + 500);
+    for (let i = 0; i < webTargets.length; i += 500) {
+      const entries = webTargets.slice(i, i + 500);
+      const fids = entries.map((item) => item.value);
       const response = await getMessaging(caller.app).sendEachForMulticast({
-        fids: chunk,
+        fids,
         data: {
           type: 'scale-added',
           title,
           body,
           url: link,
+          path,
           scaleId: data.scale.id,
         },
         webpush: {
@@ -253,27 +294,55 @@ export const notifyScaleMembersAdded = createServerFn({ method: 'POST' })
 
       sent += response.successCount;
       failed += response.failureCount;
-
       response.responses.forEach((item, index) => {
         if (item.success) return;
         const code = String(item.error?.code || '');
-        if (
-          code.includes('installation-id-not-registered')
-          || code.includes('registration-token-not-registered')
-        ) {
-          const path = installations.get(chunk[index]);
-          if (path) stalePaths.push(path);
-        }
+        if (isStaleTargetError(code)) stalePaths.push(entries[index].path);
+      });
+    }
+
+    for (let i = 0; i < nativeTargets.length; i += 500) {
+      const entries = nativeTargets.slice(i, i + 500);
+      const tokens = entries.map((item) => item.value);
+      const response = await getMessaging(caller.app).sendEachForMulticast({
+        tokens,
+        notification: { title, body },
+        data: {
+          type: 'scale-added',
+          title,
+          body,
+          url: link,
+          path,
+          scaleId: data.scale.id,
+        },
+        android: {
+          priority: 'high',
+        },
+      });
+
+      sent += response.successCount;
+      failed += response.failureCount;
+      response.responses.forEach((item, index) => {
+        if (item.success) return;
+        const code = String(item.error?.code || '');
+        if (isStaleTargetError(code)) stalePaths.push(entries[index].path);
       });
     }
 
     if (stalePaths.length > 0) {
       await Promise.all(
-        stalePaths.map((path) =>
-          firestoreRest(caller.app, `/${path}`, { method: 'DELETE' }).catch(() => undefined),
+        [...new Set(stalePaths)].map((stalePath) =>
+          firestoreRest(caller.app, `/${stalePath}`, { method: 'DELETE' }).catch(() => undefined),
         ),
       );
     }
 
-    return { success: true, sent, failed, devices: fids.length };
+    return {
+      success: true,
+      sent,
+      failed,
+      devices: installations.length,
+      webDevices: webTargets.length,
+      androidDevices: nativeTargets.length,
+    };
   });
