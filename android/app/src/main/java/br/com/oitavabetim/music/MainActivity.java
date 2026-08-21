@@ -8,8 +8,6 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 
 public class MainActivity extends BridgeActivity {
-    private static final String PREVIEW_HOST = "oitavamusic-betim-bla32c66w-raphaelsilva.vercel.app";
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -19,7 +17,7 @@ public class MainActivity extends BridgeActivity {
                 @Override
                 public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                     String host = request.getUrl().getHost();
-                    if (PREVIEW_HOST.equalsIgnoreCase(host)) {
+                    if (host != null && host.toLowerCase().endsWith(".vercel.app")) {
                         return false;
                     }
                     return super.shouldOverrideUrlLoading(view, request);
