@@ -3,6 +3,7 @@ import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { Menu, LogOut } from 'lucide-react';
 import { C, NAV, LOGO_HOME, LOGO_SIDEBAR } from '@/lib/theme';
 import { Btn } from './ui-kit';
+import NotificationSettings from './NotificationSettings';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 import { startScaleNotificationRuntime } from '@/lib/push-client';
@@ -40,11 +41,12 @@ function SetupRequired() {
 export default function AppShell({ children, allowMember = false }) {
   const [sideOpen, setSideOpen] = useState(false);
   const auth = useAuth();
-  const { syncing, syncOk, ready } = useData();
+  const { syncing, syncOk, ready, members } = useData();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const memberAllowed = allowMember && auth.role === 'membro';
   const navItems = memberAllowed ? MEMBER_NAV : NAV;
+  const adminMember = auth.isAdmin ? auth.memberFor(members) : null;
 
   useEffect(() => {
     if (!auth.configured || auth.loading) return;
@@ -128,6 +130,7 @@ export default function AppShell({ children, allowMember = false }) {
           <span style={{ fontWeight: 800, color: C.accent, fontSize: 13, flex: 1 }}>
             {current?.emoji} {current?.label}
           </span>
+          {adminMember && <NotificationSettings />}
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             {syncing ? (
               <div style={{ width: 8, height: 8, borderRadius: '50%', border: `1.5px solid ${C.textSecondary}44`, borderTopColor: C.textSecondary, animation: 'spin 0.8s linear infinite' }} />
