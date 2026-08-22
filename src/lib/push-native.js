@@ -52,6 +52,23 @@ async function relinkStoredNativePush() {
   return true;
 }
 
+export async function relinkNativePushForCurrentUser() {
+  if (!isNativeAndroid() || !preferenceEnabled()) return false;
+  const permission = await permissionStatus(false);
+  if (permission !== 'granted') return false;
+  return relinkStoredNativePush();
+}
+
+export async function unlinkNativePushForCurrentUser() {
+  if (!isNativeAndroid() || !preferenceEnabled()) return false;
+  const token = String(window.localStorage.getItem(NATIVE_PUSH_TOKEN_KEY) || '').trim();
+  if (!token) return false;
+
+  const idToken = await currentIdToken();
+  await unregisterPushInstallation({ data: { idToken, token } });
+  return true;
+}
+
 async function registerNativePush({ requestPermission = false } = {}) {
   if (!isNativeAndroid()) return null;
   if (registrationPromise) return registrationPromise;
@@ -174,12 +191,9 @@ export async function disableNativeScaleNotifications() {
 export async function startNativeScaleNotificationRuntime() {
   if (!isNativeAndroid()) return () => {};
 
-  // A troca de conta precisa reassociar o token antes de qualquer retorno por
-  // listener já existente. A preferência é do aparelho, mas o vínculo no
-  // servidor deve sempre acompanhar o usuário autenticado atual.
   if (preferenceEnabled()) {
     try {
-      await relinkStoredNativePush();
+      await relinkNativePushForCurrentUser();
     } catch (error) {
       console.warn('Falha ao reassociar notificações nativas:', error);
     }
