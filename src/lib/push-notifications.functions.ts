@@ -41,10 +41,14 @@ function env(name: string) {
   return process.env[name]?.trim() || '';
 }
 
+function normalizeEmail(value: unknown) {
+  return String(value || '').trim().toLowerCase();
+}
+
 function adminEmails() {
   return env('ADMIN_EMAILS')
     .split(',')
-    .map((email) => email.trim().toLowerCase())
+    .map((email) => normalizeEmail(email))
     .filter(Boolean);
 }
 
@@ -82,7 +86,7 @@ function getPushAdminApp() {
 async function verifyCaller(idToken: string) {
   const app = getPushAdminApp();
   const decoded = await getAuth(app).verifyIdToken(idToken, true);
-  const email = decoded.email?.trim().toLowerCase();
+  const email = normalizeEmail(decoded.email);
   if (!email) throw new Error('Não foi possível identificar o usuário autenticado.');
   return { app, email, uid: decoded.uid };
 }
@@ -105,32 +109,49 @@ function installationDocId(value: string) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-async function resolveMemberId(app: ReturnType<typeof getPushAdminApp>, email: string) {
-  const access = await firestoreRest(
-    app,
-    `/accessUsers/${encodeURIComponent(email)}`,
-    {},
-    { allowNotFound: true },
-  );
-  const accessMemberId = firestoreString(access, 'memberId');
-  if (accessMemberId) return accessMemberId;
+type MemberRecord = {
+  id?: string;
+  email?: string;
+  [key: string]: unknown;
+};
 
-  // Administradores podem ter cadastro de membro com o mesmo e-mail mesmo
-  // quando o acesso administrativo não possui memberId.
+async function readMembers(app: ReturnType<typeof getPushAdminApp>): Promise<MemberRecord[]> {
   const membersDoc = await firestoreRest(app, '/oitava/members', {}, { allowNotFound: true });
   const raw = firestoreString(membersDoc, 'data');
-  if (!raw) return '';
+  if (!raw) return [];
 
   try {
     const members = JSON.parse(raw);
-    if (!Array.isArray(members)) return '';
-    const match = members.find(
-      (member) => String(member?.email || '').trim().toLowerCase() === email,
-    );
-    return typeof match?.id === 'string' ? match.id : '';
+    return Array.isArray(members) ? members : [];
   } catch {
-    return '';
+    return [];
   }
+}
+
+async function resolveMemberId(app: ReturnType<typeof getPushAdminApp>, email: string) {
+  const [access, members] = await Promise.all([
+    firestoreRest(
+      app,
+      `/accessUsers/${encodeURIComponent(email)}`,
+      {},
+      { allowNotFound: true },
+    ),
+    readMembers(app),
+  ]);
+
+  const accessMemberId = firestoreString(access, 'memberId');
+  const emailMatch = members.find((member) => normalizeEmail(member?.email) === email);
+
+  if (accessMemberId) {
+    const linked = members.find((member) => member?.id === accessMemberId);
+    const linkedEmail = normalizeEmail(linked?.email);
+
+    if (!linked || !linkedEmail || linkedEmail === email) return accessMemberId;
+    if (typeof emailMatch?.id === 'string' && emailMatch.id) return emailMatch.id;
+    return accessMemberId;
+  }
+
+  return typeof emailMatch?.id === 'string' ? emailMatch.id : '';
 }
 
 function formatScaleDate(date: string) {
@@ -148,6 +169,20 @@ type InstallationTarget = {
   path: string;
   memberId: string;
 };
+
+function installationFromDocument(document: any, memberIdOverride?: string): InstallationTarget | null {
+  const path = firestoreDocumentPath(document);
+  const storedMemberId = firestoreString(document, 'memberId');
+  const token = firestoreString(document, 'token');
+  const fid = firestoreString(document, 'fid');
+  const storedTarget = firestoreString(document, 'target');
+  const storedType = firestoreString(document, 'targetType');
+  const value = storedTarget || token || fid;
+  const type = storedType === 'token' || (!storedType && token) ? 'token' : 'fid';
+  const memberId = memberIdOverride || storedMemberId;
+  if (!value || !path || !memberId) return null;
+  return { value, type, path, memberId };
+}
 
 async function findInstallationsByMemberIds(
   app: ReturnType<typeof getPushAdminApp>,
@@ -178,16 +213,50 @@ async function findInstallationsByMemberIds(
     });
 
     for (const row of Array.isArray(rows) ? rows : []) {
+      const installation = installationFromDocument(row?.document);
+      if (installation) installations.set(installation.value, installation);
+    }
+  }
+
+  // Fallback por e-mail: evita perder push quando um vínculo antigo em accessUsers
+  // deixou o token salvo com um memberId diferente do cadastro atual.
+  const members = await readMembers(app);
+  const emailToMemberId = new Map<string, string>();
+  for (const memberId of memberIds) {
+    const member = members.find((item) => item?.id === memberId);
+    const email = normalizeEmail(member?.email);
+    if (email) emailToMemberId.set(email, memberId);
+  }
+
+  const emails = [...emailToMemberId.keys()];
+  for (let i = 0; i < emails.length; i += 25) {
+    const chunk = emails.slice(i, i + 25);
+    const rows = await firestoreRest(app, ':runQuery', {
+      method: 'POST',
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: 'pushInstallations' }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: 'email' },
+              op: 'IN',
+              value: {
+                arrayValue: {
+                  values: chunk.map((email) => ({ stringValue: email })),
+                },
+              },
+            },
+          },
+        },
+      }),
+    });
+
+    for (const row of Array.isArray(rows) ? rows : []) {
       const document = row?.document;
-      const path = firestoreDocumentPath(document);
-      const memberId = firestoreString(document, 'memberId');
-      const token = firestoreString(document, 'token');
-      const fid = firestoreString(document, 'fid');
-      const storedTarget = firestoreString(document, 'target');
-      const storedType = firestoreString(document, 'targetType');
-      const value = storedTarget || token || fid;
-      const type = storedType === 'token' || (!storedType && token) ? 'token' : 'fid';
-      if (value && path && memberId) installations.set(value, { value, type, path, memberId });
+      const email = normalizeEmail(firestoreString(document, 'email'));
+      const intendedMemberId = emailToMemberId.get(email);
+      const installation = installationFromDocument(document, intendedMemberId);
+      if (installation) installations.set(installation.value, installation);
     }
   }
 
@@ -227,6 +296,7 @@ export const registerPushInstallation = createServerFn({ method: 'POST' })
       ),
     });
 
+    console.info('[push-register]', JSON.stringify({ memberId, targetType: target.type }));
     return { success: true, memberId, targetType: target.type };
   });
 
@@ -246,7 +316,7 @@ export const unregisterPushInstallation = createServerFn({ method: 'POST' })
     if (installation) {
       const uid = firestoreString(installation, 'uid');
       const email = firestoreString(installation, 'email');
-      if (uid === caller.uid || email === caller.email) {
+      if (uid === caller.uid || normalizeEmail(email) === caller.email) {
         await firestoreRest(caller.app, `/pushInstallations/${id}`, { method: 'DELETE' });
       }
     }
@@ -259,10 +329,16 @@ export const notifyScaleMembersAdded = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const caller = await assertAdmin(data.idToken);
     const memberIds = [...new Set(data.addedMemberIds)].filter(Boolean);
-    if (memberIds.length === 0) return { success: true, sent: 0, failed: 0, devices: 0 };
+    if (memberIds.length === 0) {
+      console.info('[push-scale]', JSON.stringify({ scaleId: data.scale.id, memberIds: [], devices: 0, webDevices: 0, androidDevices: 0, sent: 0, failed: 0 }));
+      return { success: true, sent: 0, failed: 0, devices: 0 };
+    }
 
     const installations = await findInstallationsByMemberIds(caller.app, memberIds);
-    if (installations.length === 0) return { success: true, sent: 0, failed: 0, devices: 0 };
+    if (installations.length === 0) {
+      console.info('[push-scale]', JSON.stringify({ scaleId: data.scale.id, memberIds, devices: 0, webDevices: 0, androidDevices: 0, sent: 0, failed: 0 }));
+      return { success: true, sent: 0, failed: 0, devices: 0 };
+    }
 
     const link = `${appUrl()}/minhas-escalas?escala=${encodeURIComponent(data.scale.id)}`;
     const path = `/minhas-escalas?escala=${encodeURIComponent(data.scale.id)}`;
@@ -342,7 +418,7 @@ export const notifyScaleMembersAdded = createServerFn({ method: 'POST' })
       );
     }
 
-    return {
+    const result = {
       success: true,
       sent,
       failed,
@@ -351,4 +427,7 @@ export const notifyScaleMembersAdded = createServerFn({ method: 'POST' })
       androidDevices: nativeTargets.length,
       suppressedWebDevices,
     };
+
+    console.info('[push-scale]', JSON.stringify({ scaleId: data.scale.id, memberIds, ...result }));
+    return result;
   });
