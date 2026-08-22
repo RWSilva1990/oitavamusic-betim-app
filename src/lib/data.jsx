@@ -15,11 +15,13 @@ export function DataProvider({ children }) {
   const [syncing, setSyncing] = useState(false);
   const [syncOk, setSyncOk] = useState(null);
   const readyRef = useRef(false);
+  const scalesRef = useRef([]);
 
   const clearAll = useCallback(() => {
     setMembersState([]);
     setGroupsState([]);
     setSongsState([]);
+    scalesRef.current = [];
     setScalesState([]);
   }, []);
 
@@ -42,7 +44,9 @@ export function DataProvider({ children }) {
     }
     setGroupsState(g || []);
     setSongsState(s || []);
-    setScalesState(sc || []);
+    const nextScales = sc || [];
+    scalesRef.current = nextScales;
+    setScalesState(nextScales);
   }, [auth.user, auth.role, auth.isAdmin]);
 
   useEffect(() => {
@@ -120,41 +124,45 @@ export function DataProvider({ children }) {
       return next;
     });
 
-  const setScales = (updater) =>
-    setScalesState((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
+  const setScales = useCallback((updater) => {
+    const prev = scalesRef.current;
+    const next = typeof updater === 'function' ? updater(prev) : updater;
 
-      if (readyRef.current && auth.isAdmin) {
-        const notifications = [];
-        for (const scale of next || []) {
-          const previous = (prev || []).find((item) => item.id === scale.id);
-          const previousMemberIds = new Set((previous?.scaleMembers || []).map((item) => item.memberId));
-          const addedMemberIds = (scale.scaleMembers || [])
-            .map((item) => item.memberId)
-            .filter((memberId) => memberId && !previousMemberIds.has(memberId));
+    scalesRef.current = next;
+    setScalesState(next);
 
-          if (addedMemberIds.length > 0) notifications.push({ scale, addedMemberIds });
+    if (!readyRef.current || !auth.isAdmin) return next;
+
+    const notifications = [];
+    for (const scale of next || []) {
+      const previous = (prev || []).find((item) => item.id === scale.id);
+      const previousMemberIds = new Set((previous?.scaleMembers || []).map((item) => item.memberId));
+      const addedMemberIds = (scale.scaleMembers || [])
+        .map((item) => item.memberId)
+        .filter((memberId) => memberId && !previousMemberIds.has(memberId));
+
+      if (addedMemberIds.length > 0) notifications.push({ scale, addedMemberIds });
+    }
+
+    persist('scales', next, true)
+      .then(async () => {
+        for (const item of notifications) {
+          try {
+            await sendScaleAddedNotifications(item.scale, item.addedMemberIds);
+          } catch (error) {
+            console.warn('A escala foi salva, mas a notificação não pôde ser enviada:', error);
+          }
         }
+      })
+      .catch((error) => console.error('A escala não foi salva; notificações não foram enviadas.', error));
 
-        persist('scales', next, true)
-          .then(async () => {
-            for (const item of notifications) {
-              try {
-                await sendScaleAddedNotifications(item.scale, item.addedMemberIds);
-              } catch (error) {
-                console.warn('A escala foi salva, mas a notificação não pôde ser enviada:', error);
-              }
-            }
-          })
-          .catch((error) => console.error('A escala não foi salva; notificações não foram enviadas.', error));
-      }
-
-      return next;
-    });
+    return next;
+  }, [auth.isAdmin, persist]);
 
   const saveScales = useCallback(async (next) => {
     if (!readyRef.current) throw new Error('Os dados ainda estão sendo carregados.');
     await persist('scales', next, true);
+    scalesRef.current = next;
     setScalesState(next);
     return next;
   }, [persist]);
