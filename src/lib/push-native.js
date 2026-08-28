@@ -5,6 +5,11 @@ import {
   registerPushInstallation,
   unregisterPushInstallation,
 } from './push-notifications.functions';
+import {
+  isPackagedNativeApp,
+  registerMobilePush,
+  unregisterMobilePush,
+} from './mobile-api';
 
 const NATIVE_PUSH_ENABLED_KEY = 'oitava:native-push-enabled';
 const NATIVE_PUSH_TOKEN_KEY = 'oitava:native-push-token';
@@ -28,6 +33,16 @@ async function currentIdToken() {
   return currentUser.getIdToken(true);
 }
 
+async function registerTarget(idToken, token) {
+  if (isPackagedNativeApp()) return registerMobilePush(idToken, { token });
+  return registerPushInstallation({ data: { idToken, token } });
+}
+
+async function unregisterTarget(idToken, token) {
+  if (isPackagedNativeApp()) return unregisterMobilePush(idToken, { token });
+  return unregisterPushInstallation({ data: { idToken, token } });
+}
+
 function cleanServerError(error, fallback) {
   const message = String(error?.message || error || '');
   if (message.includes('<!doctype html') || message.includes('<html')) return new Error(fallback);
@@ -48,7 +63,7 @@ async function relinkStoredNativePush() {
   if (!token) return false;
 
   const idToken = await currentIdToken();
-  await registerPushInstallation({ data: { idToken, token } });
+  await registerTarget(idToken, token);
   return true;
 }
 
@@ -65,7 +80,7 @@ export async function unlinkNativePushForCurrentUser() {
   if (!token) return false;
 
   const idToken = await currentIdToken();
-  await unregisterPushInstallation({ data: { idToken, token } });
+  await unregisterTarget(idToken, token);
   return true;
 }
 
@@ -113,7 +128,7 @@ async function registerNativePush({ requestPermission = false } = {}) {
           const token = String(registration?.value || '').trim();
           if (!token) throw new Error('O Android não retornou um token de notificações válido.');
 
-          await registerPushInstallation({ data: { idToken, token } });
+          await registerTarget(idToken, token);
           window.localStorage.setItem(NATIVE_PUSH_TOKEN_KEY, token);
           window.localStorage.setItem(NATIVE_PUSH_ENABLED_KEY, 'true');
           await finish(() => resolve(token));
@@ -172,7 +187,7 @@ export async function disableNativeScaleNotifications() {
   try {
     if (token) {
       const idToken = await currentIdToken();
-      await unregisterPushInstallation({ data: { idToken, token } });
+      await unregisterTarget(idToken, token);
     }
   } catch (error) {
     console.warn('Não foi possível remover o vínculo de push nativo no servidor:', error);
