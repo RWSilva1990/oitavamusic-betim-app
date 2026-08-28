@@ -8,6 +8,15 @@ import { sendScaleAddedNotifications } from './push-client';
 const DataCtx = createContext(null);
 const directFirebaseTest = import.meta.env.VITE_ANDROID_TEST_DIRECT_FIREBASE === 'true';
 
+function publicMember(member) {
+  return {
+    id: String(member?.id || ''),
+    name: String(member?.name || ''),
+    photo: String(member?.photo || ''),
+    roles: Array.isArray(member?.roles) ? member.roles.filter((r) => typeof r === 'string' && r !== 'vocal') : [],
+  };
+}
+
 export function DataProvider({ children }) {
   const auth = useAuth();
   const [members, setMembersState] = useState([]);
@@ -42,12 +51,15 @@ export function DataProvider({ children }) {
         const member = auth.memberFor(allMembers || []);
         const memberId = member?.id || '';
         const ownScales = (allScales || [])
-          .filter((scale) => (scale.scaleMembers || []).some((item) => item.memberId === memberId))
-          .map((scale) => ({
-            ...scale,
-            scaleMembers: (scale.scaleMembers || []).filter((item) => item.memberId === memberId),
-          }));
-        setMembersState(member ? [{ ...member, roles: (member.roles || []).filter((r) => r !== 'vocal') }] : []);
+          .filter((scale) => (scale.scaleMembers || []).some((item) => item.memberId === memberId));
+        const participantIds = new Set(
+          ownScales.flatMap((scale) =>
+            (scale.scaleMembers || []).map((item) => item.memberId).filter(Boolean),
+          ),
+        );
+        if (memberId) participantIds.add(memberId);
+
+        setMembersState((allMembers || []).filter((item) => participantIds.has(item.id)).map(publicMember));
         setGroupsState(allGroups || []);
         setSongsState(allSongs || []);
         scalesRef.current = ownScales;
@@ -59,7 +71,12 @@ export function DataProvider({ children }) {
       const memberData = isPackagedNativeApp()
         ? await getMobileMemberData(idToken)
         : await getMemberAppData({ data: { idToken } });
-      setMembersState(memberData?.member ? [memberData.member] : []);
+      const visibleMembers = Array.isArray(memberData?.members) && memberData.members.length > 0
+        ? memberData.members
+        : memberData?.member
+          ? [memberData.member]
+          : [];
+      setMembersState(visibleMembers);
       setGroupsState(memberData?.groups || []);
       setSongsState(memberData?.songs || []);
       const nextScales = memberData?.scales || [];
