@@ -281,9 +281,6 @@ export async function registerPushInstallationForToken(
     ),
   });
 
-  // O produto passou a usar notificações somente pelo aplicativo Android.
-  // Ao registrar um token nativo válido, removemos inscrições Web Push antigas
-  // do mesmo membro para impedir notificações do Chrome/site.
   if (target.type === 'token') {
     const existing = await findInstallationsByMemberIds(caller.app, [memberId]);
     const webPaths = existing
@@ -383,6 +380,10 @@ export async function notifyScaleMembersAddedForToken(
       },
       android: {
         priority: 'high',
+        notification: {
+          channelId: 'escala-alerts',
+          sound: 'default',
+        },
       },
     });
 
