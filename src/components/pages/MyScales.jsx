@@ -1,17 +1,20 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Calendar, Mic, Youtube } from 'lucide-react';
+import { Calendar, Eye, Youtube } from 'lucide-react';
 import { C, ROLES, LOGO_HOME } from '@/lib/theme';
 import { fmtDate, todayISO } from '@/lib/db';
-import { Avatar } from '../ui-kit';
+import { Avatar, Btn, Field, Modal } from '../ui-kit';
 import { AudioPlayerList } from '../AudioSection';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
+
+const VOCAL_KEYS = ['tenor', 'soprano', 'contralto'];
 
 export default function MyScalesPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const { members, groups, songs, scales, ready } = useData();
+  const [viewModal, setViewModal] = useState(null);
 
   const me = auth.memberFor(members);
   const today = todayISO();
@@ -25,107 +28,53 @@ export default function MyScalesPage() {
         .filter((sc) => (sc.scaleMembers || []).some((sm) => sm.memberId === me.id))
         .sort((a, b) => a.date.localeCompare(b.date))
     : [];
+
   const upcoming = mine.filter((s) => s.date >= today);
   const past = mine.filter((s) => s.date < today).reverse();
 
-  const Card = ({ sc }) => {
+  const scaleMembersOf = (sc) => (sc.scaleMembers || [])
+    .map((sm) => ({ ...sm, member: members.find((m) => m.id === sm.memberId) }))
+    .filter((x) => x.member);
+
+  const scaleSongsOf = (sc) => (sc.scaleSongs || [])
+    .map((ss) => ({ ...ss, song: songs.find((s) => s.id === ss.songId) }))
+    .filter((x) => x.song);
+
+  const renderCard = (sc) => {
     const g = groups.find((x) => x.id === sc.groupId);
-    const mySlot = (sc.scaleMembers || []).find((sm) => sm.memberId === me?.id);
-    const myRoles = (mySlot?.roles || (mySlot?.role ? [mySlot.role] : []))
-      .map((r) => ROLES.find((x) => x.key === r))
-      .filter(Boolean);
-    const team = (sc.scaleMembers || [])
-      .map((slot) => ({ ...slot, member: members.find((member) => member.id === slot.memberId) }))
-      .filter((item) => item.member);
-    const scSongs = (sc.scaleSongs || []).map((ss) => ({ ...ss, song: songs.find((s) => s.id === ss.songId) })).filter((x) => x.song);
+    const sm = scaleMembersOf(sc);
+    const ss = scaleSongsOf(sc);
+
     return (
-      <div className="card" style={{ marginBottom: 10 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <span style={{ fontWeight: 700, color: C.textPrimary, fontSize: 15 }}>{sc.name}</span>
-          {g && <span className="tag">{g.name}</span>}
-          {mySlot?.isSub && <span className="tag sub">↔ Substituto</span>}
-        </div>
-        <div style={{ color: C.textSecondary, fontSize: 12, marginBottom: 10 }}>📅 {fmtDate(sc.date)}</div>
-        {myRoles.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
-            {myRoles.map((r) => <span key={r.key} className="tag">{r.emoji} {r.label}</span>)}
-          </div>
-        )}
-
-        {team.length > 0 && (
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.textSecondary, marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Equipe</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {team.map((item) => {
-                const activeRoles = item.roles || (item.role ? [item.role] : []);
-                const roleLabels = activeRoles.map((r) => ROLES.find((role) => role.key === r)).filter(Boolean);
-                const isMe = item.memberId === me?.id;
-                return (
-                  <div
-                    key={item.memberId}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 7,
-                      padding: '5px 10px',
-                      background: item.isSub ? 'rgba(79,128,225,0.1)' : C.bgHover,
-                      borderRadius: 18,
-                      border: `1px solid ${isMe ? C.accent + '66' : C.border}`,
-                    }}
-                  >
-                    <Avatar member={item.member} size={22} />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: isMe ? 700 : 600, color: C.textPrimary }}>
-                        {item.isSub ? '↔ ' : ''}{item.member.name}{isMe ? ' · você' : ''}
-                      </div>
-                      {roleLabels.length > 0 && (
-                        <div style={{ fontSize: 10, color: C.textSecondary }}>
-                          {roleLabels.map((r) => `${r.emoji} ${r.label}`).join(', ')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontWeight: 700, color: C.textPrimary, fontSize: 15 }}>{sc.name}</span>
+              {g && <span className="tag">{g.name}</span>}
             </div>
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gap: 8 }}>
-          {scSongs.map((x) => (
-            <div key={x.songId} style={{ padding: '10px 14px', background: C.bgHover, borderRadius: 8, display: 'grid', gap: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                <span style={{ fontWeight: 600, color: C.textPrimary, fontSize: 14 }}>{x.song.name}</span>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                  {x.key && <span className="tag green">Tom: {x.key}</span>}
-                  {x.song.bpm && <span className="tag" style={{ fontSize: 10 }}>♩ {x.song.bpm} BPM</span>}
-                  {(x.song.audios || []).length > 0 && (
-                    <span
-                      title="Áudio disponível"
-                      aria-label="Áudio disponível"
-                      style={{ display: 'flex', alignItems: 'center', color: C.accent }}
-                    >
-                      <Mic size={14} />
-                    </span>
-                  )}
-                  {x.soloMemberId === me?.id && <span className="tag" style={{ fontSize: 10 }}>🎙️ Você é o solista</span>}
-                  {x.song.youtubeUrl && (
-                    <a href={x.song.youtubeUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', color: '#E8463A' }}><Youtube size={14} /></a>
-                  )}
-                </div>
-              </div>
-              {x.notes && <div style={{ fontSize: 12, color: C.textSecondary }}>{x.notes}</div>}
-              <AudioPlayerList audios={x.song.audios} compact />
+            <div style={{ color: C.textSecondary, fontSize: 12, marginBottom: 10 }}>📅 {fmtDate(sc.date)}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+              {sm.map((x) => (
+                <span key={x.memberId} className={`tag${x.isSub ? ' sub' : ''}`}>
+                  {x.isSub ? '↔ ' : ''}{x.member.name}
+                </span>
+              ))}
             </div>
-          ))}
-          {scSongs.length === 0 && <span style={{ color: C.textSecondary, fontSize: 13 }}>Nenhuma música cadastrada nesta escala</span>}
+            <div style={{ fontSize: 12, color: C.textSecondary }}>{ss.length} música{ss.length !== 1 ? 's' : ''}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+            <Btn variant="ghost" onClick={() => setViewModal(sc)} aria-label={`Visualizar ${sc.name}`}>
+              <Eye size={14} />
+            </Btn>
+          </div>
         </div>
       </div>
     );
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 760, margin: '0 auto' }}>
+    <div style={{ padding: 24, maxWidth: 860 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         <img src={LOGO_HOME} alt="" style={{ width: 44, height: 44, borderRadius: '50%', border: `2px solid ${C.accent}` }} />
         <div style={{ flex: 1, minWidth: 160 }}>
@@ -141,26 +90,102 @@ export default function MyScalesPage() {
         <div className="empty-state">
           <Calendar size={38} style={{ marginBottom: 12, opacity: 0.25 }} />
           <p>Seu cadastro ainda está aguardando liberação pelo administrador.</p>
-          <p style={{ fontSize: 13, marginTop: 8 }}>Quando a liberação for concluída, suas escalas e os áudios destinados a você aparecerão aqui.</p>
+          <p style={{ fontSize: 13, marginTop: 8 }}>Quando a liberação for concluída, suas escalas aparecerão aqui.</p>
         </div>
       ) : (
-        <>
-          <div className="section-header" style={{ marginBottom: 10 }}><Calendar size={13} />Próximas ({upcoming.length})</div>
-          {upcoming.length === 0 ? (
-            <div style={{ padding: '14px 16px', background: C.bgCard, borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, color: C.textSecondary, textAlign: 'center', marginBottom: 20 }}>
-              Você não está escalado para nenhuma data futura.
-            </div>
-          ) : (
-            <div style={{ marginBottom: 20 }}>{upcoming.map((sc) => <Card key={sc.id} sc={sc} />)}</div>
-          )}
+        <div style={{ display: 'grid', gap: 16 }}>
+          <div>
+            <div className="section-header" style={{ marginBottom: 10 }}><Calendar size={13} />Próximas ({upcoming.length})</div>
+            {upcoming.length === 0 ? (
+              <div style={{ padding: '14px 16px', background: C.bgCard, borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, color: C.textSecondary, textAlign: 'center' }}>
+                Você não está escalado para nenhuma data futura.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: 8 }}>{upcoming.map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}</div>
+            )}
+          </div>
 
           {past.length > 0 && (
-            <>
+            <div>
               <div className="section-header" style={{ marginBottom: 10 }}>📦 Anteriores ({past.length})</div>
-              <div style={{ opacity: 0.7 }}>{past.slice(0, 10).map((sc) => <Card key={sc.id} sc={sc} />)}</div>
-            </>
+              <div style={{ display: 'grid', gap: 8, opacity: 0.7 }}>
+                {past.slice(0, 10).map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}
+              </div>
+            </div>
           )}
-        </>
+        </div>
+      )}
+
+      {viewModal && (
+        <Modal title={viewModal.name} onClose={() => setViewModal(null)} wide>
+          <div style={{ color: C.textSecondary, fontSize: 13, marginBottom: 18 }}>
+            📅 {fmtDate(viewModal.date)} · {groups.find((g) => g.id === viewModal.groupId)?.name || 'Sem grupo'}
+          </div>
+
+          <Field label="Membros na Escala">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {scaleMembersOf(viewModal).map((x) => {
+                const activeRoles = x.roles || (x.role ? [x.role] : []);
+                const roleLabels = activeRoles.map((r) => ROLES.find((ro) => ro.key === r)).filter(Boolean);
+                return (
+                  <div key={x.memberId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: x.isSub ? 'rgba(79,128,225,0.1)' : C.accentGlow, borderRadius: 20, border: `1px solid ${x.isSub ? C.blue + '44' : C.accent + '44'}` }}>
+                    <Avatar member={x.member} size={24} />
+                    <div>
+                      <span style={{ fontSize: 13, color: x.isSub ? C.blue : C.accent }}>{x.isSub ? '↔ ' : ''}{x.member.name}</span>
+                      {roleLabels.length > 0 && (
+                        <span style={{ fontSize: 11, color: C.textSecondary, marginLeft: 4 }}>· {roleLabels.map((r) => `${r.emoji} ${r.label}`).join(', ')}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {scaleMembersOf(viewModal).length === 0 && <span style={{ color: C.textSecondary, fontSize: 13 }}>Nenhum membro</span>}
+            </div>
+          </Field>
+
+          <Field label="Músicas">
+            <div style={{ display: 'grid', gap: 8 }}>
+              {scaleSongsOf(viewModal).map((x) => (
+                <div key={x.songId} style={{ padding: '10px 14px', background: C.bgHover, borderRadius: 8, display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                    <span style={{ fontWeight: 600, color: C.textPrimary }}>{x.song.name}</span>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                      {x.key && <span className="tag green">Tom: {x.key}</span>}
+                      {x.song.bpm && <span className="tag" style={{ fontSize: 10 }}>♩ {x.song.bpm} BPM</span>}
+                      {x.soloMemberId && (() => {
+                        const soloist = members.find((m) => m.id === x.soloMemberId);
+                        if (!soloist) return null;
+                        const vocalRole = (soloist.roles || []).find((r) => VOCAL_KEYS.includes(r));
+                        const roleLabel = vocalRole ? ROLES.find((ro) => ro.key === vocalRole)?.label : '';
+                        return (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#7c4dff', background: 'rgba(124,77,255,0.12)', border: '1px solid rgba(124,77,255,0.35)', borderRadius: 6, padding: '2px 8px' }}>
+                            🎙️ Solo: {soloist.name}{roleLabel ? ` · ${roleLabel}` : ''}
+                          </span>
+                        );
+                      })()}
+                      {x.notes && <span style={{ fontSize: 12, color: C.textSecondary }}>{x.notes}</span>}
+                    </div>
+                  </div>
+                  <AudioPlayerList audios={x.song.audios} compact />
+                </div>
+              ))}
+              {scaleSongsOf(viewModal).length === 0 && <span style={{ color: C.textSecondary, fontSize: 13 }}>Nenhuma música</span>}
+            </div>
+          </Field>
+
+          {scaleSongsOf(viewModal).some((x) => x.song.youtubeUrl) && (
+            <div style={{ marginTop: 4, display: 'grid', gap: 5 }}>
+              <div className="field-label" style={{ marginBottom: 2 }}>Links do YouTube</div>
+              {scaleSongsOf(viewModal).filter((x) => x.song.youtubeUrl).map((x) => (
+                <a key={x.songId} href={x.song.youtubeUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: C.bgHover, borderRadius: 8, textDecoration: 'none', color: C.textPrimary, fontSize: 13 }}>
+                  <Youtube size={14} color="#E8463A" />
+                  <span style={{ flex: 1 }}>{x.song.name}</span>
+                  <span style={{ fontSize: 11, color: C.textSecondary }}>↗</span>
+                </a>
+              ))}
+            </div>
+          )}
+        </Modal>
       )}
     </div>
   );
