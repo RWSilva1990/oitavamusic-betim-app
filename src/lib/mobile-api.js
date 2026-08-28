@@ -87,6 +87,19 @@ export async function notifyMobileScaleAdded(idToken, scale, addedMemberIds) {
   );
 }
 
+export async function notifyMobileScaleRemoved(idToken, scale, removedMemberIds) {
+  return mobilePost(
+    '/api/mobile/push',
+    idToken,
+    {
+      action: 'notify-scale-removed',
+      scale: { id: scale.id, name: scale.name, date: scale.date },
+      removedMemberIds,
+    },
+    'A escala foi salva, mas não foi possível enviar a notificação de remoção.',
+  );
+}
+
 export async function sendMobileInvitation(idToken, email) {
   return mobilePost(
     '/api/mobile/invite',
