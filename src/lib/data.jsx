@@ -2,7 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { dbGet, dbSet } from './db';
 import { useAuth } from './auth';
 import { getMemberAppData } from './member-data.functions';
-import { getMobileMemberData, isPackagedNativeApp } from './mobile-api';
+import {
+  getMobileAdminData,
+  getMobileMemberData,
+  isPackagedNativeApp,
+  saveMobileAdminData,
+} from './mobile-api';
 import { sendScaleAddedNotifications } from './push-client';
 import { sendScaleRemovedNotifications } from './scale-removal-notifications';
 
@@ -81,6 +86,23 @@ export function DataProvider({ children }) {
       setGroupsState(memberData?.groups || []);
       setSongsState(memberData?.songs || []);
       const nextScales = memberData?.scales || [];
+      scalesRef.current = nextScales;
+      setScalesState(nextScales);
+      return;
+    }
+
+    if (isPackagedNativeApp()) {
+      const idToken = await auth.user.getIdToken(true);
+      const adminData = await getMobileAdminData(idToken);
+      const m = adminData?.members || [];
+      const cleaned = m.map((mb) => ({ ...mb, roles: (mb.roles || []).filter((r) => r !== 'vocal') }));
+      setMembersState(cleaned);
+      if (auth.isAdmin && m.some((mb) => (mb.roles || []).includes('vocal'))) {
+        await saveMobileAdminData(idToken, 'members', cleaned);
+      }
+      setGroupsState(adminData?.groups || []);
+      setSongsState(adminData?.songs || []);
+      const nextScales = adminData?.scales || [];
       scalesRef.current = nextScales;
       setScalesState(nextScales);
       return;
@@ -165,7 +187,12 @@ export function DataProvider({ children }) {
     setSyncing(true);
     setSyncOk(null);
     try {
-      await dbSet(key, val);
+      if (isPackagedNativeApp()) {
+        const idToken = await auth.user.getIdToken(true);
+        await saveMobileAdminData(idToken, key, val);
+      } else {
+        await dbSet(key, val);
+      }
       setSyncOk(true);
     } catch (error) {
       console.error(`Falha ao salvar oitava/${key}`, error);
