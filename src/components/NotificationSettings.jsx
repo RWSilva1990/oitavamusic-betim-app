@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, BellOff } from 'lucide-react';
+import { Bell, BellOff, Copy } from 'lucide-react';
 import { C } from '@/lib/theme';
 import {
   disableScaleNotifications,
@@ -24,7 +24,7 @@ export default function NotificationSettings() {
   const flash = (text, error = false) => {
     if (messageTimer.current) window.clearTimeout(messageTimer.current);
     setMessage({ text, error });
-    messageTimer.current = window.setTimeout(() => setMessage(null), 2800);
+    messageTimer.current = window.setTimeout(() => setMessage(null), 3200);
   };
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export default function NotificationSettings() {
       return;
     }
     if (!status.enabled && status.permission === 'denied') {
-      flash('Notificações bloqueadas para este site no navegador.', true);
+      flash('Notificações bloqueadas nas configurações do aparelho.', true);
       return;
     }
 
@@ -57,7 +57,7 @@ export default function NotificationSettings() {
         flash('Notificações desativadas');
       } else {
         await enableScaleNotifications();
-        flash('Notificações ativadas');
+        flash('Notificações ativadas no aparelho');
       }
     } catch (error) {
       flash(error?.message || 'Não foi possível alterar as notificações.', true);
@@ -67,13 +67,50 @@ export default function NotificationSettings() {
     }
   };
 
+  const copyToken = async () => {
+    const token = String(status?.token || '').trim();
+    if (!token) {
+      flash('Ative as notificações primeiro para gerar o token FCM.', true);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(token);
+      flash(status?.serverLinked ? 'Token FCM copiado' : 'Token FCM copiado — backend ainda não vinculado');
+    } catch {
+      flash('Não foi possível copiar o token automaticamente.', true);
+    }
+  };
+
   if (!status) return null;
 
   const enabled = status.enabled;
   const label = enabled ? 'Desativar notificações' : 'Ativar notificações';
 
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
+    <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+      {status.native && status.token && (
+        <button
+          type="button"
+          onClick={copyToken}
+          aria-label="Copiar token FCM"
+          title="Copiar token FCM para teste"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            border: `1px solid ${C.border}`,
+            background: C.bgHover,
+            color: C.textSecondary,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <Copy size={15} />
+        </button>
+      )}
+
       <button
         type="button"
         onClick={toggle}
@@ -108,7 +145,7 @@ export default function NotificationSettings() {
             top: 48,
             zIndex: 30,
             width: 'max-content',
-            maxWidth: 230,
+            maxWidth: 260,
             padding: '8px 10px',
             borderRadius: 10,
             border: `1px solid ${message.error ? `${C.danger}33` : C.border}`,
