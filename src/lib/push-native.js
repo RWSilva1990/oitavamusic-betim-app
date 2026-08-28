@@ -225,6 +225,20 @@ export async function disableNativeScaleNotifications() {
   window.localStorage.removeItem(NATIVE_PUSH_TOKEN_KEY);
 }
 
+function navigateNativePath(path) {
+  if (!path.startsWith('/')) return;
+
+  const nextUrl = new URL(path, window.location.origin);
+  const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+  const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextPath === currentPath) return;
+
+  // Atualiza a URL sem recarregar o WebView. O popstate permite que o
+  // TanStack Router reconheça a nova rota usando a mesma sessão/Firebase.
+  window.history.pushState(window.history.state, '', nextPath);
+  window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }));
+}
+
 export async function startNativeScaleNotificationRuntime() {
   if (!isNativeAndroid()) return () => {};
 
@@ -242,7 +256,7 @@ export async function startNativeScaleNotificationRuntime() {
   const actionHandle = await PushNotifications.addListener('pushNotificationActionPerformed', (event) => {
     const data = event?.notification?.data || {};
     const path = String(data.path || '/minhas-escalas');
-    if (path.startsWith('/')) window.location.assign(path);
+    navigateNativePath(path);
   });
 
   runtimeCleanup = () => {
