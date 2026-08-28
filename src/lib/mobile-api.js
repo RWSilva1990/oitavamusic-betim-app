@@ -26,6 +26,19 @@ async function parseJsonResponse(response, fallbackMessage) {
   return payload;
 }
 
+async function mobilePost(path, idToken, body, fallbackMessage) {
+  const response = await fetch(apiUrl(path), {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+  return parseJsonResponse(response, fallbackMessage);
+}
+
 export async function getMobileFirebaseConfig() {
   const response = await fetch(apiUrl('/api/mobile/config'), {
     method: 'GET',
@@ -35,12 +48,41 @@ export async function getMobileFirebaseConfig() {
 }
 
 export async function getMobileMemberData(idToken) {
-  const response = await fetch(apiUrl('/api/mobile/member-data'), {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${idToken}`,
+  return mobilePost(
+    '/api/mobile/member-data',
+    idToken,
+    {},
+    'Não foi possível carregar os dados do membro.',
+  );
+}
+
+export async function registerMobilePush(idToken, target) {
+  return mobilePost(
+    '/api/mobile/push',
+    idToken,
+    { action: 'register', target },
+    'Não foi possível vincular este aparelho às notificações.',
+  );
+}
+
+export async function unregisterMobilePush(idToken, target) {
+  return mobilePost(
+    '/api/mobile/push',
+    idToken,
+    { action: 'unregister', target },
+    'Não foi possível remover o vínculo de notificações.',
+  );
+}
+
+export async function notifyMobileScaleAdded(idToken, scale, addedMemberIds) {
+  return mobilePost(
+    '/api/mobile/push',
+    idToken,
+    {
+      action: 'notify-scale-added',
+      scale: { id: scale.id, name: scale.name, date: scale.date },
+      addedMemberIds,
     },
-  });
-  return parseJsonResponse(response, 'Não foi possível carregar os dados do membro.');
+    'A escala foi salva, mas não foi possível enviar as notificações.',
+  );
 }
