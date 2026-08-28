@@ -5,7 +5,6 @@ import { C, ROLES, LOGO_HOME } from '@/lib/theme';
 import { fmtDate, todayISO } from '@/lib/db';
 import { Avatar } from '../ui-kit';
 import { AudioPlayerList } from '../AudioSection';
-import NotificationSettings from '../NotificationSettings';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 
@@ -35,6 +34,9 @@ export default function MyScalesPage() {
     const myRoles = (mySlot?.roles || (mySlot?.role ? [mySlot.role] : []))
       .map((r) => ROLES.find((x) => x.key === r))
       .filter(Boolean);
+    const team = (sc.scaleMembers || [])
+      .map((slot) => ({ ...slot, member: members.find((member) => member.id === slot.memberId) }))
+      .filter((item) => item.member);
     const scSongs = (sc.scaleSongs || []).map((ss) => ({ ...ss, song: songs.find((s) => s.id === ss.songId) })).filter((x) => x.song);
     return (
       <div className="card" style={{ marginBottom: 10 }}>
@@ -49,6 +51,46 @@ export default function MyScalesPage() {
             {myRoles.map((r) => <span key={r.key} className="tag">{r.emoji} {r.label}</span>)}
           </div>
         )}
+
+        {team.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.textSecondary, marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Equipe</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {team.map((item) => {
+                const activeRoles = item.roles || (item.role ? [item.role] : []);
+                const roleLabels = activeRoles.map((r) => ROLES.find((role) => role.key === r)).filter(Boolean);
+                const isMe = item.memberId === me?.id;
+                return (
+                  <div
+                    key={item.memberId}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      padding: '5px 10px',
+                      background: item.isSub ? 'rgba(79,128,225,0.1)' : C.bgHover,
+                      borderRadius: 18,
+                      border: `1px solid ${isMe ? C.accent + '66' : C.border}`,
+                    }}
+                  >
+                    <Avatar member={item.member} size={22} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: isMe ? 700 : 600, color: C.textPrimary }}>
+                        {item.isSub ? '↔ ' : ''}{item.member.name}{isMe ? ' · você' : ''}
+                      </div>
+                      {roleLabels.length > 0 && (
+                        <div style={{ fontSize: 10, color: C.textSecondary }}>
+                          {roleLabels.map((r) => `${r.emoji} ${r.label}`).join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'grid', gap: 8 }}>
           {scSongs.map((x) => (
             <div key={x.songId} style={{ padding: '10px 14px', background: C.bgHover, borderRadius: 8, display: 'grid', gap: 8 }}>
@@ -90,7 +132,6 @@ export default function MyScalesPage() {
           <h1 style={{ fontSize: 20, fontWeight: 800, color: C.accent }}>Minhas Escalas</h1>
           <p style={{ color: C.textSecondary, fontSize: 13 }}>{me?.name || auth.email}</p>
         </div>
-        <NotificationSettings />
         {me && <Avatar member={me} size={40} />}
       </div>
 
