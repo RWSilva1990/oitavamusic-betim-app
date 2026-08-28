@@ -56,6 +56,24 @@ export async function getMobileMemberData(idToken) {
   );
 }
 
+export async function getMobileAdminData(idToken) {
+  return mobilePost(
+    '/api/mobile/admin-data',
+    idToken,
+    { action: 'load' },
+    'Não foi possível carregar os dados administrativos.',
+  );
+}
+
+export async function saveMobileAdminData(idToken, key, data) {
+  return mobilePost(
+    '/api/mobile/admin-data',
+    idToken,
+    { action: 'save', key, data },
+    'Não foi possível salvar os dados administrativos.',
+  );
+}
+
 export async function registerMobilePush(idToken, target) {
   return mobilePost(
     '/api/mobile/push',
