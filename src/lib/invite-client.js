@@ -1,6 +1,7 @@
 import { dbGet, dbSet } from './db';
 import { getFirebaseAuth } from './firebase';
 import { sendInvitationEmail } from './invite-email.functions';
+import { isPackagedNativeApp, sendMobileInvitation } from './mobile-api';
 
 export async function sendCustomInvitation(mail) {
   const clean = String(mail || '').trim().toLowerCase();
@@ -12,7 +13,8 @@ export async function sendCustomInvitation(mail) {
 
   const idToken = await currentUser.getIdToken();
   try {
-    await sendInvitationEmail({ data: { email: clean, idToken } });
+    if (isPackagedNativeApp()) await sendMobileInvitation(idToken, clean);
+    else await sendInvitationEmail({ data: { email: clean, idToken } });
   } catch (error) {
     const message = String(error?.message || error || '');
     if (message.includes('<!doctype html') || message.includes('<html')) {
