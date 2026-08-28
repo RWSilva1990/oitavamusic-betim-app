@@ -324,15 +324,18 @@ export async function unregisterPushInstallationForToken(
   return { success: true };
 }
 
+type ScaleNotificationEvent = 'added' | 'removed';
+
 export async function notifyScaleMembersAddedForToken(
   idToken: string,
   scale: { id: string; name: string; date: string },
-  addedMemberIds: string[],
+  targetMemberIds: string[],
+  eventType: ScaleNotificationEvent = 'added',
 ) {
   const caller = await assertAdmin(idToken);
-  const memberIds = [...new Set(addedMemberIds)].filter(Boolean);
+  const memberIds = [...new Set(targetMemberIds)].filter(Boolean);
   if (memberIds.length === 0) {
-    console.info('[push-scale]', JSON.stringify({ scaleId: scale.id, memberIds: [], devices: 0, webDevices: 0, androidDevices: 0, sent: 0, failed: 0 }));
+    console.info('[push-scale]', JSON.stringify({ scaleId: scale.id, eventType, memberIds: [], devices: 0, webDevices: 0, androidDevices: 0, sent: 0, failed: 0 }));
     return { success: true, sent: 0, failed: 0, devices: 0 };
   }
 
@@ -343,6 +346,7 @@ export async function notifyScaleMembersAddedForToken(
   if (nativeTargets.length === 0) {
     console.info('[push-scale]', JSON.stringify({
       scaleId: scale.id,
+      eventType,
       memberIds,
       success: true,
       sent: 0,
@@ -355,10 +359,16 @@ export async function notifyScaleMembersAddedForToken(
     return { success: true, sent: 0, failed: 0, devices: 0 };
   }
 
-  const link = `${appUrl()}/minhas-escalas?escala=${encodeURIComponent(scale.id)}`;
-  const path = `/minhas-escalas?escala=${encodeURIComponent(scale.id)}`;
-  const title = 'Você foi escalado! 🎵';
-  const body = `Você foi incluído na escala “${scale.name}” de ${formatScaleDate(scale.date)}.`;
+  const added = eventType === 'added';
+  const path = added
+    ? `/minhas-escalas?escala=${encodeURIComponent(scale.id)}`
+    : '/minhas-escalas';
+  const link = `${appUrl()}${path}`;
+  const title = added ? 'Você foi escalado! 🎵' : 'Você foi removido da escala';
+  const body = added
+    ? `Você foi incluído na escala “${scale.name}” de ${formatScaleDate(scale.date)}.`
+    : `Você não está mais na escala “${scale.name}” de ${formatScaleDate(scale.date)}.`;
+  const notificationType = added ? 'scale-added' : 'scale-removed';
 
   let sent = 0;
   let failed = 0;
@@ -371,7 +381,7 @@ export async function notifyScaleMembersAddedForToken(
       tokens,
       notification: { title, body },
       data: {
-        type: 'scale-added',
+        type: notificationType,
         title,
         body,
         url: link,
@@ -394,6 +404,7 @@ export async function notifyScaleMembersAddedForToken(
       const code = String(item.error?.code || '');
       console.warn('[push-native-failure]', JSON.stringify({
         scaleId: scale.id,
+        eventType,
         memberId: entries[index]?.memberId || '',
         code,
       }));
@@ -419,6 +430,6 @@ export async function notifyScaleMembersAddedForToken(
     suppressedWebDevices: allWebTargets.length,
   };
 
-  console.info('[push-scale]', JSON.stringify({ scaleId: scale.id, memberIds, ...result }));
+  console.info('[push-scale]', JSON.stringify({ scaleId: scale.id, eventType, memberIds, ...result }));
   return result;
 }
