@@ -4,6 +4,7 @@ import { useAuth } from './auth';
 import { getMemberAppData } from './member-data.functions';
 import { getMobileMemberData, isPackagedNativeApp } from './mobile-api';
 import { sendScaleAddedNotifications } from './push-client';
+import { sendScaleRemovedNotifications } from './scale-removal-notifications';
 
 const DataCtx = createContext(null);
 const directFirebaseTest = import.meta.env.VITE_ANDROID_TEST_DIRECT_FIREBASE === 'true';
@@ -194,19 +195,27 @@ export function DataProvider({ children }) {
     const notifications = [];
     for (const scale of next || []) {
       const previous = (prev || []).find((item) => item.id === scale.id);
-      const previousMemberIds = new Set((previous?.scaleMembers || []).map((item) => item.memberId));
-      const addedMemberIds = (scale.scaleMembers || [])
-        .map((item) => item.memberId)
-        .filter((memberId) => memberId && !previousMemberIds.has(memberId));
+      const previousMemberIds = new Set((previous?.scaleMembers || []).map((item) => item.memberId).filter(Boolean));
+      const nextMemberIds = new Set((scale.scaleMembers || []).map((item) => item.memberId).filter(Boolean));
 
-      if (addedMemberIds.length > 0) notifications.push({ scale, addedMemberIds });
+      const addedMemberIds = [...nextMemberIds].filter((memberId) => !previousMemberIds.has(memberId));
+      const removedMemberIds = previous
+        ? [...previousMemberIds].filter((memberId) => !nextMemberIds.has(memberId))
+        : [];
+
+      if (addedMemberIds.length > 0) notifications.push({ type: 'added', scale, memberIds: addedMemberIds });
+      if (removedMemberIds.length > 0) notifications.push({ type: 'removed', scale, memberIds: removedMemberIds });
     }
 
     persist('scales', next, true)
       .then(async () => {
         for (const item of notifications) {
           try {
-            await sendScaleAddedNotifications(item.scale, item.addedMemberIds);
+            if (item.type === 'removed') {
+              await sendScaleRemovedNotifications(item.scale, item.memberIds);
+            } else {
+              await sendScaleAddedNotifications(item.scale, item.memberIds);
+            }
           } catch (error) {
             console.warn('A escala foi salva, mas a notificação não pôde ser enviada:', error);
           }
