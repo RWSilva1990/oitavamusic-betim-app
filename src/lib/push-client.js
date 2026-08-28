@@ -16,6 +16,7 @@ import {
   isNativeAndroid,
   startNativeScaleNotificationRuntime,
 } from './push-native';
+import { isPackagedNativeApp, notifyMobileScaleAdded } from './mobile-api';
 
 const PUSH_ENABLED_KEY = 'oitava:push-enabled';
 const PUSH_FID_KEY = 'oitava:push-fid';
@@ -252,6 +253,10 @@ export async function sendScaleAddedNotifications(scale, addedMemberIds) {
 
   const idToken = await currentIdToken();
   try {
+    if (isPackagedNativeApp()) {
+      return await notifyMobileScaleAdded(idToken, scale, ids);
+    }
+
     return await notifyScaleMembersAdded({
       data: {
         idToken,
