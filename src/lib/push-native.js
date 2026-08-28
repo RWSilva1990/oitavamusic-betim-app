@@ -13,6 +13,7 @@ import {
 
 const NATIVE_PUSH_ENABLED_KEY = 'oitava:native-push-enabled';
 const NATIVE_PUSH_TOKEN_KEY = 'oitava:native-push-token';
+const NATIVE_PUSH_SERVER_LINKED_KEY = 'oitava:native-push-server-linked';
 let runtimeCleanup = null;
 let registrationPromise = null;
 
@@ -24,6 +25,11 @@ export function isNativeAndroid() {
 
 function preferenceEnabled() {
   return isNativeAndroid() && window.localStorage.getItem(NATIVE_PUSH_ENABLED_KEY) === 'true';
+}
+
+export function getNativePushDiagnosticToken() {
+  if (!isNativeAndroid()) return '';
+  return String(window.localStorage.getItem(NATIVE_PUSH_TOKEN_KEY) || '').trim();
 }
 
 async function currentIdToken() {
@@ -59,11 +65,12 @@ async function permissionStatus(requestPermission = false) {
 
 async function relinkStoredNativePush() {
   if (!preferenceEnabled()) return false;
-  const token = String(window.localStorage.getItem(NATIVE_PUSH_TOKEN_KEY) || '').trim();
+  const token = getNativePushDiagnosticToken();
   if (!token) return false;
 
   const idToken = await currentIdToken();
   await registerTarget(idToken, token);
+  window.localStorage.setItem(NATIVE_PUSH_SERVER_LINKED_KEY, 'true');
   return true;
 }
 
@@ -76,11 +83,12 @@ export async function relinkNativePushForCurrentUser() {
 
 export async function unlinkNativePushForCurrentUser() {
   if (!isNativeAndroid() || !preferenceEnabled()) return false;
-  const token = String(window.localStorage.getItem(NATIVE_PUSH_TOKEN_KEY) || '').trim();
+  const token = getNativePushDiagnosticToken();
   if (!token) return false;
 
   const idToken = await currentIdToken();
   await unregisterTarget(idToken, token);
+  window.localStorage.setItem(NATIVE_PUSH_SERVER_LINKED_KEY, 'false');
   return true;
 }
 
@@ -128,12 +136,22 @@ async function registerNativePush({ requestPermission = false } = {}) {
           const token = String(registration?.value || '').trim();
           if (!token) throw new Error('O Android não retornou um token de notificações válido.');
 
-          await registerTarget(idToken, token);
+          // Preserve o token local mesmo que o backend de teste ainda não esteja público.
+          // Isso permite validar FCM nativo diretamente pelo Firebase Console.
           window.localStorage.setItem(NATIVE_PUSH_TOKEN_KEY, token);
           window.localStorage.setItem(NATIVE_PUSH_ENABLED_KEY, 'true');
+
+          try {
+            await registerTarget(idToken, token);
+            window.localStorage.setItem(NATIVE_PUSH_SERVER_LINKED_KEY, 'true');
+          } catch (serverError) {
+            window.localStorage.setItem(NATIVE_PUSH_SERVER_LINKED_KEY, 'false');
+            console.warn('Token FCM obtido, mas o backend ainda não pôde vinculá-lo:', cleanServerError(serverError, 'backend indisponível'));
+          }
+
           await finish(() => resolve(token));
         } catch (error) {
-          await finish(() => reject(cleanServerError(error, 'Não foi possível vincular este aparelho às notificações.')));
+          await finish(() => reject(cleanServerError(error, 'Não foi possível ativar as notificações neste aparelho.')));
         }
       });
 
@@ -164,15 +182,18 @@ export async function getNativeScaleNotificationStatus() {
 
   try {
     const permission = await permissionStatus(false);
+    const token = getNativePushDiagnosticToken();
     return {
       supported: true,
       configured: true,
       permission,
       enabled: permission === 'granted' && preferenceEnabled(),
       native: true,
+      token,
+      serverLinked: window.localStorage.getItem(NATIVE_PUSH_SERVER_LINKED_KEY) === 'true',
     };
   } catch {
-    return { supported: false, configured: false, permission: 'unsupported', enabled: false, native: true };
+    return { supported: false, configured: false, permission: 'unsupported', enabled: false, native: true, token: '', serverLinked: false };
   }
 }
 
@@ -182,7 +203,7 @@ export async function enableNativeScaleNotifications() {
 
 export async function disableNativeScaleNotifications() {
   if (!isNativeAndroid()) return;
-  const token = window.localStorage.getItem(NATIVE_PUSH_TOKEN_KEY) || '';
+  const token = getNativePushDiagnosticToken();
 
   try {
     if (token) {
@@ -200,6 +221,7 @@ export async function disableNativeScaleNotifications() {
   }
 
   window.localStorage.setItem(NATIVE_PUSH_ENABLED_KEY, 'false');
+  window.localStorage.setItem(NATIVE_PUSH_SERVER_LINKED_KEY, 'false');
   window.localStorage.removeItem(NATIVE_PUSH_TOKEN_KEY);
 }
 
