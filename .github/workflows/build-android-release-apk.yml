@@ -2,6 +2,11 @@ name: Build Android Signed Release APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - refactor/android-production-shell-2026-08-27
+    paths:
+      - '.github/workflows/build-android-release-apk.yml'
 
 permissions:
   contents: read
