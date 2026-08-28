@@ -93,9 +93,19 @@ async function verifyCaller(idToken: string) {
 
 async function assertAdmin(idToken: string) {
   const caller = await verifyCaller(idToken);
-  if (!adminEmails().includes(caller.email)) {
+  if (adminEmails().includes(caller.email)) return caller;
+
+  const access = await firestoreRest(
+    caller.app,
+    `/accessUsers/${encodeURIComponent(caller.email)}`,
+    {},
+    { allowNotFound: true },
+  );
+
+  if (firestoreString(access, 'role') !== 'admin') {
     throw new Error('Apenas administradores autorizados podem disparar notificações de escala.');
   }
+
   return caller;
 }
 
