@@ -12,6 +12,17 @@ permissions:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_SPA_BUILD: 'true'
+      VITE_ANDROID_TEST_DIRECT_FIREBASE: 'true'
+      VITE_FIREBASE_API_KEY: 'AIzaSyAQuplKbkau95AjkMhS4piewfzVYDULRQw'
+      VITE_FIREBASE_APP_ID: '1:1082908267904:web:df0751076eca92bcb45d65'
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '1082908267904'
+      VITE_FIREBASE_AUTH_DOMAIN: 'oitavamusicbetim.firebaseapp.com'
+      VITE_FIREBASE_PROJECT_ID: 'oitavamusicbetim'
+      VITE_FIREBASE_STORAGE_BUCKET: 'oitavamusicbetim.firebasestorage.app'
+      VITE_ADMIN_EMAILS: 'rwsilvatec@gmail.com'
+      VITE_APP_URL: 'https://oitavamusicbetim.vercel.app'
 
     steps:
       - name: Checkout
@@ -33,7 +44,7 @@ jobs:
         run: npm ci
 
       - name: Build Android SPA shell
-        run: ANDROID_SPA_BUILD=true npm run build
+        run: npm run build
 
       - name: Prepare packaged web assets
         shell: bash
