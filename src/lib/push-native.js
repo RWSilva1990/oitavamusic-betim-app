@@ -14,6 +14,7 @@ import {
 const NATIVE_PUSH_ENABLED_KEY = 'oitava:native-push-enabled';
 const NATIVE_PUSH_TOKEN_KEY = 'oitava:native-push-token';
 const NATIVE_PUSH_SERVER_LINKED_KEY = 'oitava:native-push-server-linked';
+const NATIVE_PUSH_CHANNEL_ID = 'escala-alerts';
 let runtimeCleanup = null;
 let registrationPromise = null;
 
@@ -57,28 +58,34 @@ function cleanServerError(error, fallback) {
 
 async function permissionStatus(requestPermission = false) {
   let permission = await PushNotifications.checkPermissions();
-  if (permission.receive === 'prompt' && requestPermission) {
+  if ((permission.receive === 'prompt' || permission.receive === 'prompt-with-rationale') && requestPermission) {
     permission = await PushNotifications.requestPermissions();
   }
   return permission.receive;
 }
 
-async function relinkStoredNativePush() {
-  if (!preferenceEnabled()) return false;
-  const token = getNativePushDiagnosticToken();
-  if (!token) return false;
-
-  const idToken = await currentIdToken();
-  await registerTarget(idToken, token);
-  window.localStorage.setItem(NATIVE_PUSH_SERVER_LINKED_KEY, 'true');
-  return true;
+async function ensureNativePushChannel() {
+  if (!isNativeAndroid()) return;
+  try {
+    await PushNotifications.createChannel({
+      id: NATIVE_PUSH_CHANNEL_ID,
+      name: 'Escalas',
+      description: 'Avisos de novas escalas do Oitava Music',
+      importance: 4,
+      visibility: 1,
+      vibration: true,
+    });
+  } catch (error) {
+    console.warn('Não foi possível preparar o canal de notificações do Android:', error);
+  }
 }
 
 export async function relinkNativePushForCurrentUser() {
   if (!isNativeAndroid() || !preferenceEnabled()) return false;
   const permission = await permissionStatus(false);
   if (permission !== 'granted') return false;
-  return relinkStoredNativePush();
+  const token = await registerNativePush();
+  return Boolean(token);
 }
 
 export async function unlinkNativePushForCurrentUser() {
@@ -107,6 +114,7 @@ async function registerNativePush({ requestPermission = false } = {}) {
 
     if (!requestPermission && !preferenceEnabled()) return null;
 
+    await ensureNativePushChannel();
     const idToken = await currentIdToken();
 
     return new Promise(async (resolve, reject) => {
@@ -136,8 +144,6 @@ async function registerNativePush({ requestPermission = false } = {}) {
           const token = String(registration?.value || '').trim();
           if (!token) throw new Error('O Android não retornou um token de notificações válido.');
 
-          // Preserve o token local mesmo que o backend de teste ainda não esteja público.
-          // Isso permite validar FCM nativo diretamente pelo Firebase Console.
           window.localStorage.setItem(NATIVE_PUSH_TOKEN_KEY, token);
           window.localStorage.setItem(NATIVE_PUSH_ENABLED_KEY, 'true');
 
@@ -233,22 +239,20 @@ function navigateNativePath(path) {
   const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (nextPath === currentPath) return;
 
-  // Atualiza a URL sem recarregar o WebView. O popstate permite que o
-  // TanStack Router reconheça a nova rota usando a mesma sessão/Firebase.
   window.history.pushState(window.history.state, '', nextPath);
   window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }));
+}
+
+function refreshNativeRegistration() {
+  if (!preferenceEnabled()) return;
+  registerNativePush().catch((error) => console.warn('Falha ao atualizar o token FCM nativo:', error));
 }
 
 export async function startNativeScaleNotificationRuntime() {
   if (!isNativeAndroid()) return () => {};
 
   if (preferenceEnabled()) {
-    try {
-      await relinkNativePushForCurrentUser();
-    } catch (error) {
-      console.warn('Falha ao reassociar notificações nativas:', error);
-    }
-    registerNativePush().catch((error) => console.warn('Falha ao renovar notificações nativas:', error));
+    refreshNativeRegistration();
   }
 
   if (runtimeCleanup) return runtimeCleanup;
@@ -259,8 +263,18 @@ export async function startNativeScaleNotificationRuntime() {
     navigateNativePath(path);
   });
 
+  const handleVisibility = () => {
+    if (document.visibilityState === 'visible') refreshNativeRegistration();
+  };
+  const handleFocus = () => refreshNativeRegistration();
+
+  document.addEventListener('visibilitychange', handleVisibility);
+  window.addEventListener('focus', handleFocus);
+
   runtimeCleanup = () => {
     actionHandle.remove().catch(() => undefined);
+    document.removeEventListener('visibilitychange', handleVisibility);
+    window.removeEventListener('focus', handleFocus);
     runtimeCleanup = null;
   };
 
