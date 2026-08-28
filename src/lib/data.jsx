@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { dbGet, dbSet } from './db';
 import { useAuth } from './auth';
 import { getMemberAppData } from './member-data.functions';
-import { getMobileMemberData, isPackagedNativeApp } from './mobile-api.client';
+import { getMobileMemberData, isPackagedNativeApp } from './mobile-api';
 import { sendScaleAddedNotifications } from './push-client';
 
 const DataCtx = createContext(null);
