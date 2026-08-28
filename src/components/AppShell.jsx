@@ -14,6 +14,12 @@ const MEMBER_NAV = [
   { id: 'songs', label: 'Repertório', emoji: '🎵', to: '/repertorio' },
 ];
 
+const ADMIN_NAV = [
+  NAV[0],
+  { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
+  ...NAV.slice(1),
+];
+
 export function Loader({ label = 'Conectando ao Firebase...' }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', color: C.textSecondary, gap: 16 }}>
@@ -45,7 +51,7 @@ export default function AppShell({ children, allowMember = false }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const memberAllowed = allowMember && auth.role === 'membro';
-  const navItems = memberAllowed ? MEMBER_NAV : NAV;
+  const navItems = memberAllowed ? MEMBER_NAV : auth.isAdmin ? ADMIN_NAV : NAV;
   const adminMember = auth.isAdmin ? auth.memberFor(members) : null;
 
   useEffect(() => {
