@@ -1,5 +1,5 @@
 import { getFirebaseConfig } from './firebase-config.functions';
-import { getMobileFirebaseConfig, isPackagedNativeApp } from './mobile-api.client';
+import { getMobileFirebaseConfig, isPackagedNativeApp } from './mobile-api';
 
 let configPromise = null;
 
