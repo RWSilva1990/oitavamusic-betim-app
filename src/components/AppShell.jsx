@@ -4,6 +4,7 @@ import { Menu, LogOut } from 'lucide-react';
 import { C, NAV, LOGO_HOME, LOGO_SIDEBAR } from '@/lib/theme';
 import { Btn } from './ui-kit';
 import NotificationSettings from './NotificationSettings';
+import AppearanceSettings from './AppearanceSettings';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 import { startScaleNotificationRuntime } from '@/lib/push-client';
@@ -83,7 +84,6 @@ export default function AppShell({ children, allowMember = false }) {
   if (!auth.configured) return <SetupRequired />;
   if (!auth.user) return <Loader label="Redirecionando..." />;
   if (auth.role !== 'admin' && !memberAllowed) return <Loader label="Redirecionando..." />;
-
   if (!ready) return <Loader />;
 
   const current = navItems.find((n) => n.to === pathname) || navItems[0];
@@ -125,23 +125,24 @@ export default function AppShell({ children, allowMember = false }) {
       </div>
 
       {sideOpen && (
-        <div onClick={() => setSideOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 199 }} />
+        <div onClick={() => setSideOpen(false)} style={{ position: 'fixed', inset: 0, background: 'var(--app-overlay)', zIndex: 199 }} />
       )}
 
       <div className="main-content" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', width: '100%' }}>
-        <div style={{ height: 54, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: '0 18px', gap: 12, position: 'sticky', top: 0, zIndex: 100 }}>
+        <div className="topbar-surface" style={{ height: 54, background: 'var(--app-topbar)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: '0 18px', gap: 8, position: 'sticky', top: 0, zIndex: 100 }}>
           <button className="topbar-menu-btn btn-ghost btn" onClick={() => setSideOpen((x) => !x)} style={{ padding: '6px 8px' }}>
             <Menu size={19} />
           </button>
           <span style={{ fontWeight: 800, color: C.accent, fontSize: 13, flex: 1 }}>
             {current?.emoji} {current?.label}
           </span>
+          <AppearanceSettings />
           {currentMember && <NotificationSettings />}
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             {syncing ? (
               <div style={{ width: 8, height: 8, borderRadius: '50%', border: `1.5px solid ${C.textSecondary}44`, borderTopColor: C.textSecondary, animation: 'spin 0.8s linear infinite' }} />
             ) : (
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: syncOk === true ? C.success : syncOk === false ? C.danger : C.textSecondary + '44' }} />
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: syncOk === true ? C.success : syncOk === false ? C.danger : C.textSecondary }} />
             )}
           </div>
         </div>
