@@ -23,17 +23,24 @@ const targetSchema = z.object({
   }
 });
 
+const scaleSchema = z.object({
+  id: z.string().min(1).max(160),
+  name: z.string().trim().min(1).max(180),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
 const requestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('register'), target: targetSchema }),
   z.object({ action: z.literal('unregister'), target: targetSchema }),
   z.object({
     action: z.literal('notify-scale-added'),
-    scale: z.object({
-      id: z.string().min(1).max(160),
-      name: z.string().trim().min(1).max(180),
-      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    }),
-    addedMemberIds: z.array(z.string().min(1).max(160)).max(300),
+    scale: scaleSchema,
+    memberIds: z.array(z.string().min(1).max(160)).max(300),
+  }),
+  z.object({
+    action: z.literal('notify-scale-removed'),
+    scale: scaleSchema,
+    memberIds: z.array(z.string().min(1).max(160)).max(300),
   }),
 ]);
 
@@ -60,7 +67,8 @@ export const Route = createFileRoute('/api/mobile/push')({
             result = await notifyScaleMembersAddedForToken(
               idToken,
               parsed.data.scale,
-              parsed.data.addedMemberIds,
+              parsed.data.memberIds,
+              parsed.data.action === 'notify-scale-removed' ? 'removed' : 'added',
             );
           }
 
