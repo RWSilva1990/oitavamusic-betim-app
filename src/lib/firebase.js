@@ -1,10 +1,12 @@
 import { getFirebaseConfig } from './firebase-config.functions';
+import { getMobileFirebaseConfig, isPackagedNativeApp } from './mobile-api.client';
 
 let configPromise = null;
 
 export function loadFirebaseConfig() {
   if (!configPromise) {
-    configPromise = getFirebaseConfig().catch(() => ({
+    const load = isPackagedNativeApp() ? getMobileFirebaseConfig() : getFirebaseConfig();
+    configPromise = load.catch(() => ({
       configured: false,
       messagingConfigured: false,
       adminEmails: [],
