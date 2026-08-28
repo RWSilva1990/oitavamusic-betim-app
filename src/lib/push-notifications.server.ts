@@ -281,6 +281,20 @@ export async function registerPushInstallationForToken(
     ),
   });
 
+  if (target.type === 'token') {
+    const existing = await findInstallationsByMemberIds(caller.app, [memberId]);
+    const webPaths = existing
+      .filter((installation) => installation.type === 'fid')
+      .map((installation) => installation.path);
+    if (webPaths.length > 0) {
+      await Promise.all(
+        [...new Set(webPaths)].map((webPath) =>
+          firestoreRest(caller.app, `/${webPath}`, { method: 'DELETE' }).catch(() => undefined),
+        ),
+      );
+    }
+  }
+
   console.info('[push-register]', JSON.stringify({ memberId, targetType: target.type }));
   return { success: true, memberId, targetType: target.type };
 }
@@ -323,8 +337,21 @@ export async function notifyScaleMembersAddedForToken(
   }
 
   const installations = await findInstallationsByMemberIds(caller.app, memberIds);
-  if (installations.length === 0) {
-    console.info('[push-scale]', JSON.stringify({ scaleId: scale.id, memberIds, devices: 0, webDevices: 0, androidDevices: 0, sent: 0, failed: 0 }));
+  const nativeTargets = installations.filter((item) => item.type === 'token');
+  const allWebTargets = installations.filter((item) => item.type === 'fid');
+
+  if (nativeTargets.length === 0) {
+    console.info('[push-scale]', JSON.stringify({
+      scaleId: scale.id,
+      memberIds,
+      success: true,
+      sent: 0,
+      failed: 0,
+      devices: 0,
+      webDevices: 0,
+      androidDevices: 0,
+      suppressedWebDevices: allWebTargets.length,
+    }));
     return { success: true, sent: 0, failed: 0, devices: 0 };
   }
 
@@ -336,39 +363,6 @@ export async function notifyScaleMembersAddedForToken(
   let sent = 0;
   let failed = 0;
   const stalePaths: string[] = [];
-  const nativeTargets = installations.filter((item) => item.type === 'token');
-  const membersWithNativePush = new Set(nativeTargets.map((item) => item.memberId));
-  const allWebTargets = installations.filter((item) => item.type === 'fid');
-  const webTargets = allWebTargets.filter((item) => !membersWithNativePush.has(item.memberId));
-  const suppressedWebDevices = allWebTargets.length - webTargets.length;
-
-  for (let i = 0; i < webTargets.length; i += 500) {
-    const entries = webTargets.slice(i, i + 500);
-    const fids = entries.map((item) => item.value);
-    const response = await getMessaging(caller.app).sendEachForMulticast({
-      fids,
-      data: {
-        type: 'scale-added',
-        title,
-        body,
-        url: link,
-        path,
-        scaleId: scale.id,
-      },
-      webpush: {
-        headers: { Urgency: 'high' },
-        fcmOptions: { link },
-      },
-    });
-
-    sent += response.successCount;
-    failed += response.failureCount;
-    response.responses.forEach((item, index) => {
-      if (item.success) return;
-      const code = String(item.error?.code || '');
-      if (isStaleTargetError(code)) stalePaths.push(entries[index].path);
-    });
-  }
 
   for (let i = 0; i < nativeTargets.length; i += 500) {
     const entries = nativeTargets.slice(i, i + 500);
@@ -386,6 +380,10 @@ export async function notifyScaleMembersAddedForToken(
       },
       android: {
         priority: 'high',
+        notification: {
+          channelId: 'escala-alerts',
+          sound: 'default',
+        },
       },
     });
 
@@ -394,6 +392,11 @@ export async function notifyScaleMembersAddedForToken(
     response.responses.forEach((item, index) => {
       if (item.success) return;
       const code = String(item.error?.code || '');
+      console.warn('[push-native-failure]', JSON.stringify({
+        scaleId: scale.id,
+        memberId: entries[index]?.memberId || '',
+        code,
+      }));
       if (isStaleTargetError(code)) stalePaths.push(entries[index].path);
     });
   }
@@ -410,10 +413,10 @@ export async function notifyScaleMembersAddedForToken(
     success: true,
     sent,
     failed,
-    devices: webTargets.length + nativeTargets.length,
-    webDevices: webTargets.length,
+    devices: nativeTargets.length,
+    webDevices: 0,
     androidDevices: nativeTargets.length,
-    suppressedWebDevices,
+    suppressedWebDevices: allWebTargets.length,
   };
 
   console.info('[push-scale]', JSON.stringify({ scaleId: scale.id, memberIds, ...result }));
