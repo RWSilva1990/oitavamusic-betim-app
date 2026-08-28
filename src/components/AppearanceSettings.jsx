@@ -34,6 +34,8 @@ export function initializeAppearance() {
   return mode;
 }
 
+initializeAppearance();
+
 export default function AppearanceSettings() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(storedMode);
