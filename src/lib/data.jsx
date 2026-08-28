@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { dbGet, dbSet } from './db';
 import { useAuth } from './auth';
+import { getMemberAppData } from './member-data.functions';
 import { sendScaleAddedNotifications } from './push-client';
 
 const DataCtx = createContext(null);
@@ -27,6 +28,19 @@ export function DataProvider({ children }) {
 
   const loadAll = useCallback(async () => {
     if (!auth.user || !auth.role) return;
+
+    if (auth.role === 'membro') {
+      const idToken = await auth.user.getIdToken(true);
+      const memberData = await getMemberAppData({ data: { idToken } });
+      setMembersState(memberData?.member ? [memberData.member] : []);
+      setGroupsState(memberData?.groups || []);
+      setSongsState(memberData?.songs || []);
+      const nextScales = memberData?.scales || [];
+      scalesRef.current = nextScales;
+      setScalesState(nextScales);
+      return;
+    }
+
     const [m, g, s, sc] = await Promise.all([
       dbGet('members'),
       dbGet('groups'),
