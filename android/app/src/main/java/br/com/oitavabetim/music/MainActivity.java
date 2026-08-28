@@ -23,6 +23,8 @@ public class MainActivity extends BridgeActivity {
 
                 webView.evaluateJavascript(
                     "(function(){" +
+                        "var path=window.location.pathname||'/';" +
+                        "if(path==='/'||path==='/entrar'){return false;}" +
                         "if(window.history.length>1){" +
                             "window.history.back();" +
                             "return true;" +
