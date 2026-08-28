@@ -86,3 +86,12 @@ export async function notifyMobileScaleAdded(idToken, scale, addedMemberIds) {
     'A escala foi salva, mas não foi possível enviar as notificações.',
   );
 }
+
+export async function sendMobileInvitation(idToken, email) {
+  return mobilePost(
+    '/api/mobile/invite',
+    idToken,
+    { email },
+    'Não foi possível enviar o convite.',
+  );
+}
