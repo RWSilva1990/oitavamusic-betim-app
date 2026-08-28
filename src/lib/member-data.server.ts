@@ -68,6 +68,19 @@ function publicMemberProfile(member: any) {
   };
 }
 
+function publicScaleMember(slot: any) {
+  const roles = Array.isArray(slot?.roles)
+    ? slot.roles.filter((role: unknown) => typeof role === 'string')
+    : [];
+  const role = typeof slot?.role === 'string' ? slot.role : '';
+  return {
+    memberId: String(slot?.memberId || ''),
+    isSub: Boolean(slot?.isSub),
+    roles,
+    role: role || roles[0] || '',
+  };
+}
+
 function publicSong(song: any) {
   return {
     id: String(song?.id || ''),
@@ -121,15 +134,27 @@ export async function getMemberAppDataForToken(idToken: string) {
       date: String(scale?.date || ''),
       groupId: String(scale?.groupId || ''),
       scaleMembers: Array.isArray(scale?.scaleMembers)
-        ? scale.scaleMembers.filter((slot: any) => String(slot?.memberId || '') === memberId)
+        ? scale.scaleMembers.map(publicScaleMember).filter((slot: any) => slot.memberId)
         : [],
       scaleSongs: Array.isArray(scale?.scaleSongs)
         ? scale.scaleSongs.map((song: any) => ({
             ...song,
-            soloMemberId: String(song?.soloMemberId || '') === memberId ? memberId : '',
+            soloMemberId: String(song?.soloMemberId || ''),
           }))
         : [],
     }));
+
+  const participantIds = new Set(
+    myScales.flatMap((scale: any) =>
+      (scale.scaleMembers || []).map((slot: any) => String(slot?.memberId || '')).filter(Boolean),
+    ),
+  );
+  participantIds.add(memberId);
+
+  const publicMembers = members
+    .filter((item: any) => participantIds.has(String(item?.id || '')))
+    .map(publicMemberProfile)
+    .filter((item: any) => item.id && item.name);
 
   const usedGroupIds = new Set(myScales.map((scale: any) => scale.groupId).filter(Boolean));
   const myGroups = groups
@@ -141,6 +166,7 @@ export async function getMemberAppDataForToken(idToken: string) {
 
   return {
     member: publicMemberProfile(member),
+    members: publicMembers,
     groups: myGroups,
     songs: songs.map(publicSong).filter((song: any) => song.id && song.name),
     scales: myScales,
