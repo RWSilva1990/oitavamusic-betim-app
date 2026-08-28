@@ -30,6 +30,7 @@ const notifySchema = z.object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   }),
   addedMemberIds: z.array(z.string().min(1).max(160)).max(300),
+  eventType: z.enum(['added', 'removed']).optional().default('added'),
 });
 
 export const registerPushInstallation = createServerFn({ method: 'POST' })
@@ -47,5 +48,5 @@ export const unregisterPushInstallation = createServerFn({ method: 'POST' })
 export const notifyScaleMembersAdded = createServerFn({ method: 'POST' })
   .validator(notifySchema)
   .handler(async ({ data }) =>
-    notifyScaleMembersAddedForToken(data.idToken, data.scale, data.addedMemberIds)
+    notifyScaleMembersAddedForToken(data.idToken, data.scale, data.addedMemberIds, data.eventType)
   );
