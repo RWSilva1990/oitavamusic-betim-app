@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { dbGet, dbSet } from './db';
 import { useAuth } from './auth';
 import { getMemberAppData } from './member-data.functions';
+import { getMobileMemberData, isPackagedNativeApp } from './mobile-api.client';
 import { sendScaleAddedNotifications } from './push-client';
 
 const DataCtx = createContext(null);
@@ -31,7 +32,9 @@ export function DataProvider({ children }) {
 
     if (auth.role === 'membro') {
       const idToken = await auth.user.getIdToken(true);
-      const memberData = await getMemberAppData({ data: { idToken } });
+      const memberData = isPackagedNativeApp()
+        ? await getMobileMemberData(idToken)
+        : await getMemberAppData({ data: { idToken } });
       setMembersState(memberData?.member ? [memberData.member] : []);
       setGroupsState(memberData?.groups || []);
       setSongsState(memberData?.songs || []);
