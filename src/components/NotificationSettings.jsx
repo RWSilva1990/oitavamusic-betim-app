@@ -80,8 +80,10 @@ export default function NotificationSettings() {
   const [deviceBusy, setDeviceBusy] = useState(false);
   const [loadingPreferences, setLoadingPreferences] = useState(false);
   const [message, setMessage] = useState(null);
+  const [panelPosition, setPanelPosition] = useState(null);
   const messageTimer = useRef(null);
   const rootRef = useRef(null);
+  const bellRef = useRef(null);
 
   const refresh = async () => {
     try {
@@ -108,6 +110,28 @@ export default function NotificationSettings() {
     }
   };
 
+  const updatePanelPosition = () => {
+    if (typeof window === 'undefined' || !bellRef.current) return;
+    const rect = bellRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const sideMargin = 12;
+    const gap = 8;
+    const width = Math.min(304, Math.max(260, viewportWidth - (sideMargin * 2)));
+    const left = Math.min(
+      viewportWidth - width - sideMargin,
+      Math.max(sideMargin, rect.right - width),
+    );
+    const top = rect.bottom + gap;
+    const maxHeight = Math.max(280, viewportHeight - top - sideMargin);
+    const arrowLeft = Math.min(
+      width - 28,
+      Math.max(18, (rect.left + (rect.width / 2)) - left - 6),
+    );
+
+    setPanelPosition({ left, top, width, maxHeight, arrowLeft });
+  };
+
   useEffect(() => {
     refresh();
     return () => {
@@ -118,18 +142,26 @@ export default function NotificationSettings() {
   useEffect(() => {
     if (!open) return undefined;
 
+    updatePanelPosition();
     const closeOutside = (event) => {
       if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
     };
     const closeOnEscape = (event) => {
       if (event.key === 'Escape') setOpen(false);
     };
+    const reposition = () => updatePanelPosition();
 
     document.addEventListener('pointerdown', closeOutside);
     document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('resize', reposition);
+    window.addEventListener('orientationchange', reposition);
+    window.addEventListener('scroll', reposition, true);
     return () => {
       document.removeEventListener('pointerdown', closeOutside);
       document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('orientationchange', reposition);
+      window.removeEventListener('scroll', reposition, true);
     };
   }, [open]);
 
@@ -138,6 +170,7 @@ export default function NotificationSettings() {
       setOpen(false);
       return;
     }
+    updatePanelPosition();
     setOpen(true);
     loadPreferences();
     refresh();
@@ -201,6 +234,7 @@ export default function NotificationSettings() {
   return (
     <div ref={rootRef} style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
       <button
+        ref={bellRef}
         type="button"
         onClick={togglePanel}
         aria-expanded={open}
@@ -226,18 +260,18 @@ export default function NotificationSettings() {
         <Bell size={20} strokeWidth={2.3} />
       </button>
 
-      {open && (
+      {open && panelPosition && (
         <div
           role="dialog"
           aria-modal="false"
           aria-label="Notificações e Lembretes"
           style={{
-            position: 'absolute',
-            top: 'calc(100% + 8px)',
-            right: 0,
+            position: 'fixed',
+            top: panelPosition.top,
+            left: panelPosition.left,
             zIndex: 921,
-            width: 'min(390px, calc(100vw - 24px))',
-            maxHeight: 'calc(100dvh - 74px - env(safe-area-inset-bottom, 0px))',
+            width: panelPosition.width,
+            maxHeight: `calc(${panelPosition.maxHeight}px - env(safe-area-inset-bottom, 0px))`,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -247,6 +281,22 @@ export default function NotificationSettings() {
             boxShadow: '0 18px 52px var(--app-shadow)',
           }}
         >
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              top: -6,
+              left: panelPosition.arrowLeft,
+              width: 12,
+              height: 12,
+              background: C.bgCard,
+              borderLeft: `1px solid ${C.border}`,
+              borderTop: `1px solid ${C.border}`,
+              transform: 'rotate(45deg)',
+              zIndex: 3,
+            }}
+          />
+
           <div style={{ flexShrink: 0, padding: '15px 16px 13px', background: C.bgCard, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div>
               <div style={{ fontSize: 16, fontWeight: 800, color: C.textPrimary }}>Notificações e Lembretes</div>
