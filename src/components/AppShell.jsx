@@ -48,12 +48,11 @@ function SetupRequired() {
 export default function AppShell({ children, allowMember = false }) {
   const [sideOpen, setSideOpen] = useState(false);
   const auth = useAuth();
-  const { syncing, syncOk, ready, members } = useData();
+  const { syncing, syncOk, ready } = useData();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const memberAllowed = allowMember && auth.role === 'membro';
   const navItems = memberAllowed ? MEMBER_NAV : auth.isAdmin ? ADMIN_NAV : NAV;
-  const currentMember = auth.memberFor(members);
 
   useEffect(() => {
     if (!auth.configured || auth.loading) return;
@@ -137,7 +136,7 @@ export default function AppShell({ children, allowMember = false }) {
             {current?.emoji} {current?.label}
           </span>
           <AppearanceSettings />
-          {currentMember && <NotificationSettings />}
+          <NotificationSettings />
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             {syncing ? (
               <div style={{ width: 8, height: 8, borderRadius: '50%', border: `1.5px solid ${C.textSecondary}44`, borderTopColor: C.textSecondary, animation: 'spin 0.8s linear infinite' }} />
