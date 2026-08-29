@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Plus, Edit2, Trash2, Check, Search, Eye, Share2, Youtube, X } from 'lucide-react';
+import { Calendar, Plus, Edit2, Trash2, Check, Search, Eye, Share2, Youtube, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { C, ROLES } from '@/lib/theme';
 import { fmtDate, genId, shareToWhatsApp, todayISO } from '@/lib/db';
 import { Avatar, Btn, Confirm, Field, Inp, Modal, PageTitle } from '../ui-kit';
@@ -71,6 +71,13 @@ export default function ScalesPage() {
   };
   const removeSong = (id) => setForm((f) => ({ ...f, scaleSongs: f.scaleSongs.filter((x) => x.songId !== id) }));
   const updateSong = (id, field, val) => setForm((f) => ({ ...f, scaleSongs: f.scaleSongs.map((x) => (x.songId === id ? { ...x, [field]: val } : x)) }));
+  const moveSong = (index, direction) => setForm((f) => {
+    const target = index + direction;
+    if (target < 0 || target >= f.scaleSongs.length) return f;
+    const scaleSongs = [...f.scaleSongs];
+    [scaleSongs[index], scaleSongs[target]] = [scaleSongs[target], scaleSongs[index]];
+    return { ...f, scaleSongs };
+  });
 
   const save = () => {
     if (!form.name.trim() || !form.date) return;
@@ -310,6 +317,11 @@ export default function ScalesPage() {
                 )}
               </div>
             )}
+            {form.scaleSongs.length > 1 && (
+              <div style={{ marginBottom: 8, fontSize: 11, color: C.textSecondary }}>
+                Use as setas para ajustar a ordem das músicas antes de salvar a escala.
+              </div>
+            )}
             {form.scaleSongs.length === 0 && !sSearch && (
               <div style={{ padding: '12px 14px', background: C.bgInput, borderRadius: 8, fontSize: 13, color: C.textSecondary, textAlign: 'center' }}>
                 Use a busca acima para adicionar músicas
@@ -328,14 +340,36 @@ export default function ScalesPage() {
                 .filter(Boolean);
               return (
                 <div key={ss.songId} className="scale-song-row" style={{ marginBottom: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                       <span style={{ fontSize: 11, color: C.textSecondary, fontWeight: 700, minWidth: 18 }}>{idx + 1}.</span>
                       <span style={{ fontWeight: 600, color: C.textPrimary, fontSize: 13 }}>{song?.name}</span>
                       {song?.bpm && <span style={{ fontSize: 10, color: C.accent, background: C.accentGlow, borderRadius: 4, padding: '1px 5px' }}>♩{song.bpm}</span>}
                       {song?.youtubeUrl && <a href={song.youtubeUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', color: '#E8463A' }}><Youtube size={13} /></a>}
                     </div>
-                    <button onClick={() => removeSong(ss.songId)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.danger, display: 'flex', padding: 2 }}><X size={14} /></button>
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => moveSong(idx, -1)}
+                        disabled={idx === 0}
+                        aria-label={`Mover ${song?.name || 'música'} para cima`}
+                        title="Mover para cima"
+                        style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: C.bgHover, color: C.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: idx === 0 ? 'default' : 'pointer', opacity: idx === 0 ? 0.3 : 1 }}
+                      >
+                        <ChevronUp size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveSong(idx, 1)}
+                        disabled={idx === form.scaleSongs.length - 1}
+                        aria-label={`Mover ${song?.name || 'música'} para baixo`}
+                        title="Mover para baixo"
+                        style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: C.bgHover, color: C.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: idx === form.scaleSongs.length - 1 ? 'default' : 'pointer', opacity: idx === form.scaleSongs.length - 1 ? 0.3 : 1 }}
+                      >
+                        <ChevronDown size={15} />
+                      </button>
+                      <button type="button" onClick={() => removeSong(ss.songId)} aria-label={`Remover ${song?.name || 'música'}`} title="Remover música" style={{ width: 28, height: 28, borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+                    </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8 }}>
                     <input className="input-field" placeholder="Tom (ex: Ré)" value={ss.key} onChange={(e) => updateSong(ss.songId, 'key', e.target.value)} style={{ fontSize: 12 }} />
