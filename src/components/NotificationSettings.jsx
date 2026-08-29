@@ -10,7 +10,7 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   getNotificationPreferences,
   saveNotificationPreferences,
-} from '@/lib/notification-center.client';
+} from '@/lib/notification-center';
 
 const NOTICE_OPTIONS = [
   ['noticeScaleAdded', 'Quando eu entrar em uma escala'],
