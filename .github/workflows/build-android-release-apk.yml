@@ -9,6 +9,8 @@ on:
       - '.github/workflows/build-android-release-apk.yml'
       - 'src/**'
       - 'android/**'
+      - 'scripts/**'
+      - 'public/icon-512.png'
       - 'capacitor.config.ts'
       - 'vite.config.ts'
       - 'package.json'
@@ -64,6 +66,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
       - name: Install dependencies
         run: npm ci
 
@@ -88,6 +95,11 @@ jobs:
 
       - name: Sync Capacitor Android project
         run: npx cap sync android
+
+      - name: Generate official Android branding
+        run: |
+          python -m pip install --disable-pip-version-check pillow
+          python scripts/generate-android-branding.py
 
       - name: Build signed release APK
         working-directory: android
