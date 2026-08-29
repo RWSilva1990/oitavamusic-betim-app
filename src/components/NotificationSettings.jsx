@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, BellOff, Check, X } from 'lucide-react';
+import { Bell, Check, X } from 'lucide-react';
 import { C } from '@/lib/theme';
 import {
-  disableScaleNotifications,
   enableScaleNotifications,
   getScaleNotificationStatus,
 } from '@/lib/push-client';
@@ -40,7 +39,7 @@ function PreferenceRow({ label, checked, onChange, disabled }) {
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 12,
-        padding: '11px 0',
+        padding: '12px 0',
         background: 'transparent',
         border: 'none',
         borderBottom: `1px solid ${C.border}`,
@@ -50,7 +49,7 @@ function PreferenceRow({ label, checked, onChange, disabled }) {
         opacity: disabled ? 0.6 : 1,
       }}
     >
-      <span style={{ fontSize: 13, lineHeight: 1.4 }}>{label}</span>
+      <span style={{ fontSize: 13, lineHeight: 1.4, paddingRight: 8 }}>{label}</span>
       <span
         aria-hidden="true"
         style={{
@@ -77,10 +76,12 @@ export default function NotificationSettings() {
   const [status, setStatus] = useState(null);
   const [open, setOpen] = useState(false);
   const [preferences, setPreferences] = useState(DEFAULT_NOTIFICATION_PREFERENCES);
-  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deviceBusy, setDeviceBusy] = useState(false);
   const [loadingPreferences, setLoadingPreferences] = useState(false);
   const [message, setMessage] = useState(null);
   const messageTimer = useRef(null);
+  const rootRef = useRef(null);
 
   const refresh = async () => {
     try {
@@ -114,66 +115,107 @@ export default function NotificationSettings() {
     };
   }, []);
 
-  const openPanel = () => {
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const closeOutside = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  const togglePanel = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
     setOpen(true);
     loadPreferences();
+    refresh();
   };
 
-  const toggleDevice = async () => {
-    if (!status || busy) return;
+  const activateDeviceNotifications = async () => {
+    if (!status || deviceBusy) return;
     if (!status.configured) return flash('Notificações ainda não estão configuradas.', true);
     if (!status.supported) return flash('Este aparelho não oferece suporte a notificações.', true);
-    if (!status.enabled && status.permission === 'denied') {
+    if (status.permission === 'denied') {
       return flash('Notificações bloqueadas nas configurações do aparelho.', true);
     }
 
-    setBusy(true);
+    setDeviceBusy(true);
     try {
-      if (status.enabled) {
-        await disableScaleNotifications();
-        flash('Notificações desativadas neste aparelho');
-      } else {
-        await enableScaleNotifications();
-        flash('Notificações ativadas neste aparelho');
-      }
+      await enableScaleNotifications();
+      flash('Notificações do aparelho ativadas');
     } catch (error) {
-      flash(error?.message || 'Não foi possível alterar as notificações.', true);
+      flash(error?.message || 'Não foi possível ativar as notificações.', true);
     } finally {
       await refresh();
-      setBusy(false);
+      setDeviceBusy(false);
     }
   };
 
   const save = async () => {
-    if (busy || loadingPreferences) return;
-    setBusy(true);
+    if (saving || loadingPreferences) return;
+    setSaving(true);
     try {
       setPreferences(await saveNotificationPreferences(preferences));
       flash('Preferências salvas');
     } catch (error) {
       flash(error?.message || 'Não foi possível salvar suas preferências.', true);
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   };
 
   if (!status) return null;
-  const enabled = status.enabled;
+
+  const permissionGranted = status.permission === 'granted';
+  const permissionDenied = status.permission === 'denied';
+  const deviceEnabled = Boolean(status.enabled);
+  const canActivate = status.supported && status.configured && !permissionDenied && !deviceEnabled;
+
+  let deviceText = 'O estado das notificações não pôde ser identificado neste aparelho.';
+  if (!status.supported) {
+    deviceText = 'Este aparelho não oferece suporte às notificações do aplicativo.';
+  } else if (!status.configured) {
+    deviceText = 'As notificações ainda não estão configuradas neste ambiente.';
+  } else if (deviceEnabled) {
+    deviceText = 'Permitidas pelo Android e vinculadas a este aparelho.';
+  } else if (permissionGranted) {
+    deviceText = 'O Android já permitiu notificações. Conclua a ativação para vincular este aparelho.';
+  } else if (permissionDenied) {
+    deviceText = 'Bloqueadas nas configurações do Android. Suas preferências abaixo continuam salvas.';
+  } else {
+    deviceText = 'O Android ainda precisa autorizar as notificações deste aplicativo.';
+  }
 
   return (
-    <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+    <div ref={rootRef} style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
       <button
         type="button"
-        onClick={openPanel}
+        onClick={togglePanel}
+        aria-expanded={open}
+        aria-haspopup="dialog"
         aria-label="Notificações e lembretes"
         title="Notificações e lembretes"
         style={{
+          position: 'relative',
+          zIndex: open ? 922 : 'auto',
           width: 40,
           height: 40,
           borderRadius: 12,
-          border: `1px solid ${enabled ? `${C.accent}44` : C.border}`,
-          background: enabled ? C.accentGlow : C.bgHover,
-          color: enabled ? C.accent : C.textSecondary,
+          border: `1px solid ${deviceEnabled ? `${C.accent}44` : C.border}`,
+          background: deviceEnabled ? C.accentGlow : C.bgHover,
+          color: deviceEnabled ? C.accent : C.textSecondary,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -181,79 +223,99 @@ export default function NotificationSettings() {
           transition: 'all 0.18s ease',
         }}
       >
-        {enabled ? <Bell size={20} strokeWidth={2.3} /> : <BellOff size={20} strokeWidth={2.1} />}
+        <Bell size={20} strokeWidth={2.3} />
       </button>
 
       {open && (
         <div
           role="dialog"
-          aria-modal="true"
+          aria-modal="false"
           aria-label="Notificações e Lembretes"
-          onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}
           style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 900,
-            background: 'var(--app-overlay)',
-            backdropFilter: 'blur(6px)',
+            position: 'absolute',
+            top: 'calc(100% + 8px)',
+            right: 0,
+            zIndex: 921,
+            width: 'min(390px, calc(100vw - 24px))',
+            maxHeight: 'calc(100dvh - 74px - env(safe-area-inset-bottom, 0px))',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
+            flexDirection: 'column',
+            overflow: 'hidden',
+            background: C.bgCard,
+            border: `1px solid ${C.border}`,
+            borderRadius: 18,
+            boxShadow: '0 18px 52px var(--app-shadow)',
           }}
         >
-          <div style={{ width: '100%', maxWidth: 520, maxHeight: 'calc(100dvh - 32px)', overflowY: 'auto', background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 20, boxShadow: '0 24px 64px var(--app-shadow)' }}>
-            <div style={{ position: 'sticky', top: 0, zIndex: 2, padding: '18px 20px', background: C.bgCard, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: C.textPrimary }}>Notificações e Lembretes</div>
-                <div style={{ marginTop: 3, fontSize: 11, color: C.textSecondary }}>Escolha o que você quer receber.</div>
-              </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" style={{ background: 'none', border: 'none', color: C.textSecondary, cursor: 'pointer', padding: 5, display: 'flex' }}><X size={19} /></button>
+          <div style={{ flexShrink: 0, padding: '15px 16px 13px', background: C.bgCard, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: C.textPrimary }}>Notificações e Lembretes</div>
+              <div style={{ marginTop: 3, fontSize: 11, color: C.textSecondary }}>Escolha quais alertas você quer receber.</div>
             </div>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" style={{ background: 'none', border: 'none', color: C.textSecondary, cursor: 'pointer', padding: 3, display: 'flex', flexShrink: 0 }}>
+              <X size={19} />
+            </button>
+          </div>
 
-            <div style={{ padding: 20 }}>
-              <div style={{ padding: 14, border: `1px solid ${C.border}`, background: C.bgHover, borderRadius: 14, marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: C.textPrimary }}>Notificações neste aparelho</div>
-                    <div style={{ marginTop: 3, fontSize: 11, lineHeight: 1.45, color: C.textSecondary }}>
-                      {enabled ? 'Este aparelho está autorizado a receber seus avisos e lembretes.' : 'Ative para receber os alertas escolhidos abaixo.'}
-                    </div>
-                  </div>
-                  <button type="button" onClick={toggleDevice} disabled={busy} style={{ minWidth: 92, padding: '8px 11px', borderRadius: 9, border: `1px solid ${enabled ? `${C.danger}44` : `${C.accent}55`}`, background: enabled ? 'transparent' : C.accentGlow, color: enabled ? C.danger : C.accent, fontSize: 11, fontWeight: 800, cursor: busy ? 'wait' : 'pointer' }}>
-                    {busy ? 'Aguarde...' : enabled ? 'Desativar' : 'Ativar'}
-                  </button>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: '15px 16px 12px' }}>
+            <div style={{ padding: 13, border: `1px solid ${C.border}`, background: C.bgHover, borderRadius: 13, marginBottom: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.textPrimary }}>Permissão de notificações</div>
+              <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.5, color: C.textSecondary }}>{deviceText}</div>
+
+              {deviceEnabled && (
+                <div style={{ marginTop: 9, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 9px', borderRadius: 9, background: C.accentGlow, color: C.accent, fontSize: 11, fontWeight: 800 }}>
+                  <Check size={13} /> Permitidas pelo Android
                 </div>
-              </div>
+              )}
 
-              <div style={{ marginBottom: 22 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Avisos sobre minhas escalas</div>
-                <div style={{ fontSize: 11, color: C.textSecondary, marginBottom: 5 }}>São enviados quando alguma informação importante da sua escala muda.</div>
-                {NOTICE_OPTIONS.map(([key, label]) => (
-                  <PreferenceRow key={key} label={label} checked={Boolean(preferences[key])} disabled={loadingPreferences || busy} onChange={(value) => setPreferences((current) => ({ ...current, [key]: value }))} />
-                ))}
-              </div>
+              {canActivate && (
+                <button
+                  type="button"
+                  onClick={activateDeviceNotifications}
+                  disabled={deviceBusy}
+                  className="btn btn-secondary"
+                  style={{ marginTop: 10, width: '100%', justifyContent: 'center', padding: '8px 10px', fontSize: 11 }}
+                >
+                  {deviceBusy ? 'Aguarde...' : permissionGranted ? 'Concluir ativação' : 'Ativar notificações'}
+                </button>
+              )}
 
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Lembretes das minhas escalas</div>
-                <div style={{ fontSize: 11, color: C.textSecondary, marginBottom: 5 }}>Você escolhe com quanta antecedência quer ser lembrado.</div>
-                {REMINDER_OPTIONS.map(([key, label]) => (
-                  <PreferenceRow key={key} label={label} checked={Boolean(preferences[key])} disabled={loadingPreferences || busy} onChange={(value) => setPreferences((current) => ({ ...current, [key]: value }))} />
-                ))}
-              </div>
-
-              {loadingPreferences && <div style={{ marginTop: 16, fontSize: 12, color: C.textSecondary, textAlign: 'center' }}>Carregando preferências...</div>}
-
-              <button type="button" onClick={save} disabled={busy || loadingPreferences} className="btn btn-primary" style={{ marginTop: 20, width: '100%', justifyContent: 'center', padding: 11 }}>
-                <Check size={15} />{busy ? 'Salvando...' : 'Salvar preferências'}
-              </button>
+              {permissionDenied && status.supported && status.configured && (
+                <div style={{ marginTop: 9, fontSize: 10.5, lineHeight: 1.45, color: C.textSecondary }}>
+                  Para liberar novamente, use as configurações de notificações do Android para o Oitava Music.
+                </div>
+              )}
             </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Avisos sobre minhas escalas</div>
+              <div style={{ fontSize: 11, lineHeight: 1.45, color: C.textSecondary, marginBottom: 4 }}>São enviados quando alguma informação importante da sua escala muda.</div>
+              {NOTICE_OPTIONS.map(([key, label]) => (
+                <PreferenceRow key={key} label={label} checked={Boolean(preferences[key])} disabled={loadingPreferences || saving} onChange={(value) => setPreferences((current) => ({ ...current, [key]: value }))} />
+              ))}
+            </div>
+
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Lembretes das minhas escalas</div>
+              <div style={{ fontSize: 11, lineHeight: 1.45, color: C.textSecondary, marginBottom: 4 }}>Você escolhe com quanta antecedência quer ser lembrado.</div>
+              {REMINDER_OPTIONS.map(([key, label]) => (
+                <PreferenceRow key={key} label={label} checked={Boolean(preferences[key])} disabled={loadingPreferences || saving} onChange={(value) => setPreferences((current) => ({ ...current, [key]: value }))} />
+              ))}
+            </div>
+
+            {loadingPreferences && <div style={{ marginTop: 14, fontSize: 12, color: C.textSecondary, textAlign: 'center' }}>Carregando preferências...</div>}
+          </div>
+
+          <div style={{ flexShrink: 0, padding: '10px 16px calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: `1px solid ${C.border}`, background: C.bgCard }}>
+            <button type="button" onClick={save} disabled={saving || loadingPreferences} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 10 }}>
+              <Check size={15} />{saving ? 'Salvando...' : 'Salvar preferências'}
+            </button>
           </div>
         </div>
       )}
 
       {message && (
-        <div role="status" style={{ position: 'absolute', right: 0, top: 48, zIndex: 950, width: 'max-content', maxWidth: 280, padding: '8px 10px', borderRadius: 10, border: `1px solid ${message.error ? `${C.danger}33` : C.border}`, background: C.bgCard, boxShadow: '0 8px 24px rgba(27,20,61,0.14)', color: message.error ? C.danger : C.textPrimary, fontSize: 11, fontWeight: 700, lineHeight: 1.4, textAlign: 'center' }}>
+        <div role="status" style={{ position: 'absolute', right: 0, top: 48, zIndex: 930, width: 'max-content', maxWidth: 'min(280px, calc(100vw - 24px))', padding: '8px 10px', borderRadius: 10, border: `1px solid ${message.error ? `${C.danger}33` : C.border}`, background: C.bgCard, boxShadow: '0 8px 24px rgba(27,20,61,0.14)', color: message.error ? C.danger : C.textPrimary, fontSize: 11, fontWeight: 700, lineHeight: 1.4, textAlign: 'center' }}>
           {message.text}
         </div>
       )}
