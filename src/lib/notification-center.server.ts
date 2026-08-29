@@ -1,8 +1,13 @@
 import { createHash } from 'node:crypto';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+import {
+  firestoreDocumentPath,
+  firestoreRest,
+  firestoreString,
+  stringFields,
+} from './firestore-rest.functions';
 
 export type NotificationPreferences = {
   noticeScaleAdded: boolean;
@@ -83,31 +88,36 @@ async function verifyCaller(idToken: string) {
 async function assertAdmin(idToken: string) {
   const caller = await verifyCaller(idToken);
   if (adminEmails().includes(caller.email)) return caller;
-  const db = getFirestore(caller.app);
-  const access = await db.collection('accessUsers').doc(caller.email).get();
-  if (access.data()?.role !== 'admin') throw new Error('Apenas administradores podem disparar avisos de escala.');
+  const access = await firestoreRest(
+    caller.app,
+    `/accessUsers/${encodeURIComponent(caller.email)}`,
+    {},
+    { allowNotFound: true },
+  );
+  if (firestoreString(access, 'role') !== 'admin') {
+    throw new Error('Apenas administradores podem disparar avisos de escala.');
+  }
   return caller;
 }
 
-async function readMembers(app: ReturnType<typeof getCenterApp>) {
-  const snapshot = await getFirestore(app).collection('oitava').doc('members').get();
-  const raw = snapshot.data()?.data;
-  if (typeof raw !== 'string' || !raw) return [] as Array<Record<string, unknown>>;
+async function readCentralArray(app: ReturnType<typeof getCenterApp>, key: string) {
+  const document = await firestoreRest(app, `/oitava/${encodeURIComponent(key)}`, {}, { allowNotFound: true });
+  const raw = firestoreString(document, 'data');
+  if (!raw) return [] as Array<Record<string, any>>;
   try {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return [] as Array<Record<string, unknown>>;
+    return [] as Array<Record<string, any>>;
   }
 }
 
 async function resolveMemberId(app: ReturnType<typeof getCenterApp>, email: string) {
-  const db = getFirestore(app);
   const [access, members] = await Promise.all([
-    db.collection('accessUsers').doc(email).get(),
-    readMembers(app),
+    firestoreRest(app, `/accessUsers/${encodeURIComponent(email)}`, {}, { allowNotFound: true }),
+    readCentralArray(app, 'members'),
   ]);
-  const accessMemberId = String(access.data()?.memberId || '').trim();
+  const accessMemberId = firestoreString(access, 'memberId');
   const emailMatch = members.find((member) => normalizeEmail(member?.email) === email);
   const emailMemberId = typeof emailMatch?.id === 'string' ? emailMatch.id : '';
   if (!accessMemberId) return emailMemberId;
@@ -115,6 +125,16 @@ async function resolveMemberId(app: ReturnType<typeof getCenterApp>, email: stri
   const linkedEmail = normalizeEmail(linked?.email);
   if (!linked || !linkedEmail || linkedEmail === email) return accessMemberId;
   return emailMemberId || accessMemberId;
+}
+
+function firestoreBoolean(document: any, field: string) {
+  const value = document?.fields?.[field];
+  if (typeof value?.booleanValue === 'boolean') return value.booleanValue;
+  if (typeof value?.stringValue === 'string') {
+    if (value.stringValue === 'true') return true;
+    if (value.stringValue === 'false') return false;
+  }
+  return undefined;
 }
 
 function normalizedPreferences(value: unknown): NotificationPreferences {
@@ -126,9 +146,23 @@ function normalizedPreferences(value: unknown): NotificationPreferences {
   return result;
 }
 
+function preferencesFromDocument(document: any): NotificationPreferences {
+  const result = { ...DEFAULT_NOTIFICATION_PREFERENCES };
+  for (const key of Object.keys(result) as Array<keyof NotificationPreferences>) {
+    const stored = firestoreBoolean(document, key);
+    if (typeof stored === 'boolean') result[key] = stored;
+  }
+  return result;
+}
+
 async function preferencesForMember(app: ReturnType<typeof getCenterApp>, memberId: string) {
-  const snapshot = await getFirestore(app).collection('notificationPreferences').doc(memberId).get();
-  return normalizedPreferences(snapshot.data());
+  const document = await firestoreRest(
+    app,
+    `/notificationPreferences/${encodeURIComponent(memberId)}`,
+    {},
+    { allowNotFound: true },
+  );
+  return preferencesFromDocument(document);
 }
 
 export async function getNotificationPreferencesForToken(idToken: string) {
@@ -143,13 +177,18 @@ export async function saveNotificationPreferencesForToken(idToken: string, value
   const memberId = await resolveMemberId(caller.app, caller.email);
   if (!memberId) throw new Error('Seu e-mail ainda não está vinculado a um membro do ministério.');
   const preferences = normalizedPreferences(value);
-  await getFirestore(caller.app).collection('notificationPreferences').doc(memberId).set({
-    ...preferences,
-    memberId,
-    email: caller.email,
-    uid: caller.uid,
-    updatedAt: new Date().toISOString(),
-  }, { merge: true });
+  await firestoreRest(caller.app, `/notificationPreferences/${encodeURIComponent(memberId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(stringFields({
+      memberId,
+      email: caller.email,
+      uid: caller.uid,
+      updatedAt: new Date().toISOString(),
+      ...Object.fromEntries(
+        Object.entries(preferences).map(([key, enabled]) => [key, enabled ? 'true' : 'false']),
+      ),
+    })),
+  });
   return { success: true, memberId, preferences };
 }
 
@@ -169,28 +208,50 @@ async function filterByPreference(
   const unique = [...new Set(memberIds.filter(Boolean))];
   const allowed: string[] = [];
   for (const memberId of unique) {
-    const prefs = await preferencesForMember(app, memberId);
-    if (prefs[key]) allowed.push(memberId);
+    const preferences = await preferencesForMember(app, memberId);
+    if (preferences[key]) allowed.push(memberId);
   }
   return allowed;
 }
 
-type PushTarget = { token: string; memberId: string; docId: string };
+type PushTarget = { token: string; memberId: string; path: string };
+
+function nativeTargetFromDocument(document: any): PushTarget | null {
+  const token = firestoreString(document, 'token')
+    || (firestoreString(document, 'targetType') === 'token' ? firestoreString(document, 'target') : '');
+  const memberId = firestoreString(document, 'memberId');
+  const path = firestoreDocumentPath(document);
+  if (!token || !memberId || !path) return null;
+  return { token, memberId, path };
+}
 
 async function nativeTargets(app: ReturnType<typeof getCenterApp>, memberIds: string[]) {
-  const db = getFirestore(app);
   const unique = [...new Set(memberIds.filter(Boolean))];
   const found = new Map<string, PushTarget>();
-  for (let i = 0; i < unique.length; i += 30) {
-    const chunk = unique.slice(i, i + 30);
-    const rows = await db.collection('pushInstallations').where('memberId', 'in', chunk).get();
-    for (const doc of rows.docs) {
-      const data = doc.data();
-      const token = String(data.token || (data.targetType === 'token' ? data.target : '') || '').trim();
-      if (!token) continue;
-      const memberId = String(data.memberId || '').trim();
-      if (!memberId) continue;
-      found.set(token, { token, memberId, docId: doc.id });
+  for (let i = 0; i < unique.length; i += 25) {
+    const chunk = unique.slice(i, i + 25);
+    const rows = await firestoreRest(app, ':runQuery', {
+      method: 'POST',
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: 'pushInstallations' }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: 'memberId' },
+              op: 'IN',
+              value: {
+                arrayValue: {
+                  values: chunk.map((memberId) => ({ stringValue: memberId })),
+                },
+              },
+            },
+          },
+        },
+      }),
+    });
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const target = nativeTargetFromDocument(row?.document);
+      if (target) found.set(target.token, target);
     }
   }
   return [...found.values()];
@@ -211,7 +272,7 @@ async function sendNative(
   let sent = 0;
   let failed = 0;
   const sentMembers = new Set<string>();
-  const staleDocs = new Set<string>();
+  const stalePaths = new Set<string>();
 
   for (let i = 0; i < targets.length; i += 500) {
     const entries = targets.slice(i, i + 500);
@@ -236,13 +297,14 @@ async function sendNative(
     response.responses.forEach((item, index) => {
       const entry = entries[index];
       if (item.success) sentMembers.add(entry.memberId);
-      else if (isStaleTargetError(String(item.error?.code || ''))) staleDocs.add(entry.docId);
+      else if (isStaleTargetError(String(item.error?.code || ''))) stalePaths.add(entry.path);
     });
   }
 
-  if (staleDocs.size > 0) {
-    const db = getFirestore(app);
-    await Promise.all([...staleDocs].map((docId) => db.collection('pushInstallations').doc(docId).delete().catch(() => undefined)));
+  if (stalePaths.size > 0) {
+    await Promise.all(
+      [...stalePaths].map((path) => firestoreRest(app, `/${path}`, { method: 'DELETE' }).catch(() => undefined)),
+    );
   }
 
   return { sent, failed, devices: targets.length, sentMemberIds: [...sentMembers] };
@@ -322,8 +384,8 @@ function saoPauloDateISO() {
 
 function dayDifference(date: string, today: string) {
   const toUtc = (value: string) => {
-    const [y, m, d] = value.split('-').map(Number);
-    return Date.UTC(y, m - 1, d);
+    const [year, month, day] = value.split('-').map(Number);
+    return Date.UTC(year, month - 1, day);
   };
   return Math.round((toUtc(date) - toUtc(today)) / 86400000);
 }
@@ -337,7 +399,11 @@ function reminderPreference(days: number): keyof NotificationPreferences | null 
 }
 
 function reminderContent(scale: { id: string; name: string; date: string }, days: number) {
-  const title = days === 0 ? 'Sua escala é hoje 🎵' : days === 1 ? 'Sua escala é amanhã 🎵' : `Sua escala é daqui a ${days} dias 🎵`;
+  const title = days === 0
+    ? 'Sua escala é hoje 🎵'
+    : days === 1
+      ? 'Sua escala é amanhã 🎵'
+      : `Sua escala é daqui a ${days} dias 🎵`;
   const body = `“${scale.name}” está marcada para ${formatScaleDate(scale.date)}. Confira o repertório e sua função.`;
   return { title, body, path: `/minhas-escalas?escala=${encodeURIComponent(scale.id)}` };
 }
@@ -346,13 +412,35 @@ function deliveryId(scaleId: string, memberId: string, days: number, date: strin
   return createHash('sha256').update(`${scaleId}|${memberId}|${days}|${date}`).digest('hex');
 }
 
+async function reminderAlreadyDelivered(app: ReturnType<typeof getCenterApp>, id: string) {
+  return Boolean(await firestoreRest(
+    app,
+    `/notificationReminderDeliveries/${encodeURIComponent(id)}`,
+    {},
+    { allowNotFound: true },
+  ));
+}
+
+async function markReminderDelivered(
+  app: ReturnType<typeof getCenterApp>,
+  id: string,
+  values: { scaleId: string; memberId: string; daysBefore: number; scaleDate: string },
+) {
+  await firestoreRest(app, `/notificationReminderDeliveries/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(stringFields({
+      scaleId: values.scaleId,
+      memberId: values.memberId,
+      daysBefore: String(values.daysBefore),
+      scaleDate: values.scaleDate,
+      sentAt: new Date().toISOString(),
+    })),
+  });
+}
+
 export async function runScaleReminderSweep() {
   const app = getCenterApp();
-  const db = getFirestore(app);
-  const snapshot = await db.collection('oitava').doc('scales').get();
-  const raw = snapshot.data()?.data;
-  let scales: any[] = [];
-  try { scales = typeof raw === 'string' ? JSON.parse(raw) : []; } catch { scales = []; }
+  let scales = await readCentralArray(app, 'scales');
   if (!Array.isArray(scales)) scales = [];
 
   const today = saoPauloDateISO();
@@ -362,10 +450,12 @@ export async function runScaleReminderSweep() {
 
   for (const scale of scales) {
     if (!scale?.id || !scale?.name || !/^\d{4}-\d{2}-\d{2}$/.test(String(scale.date || ''))) continue;
-    const days = dayDifference(scale.date, today);
+    const days = dayDifference(String(scale.date), today);
     const preferenceKey = reminderPreference(days);
     if (!preferenceKey) continue;
-    const memberIds = [...new Set((scale.scaleMembers || []).map((item: any) => String(item?.memberId || '')).filter(Boolean))] as string[];
+    const memberIds = [...new Set(
+      (scale.scaleMembers || []).map((item: any) => String(item?.memberId || '')).filter(Boolean),
+    )] as string[];
     if (memberIds.length === 0) continue;
     evaluated += memberIds.length;
 
@@ -373,26 +463,28 @@ export async function runScaleReminderSweep() {
     const pending: string[] = [];
     for (const memberId of allowed) {
       const id = deliveryId(scale.id, memberId, days, scale.date);
-      const delivery = await db.collection('notificationReminderDeliveries').doc(id).get();
-      if (!delivery.exists) pending.push(memberId);
+      if (!(await reminderAlreadyDelivered(app, id))) pending.push(memberId);
     }
     if (pending.length === 0) continue;
 
-    const content = reminderContent(scale, days);
+    const content = reminderContent(scale as { id: string; name: string; date: string }, days);
     const result = await sendNative(app, pending, {
-      type: 'scale-reminder', title: content.title, body: content.body, path: content.path, scaleId: scale.id,
+      type: 'scale-reminder',
+      title: content.title,
+      body: content.body,
+      path: content.path,
+      scaleId: scale.id,
     });
     sent += result.sent;
     failed += result.failed;
 
     await Promise.all(result.sentMemberIds.map((memberId) => {
       const id = deliveryId(scale.id, memberId, days, scale.date);
-      return db.collection('notificationReminderDeliveries').doc(id).set({
+      return markReminderDelivered(app, id, {
         scaleId: scale.id,
         memberId,
         daysBefore: days,
         scaleDate: scale.date,
-        sentAt: new Date().toISOString(),
       });
     }));
   }
