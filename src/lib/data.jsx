@@ -8,7 +8,7 @@ import {
   isPackagedNativeApp,
   saveMobileAdminData,
 } from './mobile-api';
-import { sendScaleEventNotification } from './notification-center.client';
+import { sendScaleEventNotification } from './notification-center';
 
 const DataCtx = createContext(null);
 
