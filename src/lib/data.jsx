@@ -12,16 +12,6 @@ import { sendScaleAddedNotifications } from './push-client';
 import { sendScaleRemovedNotifications } from './scale-removal-notifications';
 
 const DataCtx = createContext(null);
-const directFirebaseTest = import.meta.env.VITE_ANDROID_TEST_DIRECT_FIREBASE === 'true';
-
-function publicMember(member) {
-  return {
-    id: String(member?.id || ''),
-    name: String(member?.name || ''),
-    photo: String(member?.photo || ''),
-    roles: Array.isArray(member?.roles) ? member.roles.filter((r) => typeof r === 'string' && r !== 'vocal') : [],
-  };
-}
 
 export function DataProvider({ children }) {
   const auth = useAuth();
@@ -47,32 +37,6 @@ export function DataProvider({ children }) {
     if (!auth.user || !auth.role) return;
 
     if (auth.role === 'membro') {
-      if (isPackagedNativeApp() && directFirebaseTest) {
-        const [allMembers, allGroups, allSongs, allScales] = await Promise.all([
-          dbGet('members'),
-          dbGet('groups'),
-          dbGet('songs'),
-          dbGet('scales'),
-        ]);
-        const member = auth.memberFor(allMembers || []);
-        const memberId = member?.id || '';
-        const ownScales = (allScales || [])
-          .filter((scale) => (scale.scaleMembers || []).some((item) => item.memberId === memberId));
-        const participantIds = new Set(
-          ownScales.flatMap((scale) =>
-            (scale.scaleMembers || []).map((item) => item.memberId).filter(Boolean),
-          ),
-        );
-        if (memberId) participantIds.add(memberId);
-
-        setMembersState((allMembers || []).filter((item) => participantIds.has(item.id)).map(publicMember));
-        setGroupsState(allGroups || []);
-        setSongsState(allSongs || []);
-        scalesRef.current = ownScales;
-        setScalesState(ownScales);
-        return;
-      }
-
       const idToken = await auth.user.getIdToken(true);
       const memberData = isPackagedNativeApp()
         ? await getMobileMemberData(idToken)
