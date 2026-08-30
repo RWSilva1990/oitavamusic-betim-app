@@ -3,8 +3,24 @@ import { dbGet, dbSet } from './db';
 import { useAuth } from './auth';
 import { sendScaleAddedNotifications } from './push-client';
 import { sendScaleRemovedNotifications } from './scale-removal-notifications';
+import { sendScaleEventNotification } from './scale-event-notifications';
 
 const DataCtx = createContext(null);
+
+function normalizedRoles(entry) {
+  return [...new Set((entry?.roles || (entry?.role ? [entry.role] : [])).filter(Boolean))].sort();
+}
+
+function sameStringArray(a, b) {
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+}
+
+function sameIdSet(a, b) {
+  if (a.size !== b.size) return false;
+  for (const value of a) if (!b.has(value)) return false;
+  return true;
+}
 
 export function DataProvider({ children }) {
   const auth = useAuth();
@@ -129,8 +145,10 @@ export function DataProvider({ children }) {
         const notifications = [];
         for (const scale of next || []) {
           const previous = (prev || []).find((item) => item.id === scale.id);
-          const previousMemberIds = new Set((previous?.scaleMembers || []).map((item) => item.memberId).filter(Boolean));
-          const nextMemberIds = new Set((scale.scaleMembers || []).map((item) => item.memberId).filter(Boolean));
+          const previousMembers = previous?.scaleMembers || [];
+          const nextMembers = scale.scaleMembers || [];
+          const previousMemberIds = new Set(previousMembers.map((item) => item.memberId).filter(Boolean));
+          const nextMemberIds = new Set(nextMembers.map((item) => item.memberId).filter(Boolean));
 
           const addedMemberIds = [...nextMemberIds].filter((memberId) => !previousMemberIds.has(memberId));
           const removedMemberIds = previous
@@ -139,6 +157,50 @@ export function DataProvider({ children }) {
 
           if (addedMemberIds.length > 0) notifications.push({ type: 'added', scale, memberIds: addedMemberIds });
           if (removedMemberIds.length > 0) notifications.push({ type: 'removed', scale, memberIds: removedMemberIds });
+
+          if (!previous) continue;
+
+          const existingMemberIds = [...nextMemberIds].filter(
+            (memberId) => previousMemberIds.has(memberId) && !addedMemberIds.includes(memberId),
+          );
+
+          for (const memberId of existingMemberIds) {
+            const before = previousMembers.find((item) => item.memberId === memberId);
+            const after = nextMembers.find((item) => item.memberId === memberId);
+            if (!sameStringArray(normalizedRoles(before), normalizedRoles(after))) {
+              notifications.push({ type: 'role-changed', scale, memberIds: [memberId] });
+            }
+          }
+
+          const previousSongs = previous.scaleSongs || [];
+          const nextSongs = scale.scaleSongs || [];
+          const previousSongIds = new Set(previousSongs.map((item) => item.songId).filter(Boolean));
+          const nextSongIds = new Set(nextSongs.map((item) => item.songId).filter(Boolean));
+
+          if (!sameIdSet(previousSongIds, nextSongIds) && existingMemberIds.length > 0) {
+            notifications.push({ type: 'repertoire-changed', scale, memberIds: existingMemberIds });
+          }
+
+          const changedSongIds = [];
+          for (const nextSong of nextSongs) {
+            if (!previousSongIds.has(nextSong.songId)) continue;
+            const previousSong = previousSongs.find((item) => item.songId === nextSong.songId);
+            const keyChanged = String(previousSong?.key || '').trim() !== String(nextSong?.key || '').trim();
+            const soloChanged = String(previousSong?.soloMemberId || '') !== String(nextSong?.soloMemberId || '');
+            if (keyChanged || soloChanged) changedSongIds.push(nextSong.songId);
+          }
+
+          if (changedSongIds.length > 0 && existingMemberIds.length > 0) {
+            const detail = changedSongIds.length === 1
+              ? { songName: songs.find((song) => song.id === changedSongIds[0])?.name || '' }
+              : undefined;
+            notifications.push({
+              type: 'song-details-changed',
+              scale,
+              memberIds: existingMemberIds,
+              ...(detail?.songName ? { detail } : {}),
+            });
+          }
         }
 
         persist('scales', next, true)
@@ -147,8 +209,10 @@ export function DataProvider({ children }) {
               try {
                 if (item.type === 'removed') {
                   await sendScaleRemovedNotifications(item.scale, item.memberIds);
-                } else {
+                } else if (item.type === 'added') {
                   await sendScaleAddedNotifications(item.scale, item.memberIds);
+                } else {
+                  await sendScaleEventNotification(item.type, item.scale, item.memberIds, item.detail);
                 }
               } catch (error) {
                 console.warn('A escala foi salva, mas a notificação não pôde ser enviada:', error);
