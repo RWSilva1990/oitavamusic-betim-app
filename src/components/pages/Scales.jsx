@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Calendar, Plus, Edit2, Trash2, Check, Search, Eye, Share2, Youtube, X } from 'lucide-react';
 import { C, ROLES } from '@/lib/theme';
-import { fmtDate, genId, shareToWhatsApp, todayISO } from '@/lib/db';
+import { fmtDate, genId, normalizeStr, shareToWhatsApp, todayISO } from '@/lib/db';
 import { Avatar, Btn, Confirm, Field, Inp, Modal, PageTitle } from '../ui-kit';
 import { AudioPlayerList } from '../AudioSection';
 import { useData } from '@/lib/data';
@@ -81,7 +81,7 @@ export default function ScalesPage() {
   const del = (id) => { setScales((p) => p.filter((s) => s.id !== id)); setConfirm(null); };
 
   const existingIds = form.scaleMembers.map((x) => x.memberId);
-  const availSubs = members.filter((m) => !existingIds.includes(m.id) && m.name.toLowerCase().includes(mSearch.toLowerCase()));
+  const availSubs = members.filter((m) => !existingIds.includes(m.id) && normalizeStr(m.name).includes(normalizeStr(mSearch)));
   const availSongs = songs.filter((s) => s.name.toLowerCase().includes(sSearch.toLowerCase()) && !form.scaleSongs.find((x) => x.songId === s.id));
 
   const scaleMembersOf = (sc) => (sc.scaleMembers || []).map((sm) => ({ ...sm, member: members.find((m) => m.id === sm.memberId) })).filter((x) => x.member);
