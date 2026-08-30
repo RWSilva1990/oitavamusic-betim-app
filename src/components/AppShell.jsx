@@ -8,16 +8,21 @@ import AppearanceSettings from './AppearanceSettings';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 import { startScaleNotificationRuntime } from '@/lib/push-client';
+import { getCommunicationsInbox } from '@/lib/communications';
+
+const COMMUNICATIONS_NAV = { id: 'communications', label: 'Comunicados', emoji: '📢', to: '/comunicados' };
 
 const MEMBER_NAV = [
   { id: 'home', label: 'Início', emoji: '🏠', to: '/' },
   { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
+  COMMUNICATIONS_NAV,
   { id: 'songs', label: 'Repertório', emoji: '🎵', to: '/repertorio' },
 ];
 
 const ADMIN_NAV = [
   NAV[0],
   { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
+  COMMUNICATIONS_NAV,
   ...NAV.slice(1),
 ];
 
@@ -47,6 +52,7 @@ function SetupRequired() {
 
 export default function AppShell({ children, allowMember = false }) {
   const [sideOpen, setSideOpen] = useState(false);
+  const [unreadCommunications, setUnreadCommunications] = useState(0);
   const auth = useAuth();
   const { syncing, syncOk, ready } = useData();
   const navigate = useNavigate();
@@ -79,6 +85,29 @@ export default function AppShell({ children, allowMember = false }) {
     };
   }, [auth.user?.uid, auth.role]);
 
+  useEffect(() => {
+    if (!auth.user || !auth.role) {
+      setUnreadCommunications(0);
+      return undefined;
+    }
+
+    let alive = true;
+    const refreshUnread = () => {
+      getCommunicationsInbox()
+        .then((data) => { if (alive) setUnreadCommunications(Number(data?.unread || 0)); })
+        .catch((error) => console.warn('Falha ao atualizar contador de comunicados:', error));
+    };
+
+    refreshUnread();
+    const interval = window.setInterval(refreshUnread, 30000);
+    window.addEventListener('oitava:communications-updated', refreshUnread);
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+      window.removeEventListener('oitava:communications-updated', refreshUnread);
+    };
+  }, [auth.user?.uid, auth.role]);
+
   if (auth.loading) return <Loader label="Verificando acesso..." />;
   if (!auth.configured) return <SetupRequired />;
   if (!auth.user) return <Loader label="Redirecionando..." />;
@@ -105,7 +134,12 @@ export default function AppShell({ children, allowMember = false }) {
               onClick={() => setSideOpen(false)}
             >
               <span style={{ fontSize: 18 }}>{n.emoji}</span>
-              {n.label}
+              <span style={{ flex: 1 }}>{n.label}</span>
+              {n.id === 'communications' && unreadCommunications > 0 && (
+                <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: C.accent, color: '#fff', fontSize: 10, fontWeight: 800 }}>
+                  {unreadCommunications > 99 ? '99+' : unreadCommunications}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
