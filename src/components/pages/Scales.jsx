@@ -8,6 +8,14 @@ import { useData } from '@/lib/data';
 
 const VOCAL_KEYS = ['tenor', 'soprano', 'contralto'];
 
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .trim();
+}
+
 function ArchivedSection({ archived, renderCard }) {
   const [open, setOpen] = useState(false);
   return (
@@ -88,7 +96,8 @@ export default function ScalesPage() {
   const del = (id) => { setScales((p) => p.filter((s) => s.id !== id)); setConfirm(null); };
 
   const existingIds = form.scaleMembers.map((x) => x.memberId);
-  const availSubs = members.filter((m) => !existingIds.includes(m.id) && m.name.toLowerCase().includes(mSearch.toLowerCase()));
+  const normalizedMemberSearch = normalizeSearchText(mSearch);
+  const availSubs = members.filter((m) => !existingIds.includes(m.id) && normalizeSearchText(m.name).includes(normalizedMemberSearch));
   const availSongs = songs.filter((s) => s.name.toLowerCase().includes(sSearch.toLowerCase()) && !form.scaleSongs.find((x) => x.songId === s.id));
 
   const scaleMembersOf = (sc) => (sc.scaleMembers || []).map((sm) => ({ ...sm, member: members.find((m) => m.id === sm.memberId) })).filter((x) => x.member);
