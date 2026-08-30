@@ -7,10 +7,19 @@ import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 import { startScaleNotificationRuntime } from '@/lib/push-client';
 
+const COMMUNICATIONS_NAV = { id: 'communications', label: 'Comunicados', emoji: '📢', to: '/comunicados' };
+
 const MEMBER_NAV = [
   { id: 'home', label: 'Início', emoji: '🏠', to: '/' },
   { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
+  COMMUNICATIONS_NAV,
   { id: 'songs', label: 'Repertório', emoji: '🎵', to: '/repertorio' },
+];
+
+const ADMIN_NAV = [
+  NAV[0],
+  COMMUNICATIONS_NAV,
+  ...NAV.slice(1),
 ];
 
 export function Loader({ label = 'Conectando ao Firebase...' }) {
@@ -44,7 +53,7 @@ export default function AppShell({ children, allowMember = false }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const memberAllowed = allowMember && auth.role === 'membro';
-  const navItems = memberAllowed ? MEMBER_NAV : NAV;
+  const navItems = memberAllowed ? MEMBER_NAV : auth.isAdmin ? ADMIN_NAV : NAV;
 
   useEffect(() => {
     if (!auth.configured || auth.loading) return;
