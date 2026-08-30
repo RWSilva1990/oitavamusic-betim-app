@@ -7,6 +7,7 @@ on:
       - refactor/android-production-shell-2026-08-27
       - feature/scale-song-order-2026-08-29
       - feature/notification-center-2026-08-29
+      - feature/comunicados-2026-08-29
     paths:
       - '.github/workflows/build-android-release-apk.yml'
       - 'src/**'
