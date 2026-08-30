@@ -11,6 +11,14 @@ import {
   sendCommunication,
 } from '@/lib/communications';
 
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .trim();
+}
+
 function formatDateTime(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -118,9 +126,9 @@ export default function CommunicationsPage() {
   }, [form.groupIds, form.memberIds, groups, members]);
 
   const filteredMembers = useMemo(() => {
-    const term = memberSearch.trim().toLowerCase();
+    const term = normalizeSearchText(memberSearch);
     return members
-      .filter((member) => !term || String(member.name || '').toLowerCase().includes(term))
+      .filter((member) => !term || normalizeSearchText(member.name).includes(term))
       .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR', { sensitivity: 'base' }));
   }, [members, memberSearch]);
 
