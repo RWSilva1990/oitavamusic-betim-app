@@ -6,7 +6,7 @@ import { Btn, Modal } from './ui-kit';
 const PitchHandoff = registerPlugin('PitchHandoff');
 const TRANSPOSE_PLAY_URL = 'https://play.google.com/store/apps/details?id=com.hybridmediastudio';
 
-export default function KeyTestAssistant({ song, currentKey, onClose }) {
+export default function KeyTestAssistant({ song, currentKey, onApply, onClose }) {
   if (!song) return null;
 
   const youtubeUrl = String(song.youtubeUrl || '').trim();
@@ -83,11 +83,6 @@ export default function KeyTestAssistant({ song, currentKey, onClose }) {
       <div style={{ padding: '12px 14px', background: C.bgInput, borderRadius: 10, marginBottom: 14 }}>
         <div style={{ fontSize: 11, color: C.textSecondary, marginBottom: 4 }}>Tom original do repertório</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: C.textPrimary }}>{originalKey || 'Não informado'}</div>
-        {currentKey && (
-          <div style={{ marginTop: 5, fontSize: 12, color: C.textSecondary }}>
-            Tom atual desta escala: <strong style={{ color: C.accent }}>{currentKey}</strong>
-          </div>
-        )}
       </div>
 
       {!youtubeUrl ? (
@@ -97,42 +92,54 @@ export default function KeyTestAssistant({ song, currentKey, onClose }) {
       ) : (
         <>
           <div style={{ fontSize: 13, color: C.textSecondary, lineHeight: 1.6, marginBottom: 14 }}>
-            Ouça a referência em outro tom em um aplicativo especializado. O Oitava tentará entregar este link diretamente ao Transpose. Se o Android não permitir a entrega direta, será aberta a tela de compartilhamento para você escolher um aplicativo compatível.
+            Toque abaixo para abrir esta referência no Transpose e ouça a música subindo ou descendo o tom em tempo real.
           </div>
 
           <button
             type="button"
             onClick={openInTranspose}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 14px', marginBottom: 9, border: `1px solid ${C.accent}`, borderRadius: 9, background: C.accentGlow, color: C.accent, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px 14px', marginBottom: 9, border: `1px solid ${C.accent}`, borderRadius: 9, background: C.accentGlow, color: C.accent, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
           >
-            <Headphones size={16} />Ouvir em outro tom
+            <Headphones size={16} />Abrir no Transpose e ouvir
           </button>
 
           <button
             type="button"
             onClick={shareWithAnotherApp}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px 14px', marginBottom: 9, border: `1px solid ${C.border}`, borderRadius: 9, background: C.bgHover, color: C.textPrimary, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 14px', marginBottom: 9, border: `1px solid ${C.border}`, borderRadius: 9, background: C.bgHover, color: C.textPrimary, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >
-            <Share2 size={15} />Escolher outro aplicativo
+            <Share2 size={14} />Usar outro aplicativo compatível
           </button>
 
           <a
             href={youtubeUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px 14px', marginBottom: 12, border: `1px solid ${C.border}`, borderRadius: 9, color: C.textPrimary, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}
+            style={{ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 14px', marginBottom: 14, border: `1px solid ${C.border}`, borderRadius: 9, color: C.textPrimary, textDecoration: 'none', fontSize: 12, fontWeight: 600 }}
           >
-            <ExternalLink size={15} />Abrir referência normal no YouTube
+            <ExternalLink size={14} />Ouvir original no YouTube
           </a>
 
-          <div style={{ padding: '10px 12px', borderRadius: 9, background: C.bgInput, fontSize: 11, color: C.textSecondary, lineHeight: 1.55 }}>
-            No Transpose, teste a música em semitons até encontrar a região confortável. Depois volte ao Oitava e informe esse resultado no campo <strong>Tom</strong> da música desta escala. O Tom original do Repertório não será alterado.
+          <div style={{ padding: '12px 14px', borderRadius: 9, background: C.bgInput, marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: C.textSecondary, marginBottom: 6 }}>
+              Depois de testar, volte ao Oitava e informe o tom escolhido para esta escala:
+            </div>
+            <input
+              className="input-field"
+              value={currentKey || ''}
+              onChange={(e) => onApply(e.target.value)}
+              placeholder={originalKey ? `Ex: ${originalKey}` : 'Ex: D, Eb, F#'}
+              style={{ fontSize: 14, fontWeight: 700 }}
+            />
+            <div style={{ marginTop: 6, fontSize: 10, color: C.textSecondary, lineHeight: 1.45 }}>
+              Este valor pertence somente a esta escala. O Tom original cadastrado no Repertório permanecerá intacto.
+            </div>
           </div>
 
           <button
             type="button"
             onClick={openTransposeStore}
-            style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: C.textSecondary, fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}
+            style={{ width: '100%', border: 0, background: 'transparent', color: C.textSecondary, fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}
           >
             Instalar / abrir Transpose Pitch Speed Control
           </button>
@@ -140,7 +147,7 @@ export default function KeyTestAssistant({ song, currentKey, onClose }) {
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <Btn variant="secondary" onClick={onClose}>Fechar</Btn>
+        <Btn onClick={onClose}>{currentKey ? 'Usar este tom' : 'Fechar'}</Btn>
       </div>
     </Modal>
   );
