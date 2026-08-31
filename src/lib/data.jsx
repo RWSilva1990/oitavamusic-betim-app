@@ -5,6 +5,7 @@ import { getMemberAppData } from './member-data.functions';
 import {
   getMobileAdminData,
   getMobileMemberData,
+  isDirectFirebaseTestMode,
   isPackagedNativeApp,
   saveMobileAdminData,
 } from './mobile-api';
@@ -51,6 +52,9 @@ export function DataProvider({ children }) {
     if (!auth.user || !auth.role) return;
 
     if (auth.role === 'membro') {
+      if (isDirectFirebaseTestMode()) {
+        throw new Error('Acesso de membro ainda não está habilitado no laboratório isolado.');
+      }
       const idToken = await auth.user.getIdToken(true);
       const memberData = isPackagedNativeApp()
         ? await getMobileMemberData(idToken)
@@ -69,7 +73,7 @@ export function DataProvider({ children }) {
       return;
     }
 
-    if (isPackagedNativeApp()) {
+    if (isPackagedNativeApp() && !isDirectFirebaseTestMode()) {
       const idToken = await auth.user.getIdToken(true);
       const adminData = await getMobileAdminData(idToken);
       const m = adminData?.members || [];
@@ -165,7 +169,7 @@ export function DataProvider({ children }) {
     setSyncing(true);
     setSyncOk(null);
     try {
-      if (isPackagedNativeApp()) {
+      if (isPackagedNativeApp() && !isDirectFirebaseTestMode()) {
         const idToken = await auth.user.getIdToken(true);
         await saveMobileAdminData(idToken, key, val);
       } else {
@@ -273,6 +277,7 @@ export function DataProvider({ children }) {
 
     persist('scales', next, true)
       .then(async () => {
+        if (isDirectFirebaseTestMode()) return;
         for (const item of notifications) {
           try {
             await sendScaleEventNotification(item.type, item.scale, item.memberIds, item.detail);
