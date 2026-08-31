@@ -15,14 +15,14 @@ jobs:
     env:
       ANDROID_SPA_BUILD: 'true'
       VITE_ANDROID_TEST_DIRECT_FIREBASE: 'false'
-      VITE_FIREBASE_API_KEY: ${{ secrets.TEST_FIREBASE_API_KEY }}
-      VITE_FIREBASE_APP_ID: ${{ secrets.TEST_FIREBASE_APP_ID }}
-      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.TEST_FIREBASE_MESSAGING_SENDER_ID }}
-      VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.TEST_FIREBASE_AUTH_DOMAIN }}
-      VITE_FIREBASE_PROJECT_ID: ${{ secrets.TEST_FIREBASE_PROJECT_ID }}
-      VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.TEST_FIREBASE_STORAGE_BUCKET }}
-      VITE_ADMIN_EMAILS: ${{ secrets.TEST_ADMIN_EMAILS }}
-      VITE_APP_URL: ${{ secrets.TEST_APP_URL }}
+      VITE_FIREBASE_API_KEY: 'AIzaSyA4ZHsVBHrFQbf3Lgsj9Wv865ALKPgo66E'
+      VITE_FIREBASE_APP_ID: '1:148214670498:web:eb53329d6bb0b04123a3fb'
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '148214670498'
+      VITE_FIREBASE_AUTH_DOMAIN: 'oitavamusicbetim-test.firebaseapp.com'
+      VITE_FIREBASE_PROJECT_ID: 'oitavamusicbetim-test'
+      VITE_FIREBASE_STORAGE_BUCKET: 'oitavamusicbetim-test.firebasestorage.app'
+      VITE_ADMIN_EMAILS: 'rwsilvatec@gmail.com'
+      VITE_APP_URL: ''
 
     steps:
       - name: Checkout
