@@ -4,6 +4,7 @@ import { C, ROLES } from '@/lib/theme';
 import { fmtDate, genId, shareToWhatsApp, todayISO } from '@/lib/db';
 import { Avatar, Btn, Confirm, Field, Inp, Modal, PageTitle } from '../ui-kit';
 import { AudioPlayerList } from '../AudioSection';
+import KeyTestAssistant from '../KeyTestAssistant';
 import { useData } from '@/lib/data';
 
 const VOCAL_KEYS = ['tenor', 'soprano', 'contralto'];
@@ -40,15 +41,16 @@ export default function ScalesPage() {
   const [modal, setModal] = useState(null);
   const [viewModal, setViewModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [keyTestSongId, setKeyTestSongId] = useState(null);
   const [form, setForm] = useState({ name: '', date: '', groupId: '', scaleMembers: [], scaleSongs: [] });
   const [mSearch, setMSearch] = useState('');
   const [sSearch, setSSearch] = useState('');
 
   const fresh = () => ({ name: '', date: '', groupId: '', scaleMembers: [], scaleSongs: [] });
-  const openAdd = () => { setForm(fresh()); setMSearch(''); setSSearch(''); setModal('add'); };
+  const openAdd = () => { setForm(fresh()); setMSearch(''); setSSearch(''); setKeyTestSongId(null); setModal('add'); };
   const openEdit = (sc) => {
     setForm({ ...sc, scaleMembers: (sc.scaleMembers || []).map((x) => ({ ...x })), scaleSongs: (sc.scaleSongs || []).map((x) => ({ ...x })) });
-    setMSearch(''); setSSearch(''); setModal(sc);
+    setMSearch(''); setSSearch(''); setKeyTestSongId(null); setModal(sc);
   };
 
   const onGroupChange = (gid) => {
@@ -77,7 +79,10 @@ export default function ScalesPage() {
     setForm((f) => ({ ...f, scaleSongs: [...f.scaleSongs, { songId: id, key: '', notes: '', soloMemberId: '' }] }));
     setSSearch('');
   };
-  const removeSong = (id) => setForm((f) => ({ ...f, scaleSongs: f.scaleSongs.filter((x) => x.songId !== id) }));
+  const removeSong = (id) => {
+    setForm((f) => ({ ...f, scaleSongs: f.scaleSongs.filter((x) => x.songId !== id) }));
+    setKeyTestSongId((current) => (current === id ? null : current));
+  };
   const updateSong = (id, field, val) => setForm((f) => ({ ...f, scaleSongs: f.scaleSongs.map((x) => (x.songId === id ? { ...x, [field]: val } : x)) }));
   const moveSong = (index, direction) => setForm((f) => {
     const target = index + direction;
@@ -91,6 +96,7 @@ export default function ScalesPage() {
     if (!form.name.trim() || !form.date) return;
     if (modal === 'add') setScales((p) => [...p, { ...form, id: genId() }]);
     else setScales((p) => p.map((s) => (s.id === form.id ? { ...form } : s)));
+    setKeyTestSongId(null);
     setModal(null);
   };
   const del = (id) => { setScales((p) => p.filter((s) => s.id !== id)); setConfirm(null); };
@@ -135,6 +141,9 @@ export default function ScalesPage() {
       </div>
     );
   };
+
+  const keyTestScaleSong = keyTestSongId ? form.scaleSongs.find((x) => x.songId === keyTestSongId) : null;
+  const keyTestSong = keyTestSongId ? songs.find((x) => x.id === keyTestSongId) : null;
 
   return (
     <div style={{ padding: 24, maxWidth: 860 }}>
@@ -192,6 +201,7 @@ export default function ScalesPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                     <span style={{ fontWeight: 600, color: C.textPrimary }}>{x.song.name}</span>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                      {x.song.originalKey && <span className="tag">Original: {x.song.originalKey}</span>}
                       {x.key && <span className="tag green">Tom: {x.key}</span>}
                       {x.song.bpm && <span className="tag" style={{ fontSize: 10 }}>♩ {x.song.bpm} BPM</span>}
                       {x.soloMemberId && (() => {
@@ -235,7 +245,7 @@ export default function ScalesPage() {
       )}
 
       {modal && (
-        <Modal title={modal === 'add' ? 'Nova Escala' : 'Editar Escala'} onClose={() => setModal(null)} wide>
+        <Modal title={modal === 'add' ? 'Nova Escala' : 'Editar Escala'} onClose={() => { setKeyTestSongId(null); setModal(null); }} wide>
           <div className="grid-2">
             <Inp label="Nome da Escala *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Ex: Culto Domingo Manhã" />
             <Inp label="Data *" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
@@ -318,6 +328,7 @@ export default function ScalesPage() {
                     <div key={s.id} className="song-item" onClick={() => { addSong(s.id); setSSearch(''); }} style={{ borderBottom: `1px solid ${C.border}`, borderRadius: 0, padding: '9px 14px' }}>
                       <Plus size={13} color={C.accent} />
                       <span style={{ flex: 1 }}>{s.name}</span>
+                      {s.originalKey && <span style={{ fontSize: 11, color: C.textSecondary, marginRight: 4 }}>Tom {s.originalKey}</span>}
                       {s.bpm && <span style={{ fontSize: 11, color: C.accent, marginRight: 4 }}>♩{s.bpm}</span>}
                       {(s.audios || []).length > 0 && <span style={{ fontSize: 11, color: C.success, marginRight: 4 }}>🎧</span>}
                       {s.youtubeUrl && <Youtube size={12} color="#E8463A" />}
@@ -350,9 +361,10 @@ export default function ScalesPage() {
               return (
                 <div key={ss.songId} className="scale-song-row" style={{ marginBottom: 6 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 11, color: C.textSecondary, fontWeight: 700, minWidth: 18 }}>{idx + 1}.</span>
                       <span style={{ fontWeight: 600, color: C.textPrimary, fontSize: 13 }}>{song?.name}</span>
+                      {song?.originalKey && <span style={{ fontSize: 10, fontWeight: 700, color: C.textSecondary, background: C.bgInput, borderRadius: 5, padding: '2px 6px' }}>Original: {song.originalKey}</span>}
                       {song?.bpm && <span style={{ fontSize: 10, color: C.accent, background: C.accentGlow, borderRadius: 4, padding: '1px 5px' }}>♩{song.bpm}</span>}
                       {song?.youtubeUrl && <a href={song.youtubeUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', color: '#E8463A' }}><Youtube size={13} /></a>}
                     </div>
@@ -384,6 +396,20 @@ export default function ScalesPage() {
                     <input className="input-field" placeholder="Tom (ex: Ré)" value={ss.key} onChange={(e) => updateSong(ss.songId, 'key', e.target.value)} style={{ fontSize: 12 }} />
                     <input className="input-field" placeholder="Observações..." value={ss.notes} onChange={(e) => updateSong(ss.songId, 'notes', e.target.value)} style={{ fontSize: 12 }} />
                   </div>
+                  <div style={{ marginTop: 8, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setKeyTestSongId(ss.songId)}
+                      style={{ padding: '7px 10px', borderRadius: 8, border: `1px solid ${C.accent}55`, background: C.accentGlow, color: C.accent, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      🎵 Testar tom
+                    </button>
+                    {song?.youtubeUrl && (
+                      <a href={song.youtubeUrl} target="_blank" rel="noopener noreferrer" style={{ padding: '7px 10px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.bgHover, color: C.textPrimary, fontSize: 11, fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                        <Youtube size={12} color="#E8463A" />YouTube
+                      </a>
+                    )}
+                  </div>
                   {vocalists.length > 0 && (
                     <div style={{ marginTop: 8 }}>
                       <select className="input-field" value={ss.soloMemberId || ''} onChange={(e) => updateSong(ss.songId, 'soloMemberId', e.target.value)} style={{ fontSize: 12 }}>
@@ -400,11 +426,21 @@ export default function ScalesPage() {
           </Field>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn>
+            <Btn variant="secondary" onClick={() => { setKeyTestSongId(null); setModal(null); }}>Cancelar</Btn>
             <Btn onClick={save}><Check size={14} />Salvar Escala</Btn>
           </div>
         </Modal>
       )}
+
+      {keyTestSong && keyTestScaleSong && (
+        <KeyTestAssistant
+          song={keyTestSong}
+          currentKey={keyTestScaleSong.key || ''}
+          onApply={(key) => updateSong(keyTestScaleSong.songId, 'key', key)}
+          onClose={() => setKeyTestSongId(null)}
+        />
+      )}
+
       {confirm && <Confirm msg="Excluir esta escala?" onOk={() => del(confirm)} onCancel={() => setConfirm(null)} />}
     </div>
   );
