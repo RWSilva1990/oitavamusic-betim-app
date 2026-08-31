@@ -3,7 +3,7 @@ name: Build Android Test APK
 on:
   push:
     branches:
-      - refactor/android-production-shell-2026-08-27
+      - feature/pitch-testing-lab-2026-08-31
   workflow_dispatch:
 
 permissions:
@@ -15,18 +15,45 @@ jobs:
     env:
       ANDROID_SPA_BUILD: 'true'
       VITE_ANDROID_TEST_DIRECT_FIREBASE: 'false'
-      VITE_FIREBASE_API_KEY: 'AIzaSyAQuplKbkau95AjkMhS4piewfzVYDULRQw'
-      VITE_FIREBASE_APP_ID: '1:1082908267904:web:df0751076eca92bcb45d65'
-      VITE_FIREBASE_MESSAGING_SENDER_ID: '1082908267904'
-      VITE_FIREBASE_AUTH_DOMAIN: 'oitavamusicbetim.firebaseapp.com'
-      VITE_FIREBASE_PROJECT_ID: 'oitavamusicbetim'
-      VITE_FIREBASE_STORAGE_BUCKET: 'oitavamusicbetim.firebasestorage.app'
-      VITE_ADMIN_EMAILS: 'rwsilvatec@gmail.com'
-      VITE_APP_URL: 'https://oitavamusicbetim.vercel.app'
+      VITE_FIREBASE_API_KEY: ${{ secrets.TEST_FIREBASE_API_KEY }}
+      VITE_FIREBASE_APP_ID: ${{ secrets.TEST_FIREBASE_APP_ID }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.TEST_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.TEST_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.TEST_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.TEST_FIREBASE_STORAGE_BUCKET }}
+      VITE_ADMIN_EMAILS: ${{ secrets.TEST_ADMIN_EMAILS }}
+      VITE_APP_URL: ${{ secrets.TEST_APP_URL }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Validate isolated test Firebase
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            VITE_FIREBASE_API_KEY
+            VITE_FIREBASE_APP_ID
+            VITE_FIREBASE_AUTH_DOMAIN
+            VITE_FIREBASE_PROJECT_ID
+            VITE_FIREBASE_STORAGE_BUCKET
+            VITE_ADMIN_EMAILS
+          )
+
+          for name in "${required[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required test environment variable: $name"
+              exit 1
+            fi
+          done
+
+          if [ "$VITE_FIREBASE_PROJECT_ID" = "oitavamusicbetim" ]; then
+            echo "Refusing to build test APK against production Firebase project oitavamusicbetim."
+            exit 1
+          fi
+
+          echo "Test Firebase isolation validated for project: $VITE_FIREBASE_PROJECT_ID"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -77,6 +104,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: oitava-music-android-test
+          name: oitava-music-pitch-lab-test
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
