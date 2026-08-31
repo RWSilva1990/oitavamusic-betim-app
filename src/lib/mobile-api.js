@@ -8,7 +8,19 @@ export function isPackagedNativeApp() {
     && window.location.hostname === 'localhost';
 }
 
+export function isDirectFirebaseTestMode() {
+  return isPackagedNativeApp()
+    && import.meta.env.VITE_ANDROID_TEST_DIRECT_FIREBASE === 'true';
+}
+
+function assertMobileBackendAllowed() {
+  if (isDirectFirebaseTestMode()) {
+    throw new Error('Backend móvel de produção bloqueado no ambiente de teste.');
+  }
+}
+
 function apiBaseUrl() {
+  assertMobileBackendAllowed();
   const configured = String(import.meta.env.VITE_MOBILE_API_BASE_URL || '').trim();
   return (configured || DEFAULT_API_BASE_URL).replace(/\/$/, '');
 }
