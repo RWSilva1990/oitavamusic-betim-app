@@ -16,21 +16,21 @@ export default function SongsPage() {
   const [modal, setModal] = useState(null);
   const [audioModal, setAudioModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
-  const [form, setForm] = useState({ name: '', youtubeUrl: '', bpm: '' });
+  const [form, setForm] = useState({ name: '', youtubeUrl: '', bpm: '', originalKey: '' });
   const [importModal, setImportModal] = useState(false);
   const [preview, setPreview] = useState([]);
   const [dupWarning, setDupWarning] = useState('');
 
   const openAdd = () => {
     if (readOnly) return;
-    setForm({ name: '', youtubeUrl: '', bpm: '' });
+    setForm({ name: '', youtubeUrl: '', bpm: '', originalKey: '' });
     setDupWarning('');
     setModal('add');
   };
 
   const openEdit = (s) => {
     if (readOnly) return;
-    setForm({ id: s.id, name: s.name, youtubeUrl: s.youtubeUrl || '', bpm: s.bpm || '' });
+    setForm({ id: s.id, name: s.name, youtubeUrl: s.youtubeUrl || '', bpm: s.bpm || '', originalKey: s.originalKey || '' });
     setDupWarning('');
     setModal(s);
   };
@@ -76,10 +76,12 @@ export default function SongsPage() {
             const nk = keys.find((k) => /nome|name|musica|titulo|title/i.test(k)) || keys[0];
             const uk = keys.find((k) => /url|link|youtube/i.test(k)) || keys[1];
             const bk = keys.find((k) => /bpm/i.test(k));
+            const ok = keys.find((k) => /tom\s*original|original\s*key|^tom$|^key$/i.test(k));
             return {
               name: row[nk]?.trim() || '',
               youtubeUrl: uk ? row[uk]?.trim() || '' : '',
               bpm: bk ? row[bk]?.trim() || '' : '',
+              originalKey: ok ? row[ok]?.trim() || '' : '',
             };
           })
           .filter((r) => r.name);
@@ -146,6 +148,7 @@ export default function SongsPage() {
                     ) : (
                       <span style={{ fontSize: 12, color: C.textSecondary }}>Sem link</span>
                     )}
+                    {s.originalKey && <span className="tag green">Tom original: {s.originalKey}</span>}
                     {s.bpm && <span style={{ fontSize: 11, fontWeight: 700, color: C.accent, background: C.accentGlow, border: `1px solid ${C.accent}33`, borderRadius: 6, padding: '1px 7px' }}>♩ {s.bpm} BPM</span>}
                     {nAudios > 0 && <span className="tag green">🎧 {nAudios} áudio{nAudios !== 1 ? 's' : ''}</span>}
                   </div>
@@ -200,6 +203,7 @@ export default function SongsPage() {
             </div>
           )}
           <Inp label="Link do YouTube" value={form.youtubeUrl} onChange={(e) => setForm((f) => ({ ...f, youtubeUrl: e.target.value }))} placeholder="https://youtube.com/watch?v=..." />
+          <Inp label="Tom original" value={form.originalKey} onChange={(e) => setForm((f) => ({ ...f, originalKey: e.target.value }))} placeholder="Ex: D, F#, Bb" />
           <Inp label="BPM (Batidas por Minuto)" type="number" min="40" max="300" value={form.bpm} onChange={(e) => setForm((f) => ({ ...f, bpm: e.target.value }))} placeholder="Ex: 120" />
           {modal !== 'add' && (
             <Field label="Áudios de voz">
@@ -216,7 +220,7 @@ export default function SongsPage() {
       {!readOnly && importModal && (
         <Modal title="Importar Músicas via CSV" onClose={() => { setImportModal(false); setPreview([]); }} wide>
           <div style={{ padding: 14, background: C.bgInput, borderRadius: 8, marginBottom: 16, fontSize: 13, color: C.textSecondary, lineHeight: 1.7 }}>
-            <strong style={{ color: C.accent }}>Formato esperado:</strong> arquivo <code>.csv</code> com colunas <code>nome</code>, <code>url</code> e opcionalmente <code>bpm</code>.
+            <strong style={{ color: C.accent }}>Formato esperado:</strong> arquivo <code>.csv</code> com colunas <code>nome</code>, <code>url</code> e opcionalmente <code>tom original</code> e <code>bpm</code>.
           </div>
           <label style={{ display: 'block', padding: '24px 16px', border: `2px dashed ${C.border}`, borderRadius: 10, textAlign: 'center', cursor: 'pointer', color: C.textSecondary, marginBottom: 16 }}>
             <Upload size={26} style={{ display: 'block', margin: '0 auto 8px' }} />
@@ -231,6 +235,7 @@ export default function SongsPage() {
                   <div key={i} style={{ padding: '7px 12px', background: C.bgHover, borderRadius: 6, display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 }}>
                     <span style={{ color: C.textPrimary }}>{s.name}</span>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {s.originalKey && <span style={{ color: C.success, fontSize: 11 }}>Tom: {s.originalKey}</span>}
                       {s.bpm && <span style={{ color: C.accent, fontSize: 11 }}>♩ {s.bpm} BPM</span>}
                       {s.youtubeUrl && <span style={{ color: C.success, fontSize: 11 }}>✓ YouTube</span>}
                     </div>
