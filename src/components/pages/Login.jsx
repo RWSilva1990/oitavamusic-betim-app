@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { LogIn, AlertCircle, KeyRound } from 'lucide-react';
+import { AlertCircle, KeyRound, LogIn, UserPlus } from 'lucide-react';
 import { C, LOGO_HOME } from '@/lib/theme';
 import { Btn, Inp } from '../ui-kit';
 import { useAuth } from '@/lib/auth';
@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkBusy, setLinkBusy] = useState('');
 
   const submit = async (e) => {
     e?.preventDefault?.();
@@ -28,21 +28,41 @@ export default function LoginPage() {
     }
   };
 
-  const requestAccess = async () => {
+  const validateEmail = () => {
     if (!email.trim()) {
-      setErr('Informe seu e-mail para receber o link de acesso.');
-      return;
+      setErr('Informe seu e-mail para receber o link.');
+      return false;
     }
-    setErr(''); setMsg(''); setLinkBusy(true);
+    return true;
+  };
+
+  const requestFirstAccess = async () => {
+    if (!validateEmail()) return;
+    setErr(''); setMsg(''); setLinkBusy('first');
     try {
-      await auth.sendAccessLink(email);
-      setMsg('Enviamos um link para criar ou redefinir sua senha. O acesso só será liberado para e-mails vinculados a membros cadastrados.');
+      await auth.sendInvite(email);
+      setMsg('Enviamos um link de primeiro acesso. Depois de confirmar o e-mail, você poderá preencher seus dados e criar sua senha. Seu cadastro ficará pendente até a aprovação de um administrador.');
     } catch (e2) {
       setErr(traduz(e2));
     } finally {
-      setLinkBusy(false);
+      setLinkBusy('');
     }
   };
+
+  const requestPasswordAccess = async () => {
+    if (!validateEmail()) return;
+    setErr(''); setMsg(''); setLinkBusy('password');
+    try {
+      await auth.sendAccessLink(email);
+      setMsg('Enviamos um link para criar ou redefinir sua senha. Esta opção só libera acesso para e-mails que já tenham vínculo aprovado no aplicativo.');
+    } catch (e2) {
+      setErr(traduz(e2));
+    } finally {
+      setLinkBusy('');
+    }
+  };
+
+  const anyLinkBusy = Boolean(linkBusy);
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -69,17 +89,28 @@ export default function LoginPage() {
         )}
         {msg && <div style={{ color: C.success, fontSize: 13, lineHeight: 1.5, marginBottom: 12 }}>{msg}</div>}
 
-        <Btn type="submit" disabled={busy || linkBusy || !auth.configured} style={{ width: '100%', justifyContent: 'center', padding: 12 }}>
+        <Btn type="submit" disabled={busy || anyLinkBusy || !auth.configured} style={{ width: '100%', justifyContent: 'center', padding: 12 }}>
           <LogIn size={15} />{busy ? 'Entrando...' : 'Entrar'}
         </Btn>
+
         <button
           type="button"
-          disabled={linkBusy || !auth.configured}
-          onClick={requestAccess}
-          style={{ marginTop: 14, width: '100%', background: 'none', border: 'none', color: C.accent, fontSize: 12, fontWeight: 700, cursor: linkBusy ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          disabled={anyLinkBusy || !auth.configured}
+          onClick={requestFirstAccess}
+          style={{ marginTop: 14, width: '100%', background: 'none', border: 'none', color: C.accent, fontSize: 12, fontWeight: 700, cursor: anyLinkBusy ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+        >
+          <UserPlus size={14} />
+          {linkBusy === 'first' ? 'Enviando link...' : 'Primeiro acesso'}
+        </button>
+
+        <button
+          type="button"
+          disabled={anyLinkBusy || !auth.configured}
+          onClick={requestPasswordAccess}
+          style={{ marginTop: 10, width: '100%', background: 'none', border: 'none', color: C.textSecondary, fontSize: 12, fontWeight: 700, cursor: anyLinkBusy ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
         >
           <KeyRound size={14} />
-          {linkBusy ? 'Enviando link...' : 'Primeiro acesso ou esqueci minha senha'}
+          {linkBusy === 'password' ? 'Enviando link...' : 'Esqueci minha senha'}
         </button>
       </form>
     </div>
