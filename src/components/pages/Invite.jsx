@@ -63,7 +63,8 @@ export default function InvitePage() {
     setBusy(true);
     try {
       await auth.definePassword(pass);
-      navigate({ to: '/minhas-escalas', replace: true });
+      await auth.logout();
+      setStep('pending');
     } catch (e) {
       setErr(e?.message || 'Não foi possível salvar a senha.');
     } finally {
@@ -76,7 +77,9 @@ export default function InvitePage() {
       ? 'Confirme o e-mail que recebeu o convite'
       : step === 'profile'
         ? 'Preencha seus dados básicos'
-        : 'Defina sua senha pessoal';
+        : step === 'password'
+          ? 'Defina sua senha pessoal'
+          : 'Seu cadastro foi enviado para aprovação';
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -115,10 +118,28 @@ export default function InvitePage() {
           <>
             <Inp label="Nova senha" type="password" autoComplete="new-password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="mínimo 6 caracteres" />
             <Inp label="Confirmar senha" type="password" autoComplete="new-password" value={pass2} onChange={(e) => setPass2(e.target.value)} placeholder="repita a senha" />
+            <div style={{ padding: '10px 12px', background: C.bgInput, borderRadius: 8, fontSize: 12, color: C.textSecondary, lineHeight: 1.6, marginBottom: 14 }}>
+              Ao concluir, seu cadastro ficará pendente. Você só poderá entrar no aplicativo depois que um administrador aprová-lo.
+            </div>
             <Btn disabled={busy} onClick={savePassword} style={{ width: '100%', justifyContent: 'center', padding: 12 }}>
-              <Check size={15} />{busy ? 'Salvando...' : 'Concluir cadastro e entrar'}
+              <Check size={15} />{busy ? 'Salvando...' : 'Concluir cadastro'}
             </Btn>
           </>
+        )}
+
+        {step === 'pending' && (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ width: 58, height: 58, margin: '0 auto 16px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.accentGlow, color: C.accent }}>
+              <Check size={28} />
+            </div>
+            <div style={{ padding: '14px 16px', background: C.bgInput, borderRadius: 10, fontSize: 13, color: C.textSecondary, lineHeight: 1.65, marginBottom: 16 }}>
+              <strong style={{ color: C.textPrimary }}>Cadastro recebido.</strong><br />
+              Um administrador precisa aceitar sua solicitação antes do primeiro acesso. Depois da aprovação, entre normalmente usando o e-mail <strong style={{ color: C.textPrimary }}>{email}</strong> e a senha que você acabou de criar.
+            </div>
+            <Btn onClick={() => navigate({ to: '/entrar', replace: true })} style={{ width: '100%', justifyContent: 'center', padding: 12 }}>
+              Ir para a tela de login
+            </Btn>
+          </div>
         )}
 
         {err && (
@@ -126,9 +147,11 @@ export default function InvitePage() {
             <AlertCircle size={14} />{err}
           </div>
         )}
-        <p style={{ marginTop: 18, fontSize: 11, color: C.textSecondary, textAlign: 'center', lineHeight: 1.6 }}>
-          Sua senha é gerenciada pelo Firebase Authentication e não fica armazenada junto aos seus dados de membro.
-        </p>
+        {step !== 'pending' && (
+          <p style={{ marginTop: 18, fontSize: 11, color: C.textSecondary, textAlign: 'center', lineHeight: 1.6 }}>
+            Sua senha é gerenciada pelo Firebase Authentication e não fica armazenada junto aos seus dados de membro.
+          </p>
+        )}
       </div>
     </div>
   );
