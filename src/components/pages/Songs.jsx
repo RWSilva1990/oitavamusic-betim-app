@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Papa from 'papaparse';
-import { Music, Plus, Edit2, Trash2, Check, Search, Upload, Youtube, AlertCircle, Mic2 } from 'lucide-react';
+import { Music, Plus, Edit2, Trash2, Check, Search, Upload, Download, Youtube, AlertCircle, Mic2 } from 'lucide-react';
 import { C } from '@/lib/theme';
 import { genId } from '@/lib/db';
 import { Btn, Confirm, Field, Inp, Modal, PageTitle } from '../ui-kit';
@@ -62,6 +62,31 @@ export default function SongsPage() {
     setAudioModal((m) => (m && m.id === songId ? { ...m, audios } : m));
   };
 
+  const exportCSV = () => {
+    if (readOnly) return;
+    const rows = [...songs]
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR', { sensitivity: 'base' }))
+      .map((song) => ({
+        nome: song.name || '',
+        url: song.youtubeUrl || '',
+        'tom original': song.originalKey || '',
+        bpm: song.bpm || '',
+        compasso: song.timeSignature || '',
+      }));
+
+    const csv = `\uFEFF${Papa.unparse(rows)}`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    anchor.href = url;
+    anchor.download = `repertorio-oitava-${date}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const handleCSV = (e) => {
     if (readOnly) return;
     const file = e.target.files[0];
@@ -104,7 +129,7 @@ export default function SongsPage() {
   return (
     <div style={{ padding: 24, maxWidth: 860 }}>
       <PageTitle title="Repertório" subtitle={readOnly ? `${songs.length} música${songs.length !== 1 ? 's' : ''} disponíveis para estudo` : `${songs.length} música${songs.length !== 1 ? 's' : ''}`}>
-        {!readOnly && <><Btn variant="secondary" onClick={() => { setPreview([]); setImportModal(true); }}><Upload size={15} />Importar CSV</Btn><Btn onClick={openAdd}><Plus size={15} />Nova Música</Btn></>}
+        {!readOnly && <><Btn variant="secondary" onClick={exportCSV}><Download size={15} />Exportar CSV</Btn><Btn variant="secondary" onClick={() => { setPreview([]); setImportModal(true); }}><Upload size={15} />Importar CSV</Btn><Btn onClick={openAdd}><Plus size={15} />Nova Música</Btn></>}
       </PageTitle>
 
       {readOnly && <div style={{ marginBottom: 16, padding: '11px 13px', background: C.bgInput, borderRadius: 9, fontSize: 12, color: C.textSecondary, lineHeight: 1.6 }}>Aqui você pode consultar todo o repertório, abrir a referência no YouTube e ouvir os áudios de estudo disponíveis.</div>}
