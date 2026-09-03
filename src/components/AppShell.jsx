@@ -168,17 +168,17 @@ export default function AppShell({ children, allowMember = false }) {
         <div onClick={() => setSideOpen(false)} style={{ position: 'fixed', inset: 0, background: 'var(--app-overlay)', zIndex: 199 }} />
       )}
 
-      <div className="main-content" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', width: '100%' }}>
+      <div className="main-content" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', width: 'auto', minWidth: 0 }}>
         <div className="topbar-surface" style={{ height: 54, background: 'var(--app-topbar)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: '0 18px', gap: 8, position: 'sticky', top: 0, zIndex: 100 }}>
           <button className="topbar-menu-btn btn-ghost btn" onClick={() => setSideOpen((x) => !x)} style={{ padding: '6px 8px' }}>
             <Menu size={19} />
           </button>
-          <span style={{ fontWeight: 800, color: C.accent, fontSize: 13, flex: 1 }}>
+          <span style={{ fontWeight: 800, color: C.accent, fontSize: 13, flex: 1, minWidth: 0 }}>
             {current?.emoji} {current?.label}
           </span>
           <AppearanceSettings />
           <NotificationSettings />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
             {syncing ? (
               <div style={{ width: 8, height: 8, borderRadius: '50%', border: `1.5px solid ${C.textSecondary}44`, borderTopColor: C.textSecondary, animation: 'spin 0.8s linear infinite' }} />
             ) : (
@@ -186,7 +186,7 @@ export default function AppShell({ children, allowMember = false }) {
             )}
           </div>
         </div>
-        <div style={{ flex: 1 }}>{children}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
       </div>
     </>
   );
