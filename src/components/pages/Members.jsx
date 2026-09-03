@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Papa from 'papaparse';
-import { Users, Plus, Edit2, Trash2, Check, Search, Upload, Mail } from 'lucide-react';
+import { Users, Plus, Edit2, Trash2, Check, Search, Upload, Download, Mail } from 'lucide-react';
 import { C, ROLES } from '@/lib/theme';
 import { genId, normalizeStr } from '@/lib/db';
 import { Avatar, Btn, Confirm, Field, Inp, Modal, PageTitle } from '../ui-kit';
@@ -63,6 +63,32 @@ export default function MembersPage() {
     } catch (e) {
       setInviteState((s) => ({ ...s, [member.id]: e?.message || 'Falha ao enviar convite.' }));
     }
+  };
+
+  const exportCSV = () => {
+    const rows = [...members]
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR', { sensitivity: 'base' }))
+      .map((member) => ({
+        nome: member.name || '',
+        email: member.email || '',
+        telefone: member.phone || '',
+        'data de nascimento': member.birthdate || '',
+        funcoes: (member.roles || [])
+          .map((role) => ROLES.find((item) => item.key === role)?.label || role)
+          .filter(Boolean)
+          .join(', '),
+      }));
+
+    const csv = `\uFEFF${Papa.unparse(rows)}`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `membros-oitava-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
   const handleCSV = (e) => {
@@ -143,6 +169,7 @@ export default function MembersPage() {
   return (
     <div style={{ padding: 24, maxWidth: 860 }}>
       <PageTitle title="Membros" subtitle={`${members.length} membro${members.length !== 1 ? 's' : ''}`}>
+        <Btn variant="secondary" onClick={exportCSV}><Download size={15} />Exportar CSV</Btn>
         <Btn variant="secondary" onClick={() => { setPreview([]); setImportModal(true); }}><Upload size={15} />Importar CSV</Btn>
         <Btn onClick={openAdd}><Plus size={15} />Novo Membro</Btn>
       </PageTitle>
