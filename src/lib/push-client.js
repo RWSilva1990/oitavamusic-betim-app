@@ -5,18 +5,17 @@ import {
   loadFirebaseConfig,
 } from './firebase';
 import {
-  notifyScaleMembersAdded,
-  registerPushInstallation,
-  unregisterPushInstallation,
-} from './push-notifications.functions';
-import {
   disableNativeScaleNotifications,
   enableNativeScaleNotifications,
   getNativeScaleNotificationStatus,
   isNativeAndroid,
   startNativeScaleNotificationRuntime,
 } from './push-native';
-import { isPackagedNativeApp, notifyMobileScaleAdded } from './mobile-api';
+import {
+  notifyMobileScaleAdded,
+  registerMobilePush,
+  unregisterMobilePush,
+} from './mobile-api';
 
 const PUSH_ENABLED_KEY = 'oitava:push-enabled';
 const PUSH_TOKEN_KEY = 'oitava:push-token';
@@ -123,7 +122,7 @@ export async function syncScaleNotifications({ requestPermission = false } = {})
     if (!token) throw new Error('O navegador não forneceu um identificador para receber notificações. Tente novamente.');
 
     const idToken = await currentIdToken();
-    await registerPushInstallation({ data: { idToken, token } });
+    await registerMobilePush(idToken, { token });
     window.localStorage.setItem(PUSH_TOKEN_KEY, token);
     window.localStorage.removeItem(LEGACY_PUSH_FID_KEY);
     window.localStorage.setItem(PUSH_ENABLED_KEY, 'true');
@@ -153,8 +152,8 @@ export async function disableScaleNotifications() {
 
   try {
     const idToken = await currentIdToken();
-    if (token) await unregisterPushInstallation({ data: { idToken, token } });
-    if (legacyFid) await unregisterPushInstallation({ data: { idToken, fid: legacyFid } });
+    if (token) await unregisterMobilePush(idToken, { token });
+    if (legacyFid) await unregisterMobilePush(idToken, { fid: legacyFid });
   } catch (error) {
     console.warn('Não foi possível remover o vínculo de push no servidor:', error);
   }
@@ -221,17 +220,7 @@ export async function sendScaleAddedNotifications(scale, addedMemberIds) {
 
   const idToken = await currentIdToken();
   try {
-    if (isPackagedNativeApp()) {
-      return await notifyMobileScaleAdded(idToken, scale, ids);
-    }
-
-    return await notifyScaleMembersAdded({
-      data: {
-        idToken,
-        scale: { id: scale.id, name: scale.name, date: scale.date },
-        addedMemberIds: ids,
-      },
-    });
+    return await notifyMobileScaleAdded(idToken, scale, ids);
   } catch (error) {
     throw cleanServerError(error, 'A escala foi salva, mas não foi possível enviar as notificações.');
   }
