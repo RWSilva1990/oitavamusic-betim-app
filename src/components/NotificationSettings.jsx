@@ -26,6 +26,15 @@ const REMINDER_OPTIONS = [
   ['reminderSameDay', 'No dia da escala'],
 ];
 
+const EMPTY_STATUS = {
+  supported: false,
+  configured: false,
+  permission: 'default',
+  enabled: false,
+  native: false,
+  checking: true,
+};
+
 function PreferenceRow({ label, checked, onChange, disabled }) {
   return (
     <button
@@ -73,7 +82,7 @@ function PreferenceRow({ label, checked, onChange, disabled }) {
 }
 
 export default function NotificationSettings() {
-  const [status, setStatus] = useState(null);
+  const [status, setStatus] = useState(EMPTY_STATUS);
   const [open, setOpen] = useState(false);
   const [preferences, setPreferences] = useState(DEFAULT_NOTIFICATION_PREFERENCES);
   const [saving, setSaving] = useState(false);
@@ -86,10 +95,27 @@ export default function NotificationSettings() {
   const bellRef = useRef(null);
 
   const refresh = async () => {
+    setStatus((current) => ({ ...current, checking: true }));
+    let timeoutId;
     try {
-      setStatus(await getScaleNotificationStatus());
+      const next = await Promise.race([
+        getScaleNotificationStatus(),
+        new Promise((_, reject) => {
+          timeoutId = window.setTimeout(() => reject(new Error('notification-status-timeout')), 8000);
+        }),
+      ]);
+      setStatus({ ...EMPTY_STATUS, ...(next || {}), checking: false });
     } catch {
-      setStatus({ supported: false, configured: false, permission: 'unsupported', enabled: false });
+      setStatus((current) => ({
+        ...current,
+        supported: false,
+        configured: false,
+        permission: 'unsupported',
+        enabled: false,
+        checking: false,
+      }));
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
     }
   };
 
@@ -177,17 +203,18 @@ export default function NotificationSettings() {
   };
 
   const activateDeviceNotifications = async () => {
-    if (!status || deviceBusy) return;
+    if (deviceBusy) return;
+    if (status.checking) return flash('Aguarde a verificação das notificações.', true);
     if (!status.configured) return flash('Notificações ainda não estão configuradas.', true);
-    if (!status.supported) return flash('Este aparelho não oferece suporte a notificações.', true);
+    if (!status.supported) return flash('Este dispositivo não oferece suporte a notificações.', true);
     if (status.permission === 'denied') {
-      return flash('Notificações bloqueadas nas configurações do aparelho.', true);
+      return flash('Notificações bloqueadas nas configurações do dispositivo.', true);
     }
 
     setDeviceBusy(true);
     try {
       await enableScaleNotifications();
-      flash('Notificações do aparelho ativadas');
+      flash('Notificações ativadas');
     } catch (error) {
       flash(error?.message || 'Não foi possível ativar as notificações.', true);
     } finally {
@@ -209,26 +236,29 @@ export default function NotificationSettings() {
     }
   };
 
-  if (!status) return null;
-
   const permissionGranted = status.permission === 'granted';
   const permissionDenied = status.permission === 'denied';
   const deviceEnabled = Boolean(status.enabled);
-  const canActivate = status.supported && status.configured && !permissionDenied && !deviceEnabled;
+  const canActivate = !status.checking && status.supported && status.configured && !permissionDenied && !deviceEnabled;
+  const platformName = status.native ? 'Android' : 'navegador';
 
-  let deviceText = 'O estado das notificações não pôde ser identificado neste aparelho.';
-  if (!status.supported) {
-    deviceText = 'Este aparelho não oferece suporte às notificações do aplicativo.';
+  let deviceText = 'O estado das notificações não pôde ser identificado neste dispositivo.';
+  if (status.checking) {
+    deviceText = 'Verificando disponibilidade das notificações...';
+  } else if (!status.supported) {
+    deviceText = 'Este dispositivo não oferece suporte às notificações do aplicativo.';
   } else if (!status.configured) {
     deviceText = 'As notificações ainda não estão configuradas neste ambiente.';
   } else if (deviceEnabled) {
-    deviceText = 'Permitidas pelo Android e vinculadas a este aparelho.';
+    deviceText = status.native
+      ? 'Permitidas pelo Android e vinculadas a este aparelho.'
+      : 'Permitidas pelo navegador e vinculadas a este dispositivo.';
   } else if (permissionGranted) {
-    deviceText = 'O Android já permitiu notificações. Conclua a ativação para vincular este aparelho.';
+    deviceText = `O ${platformName} já permitiu notificações. Conclua a ativação para vincular este dispositivo.`;
   } else if (permissionDenied) {
-    deviceText = 'Bloqueadas nas configurações do Android. Suas preferências abaixo continuam salvas.';
+    deviceText = `Bloqueadas nas configurações do ${platformName}. Suas preferências abaixo continuam salvas.`;
   } else {
-    deviceText = 'O Android ainda precisa autorizar as notificações deste aplicativo.';
+    deviceText = `O ${platformName} ainda precisa autorizar as notificações deste aplicativo.`;
   }
 
   return (
@@ -255,6 +285,7 @@ export default function NotificationSettings() {
           justifyContent: 'center',
           cursor: 'pointer',
           transition: 'all 0.18s ease',
+          opacity: status.checking ? 0.82 : 1,
         }}
       >
         <Bell size={20} strokeWidth={2.3} />
@@ -308,13 +339,19 @@ export default function NotificationSettings() {
           </div>
 
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: '15px 16px 12px' }}>
+            {message && (
+              <div style={{ marginBottom: 12, padding: '9px 10px', borderRadius: 10, fontSize: 11, lineHeight: 1.45, background: message.error ? 'rgba(229,72,77,.10)' : C.accentGlow, color: message.error ? C.danger : C.accent }}>
+                {message.text}
+              </div>
+            )}
+
             <div style={{ padding: 13, border: `1px solid ${C.border}`, background: C.bgHover, borderRadius: 13, marginBottom: 18 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.textPrimary }}>Permissão de notificações</div>
               <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.5, color: C.textSecondary }}>{deviceText}</div>
 
               {deviceEnabled && (
                 <div style={{ marginTop: 9, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 9px', borderRadius: 9, background: C.accentGlow, color: C.accent, fontSize: 11, fontWeight: 800 }}>
-                  <Check size={13} /> Permitidas pelo Android
+                  <Check size={13} /> {status.native ? 'Permitidas pelo Android' : 'Permitidas pelo navegador'}
                 </div>
               )}
 
@@ -332,7 +369,7 @@ export default function NotificationSettings() {
 
               {permissionDenied && status.supported && status.configured && (
                 <div style={{ marginTop: 9, fontSize: 10.5, lineHeight: 1.45, color: C.textSecondary }}>
-                  Para liberar novamente, use as configurações de notificações do Android para o Oitava Music.
+                  Para liberar novamente, use as configurações de notificações do {platformName} para o Oitava Music.
                 </div>
               )}
             </div>
@@ -361,12 +398,6 @@ export default function NotificationSettings() {
               <Check size={15} />{saving ? 'Salvando...' : 'Salvar preferências'}
             </button>
           </div>
-        </div>
-      )}
-
-      {message && (
-        <div role="status" style={{ position: 'absolute', right: 0, top: 48, zIndex: 930, width: 'max-content', maxWidth: 'min(280px, calc(100vw - 24px))', padding: '8px 10px', borderRadius: 10, border: `1px solid ${message.error ? `${C.danger}33` : C.border}`, background: C.bgCard, boxShadow: '0 8px 24px rgba(27,20,61,0.14)', color: message.error ? C.danger : C.textPrimary, fontSize: 11, fontWeight: 700, lineHeight: 1.4, textAlign: 'center' }}>
-          {message.text}
         </div>
       )}
     </div>
