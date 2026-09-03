@@ -1,4 +1,3 @@
-import { getFirebaseConfig } from './firebase-config.functions';
 import { getMobileFirebaseConfig, isPackagedNativeApp } from './mobile-api';
 
 let configPromise = null;
@@ -31,11 +30,7 @@ function packagedTestConfig() {
 export function loadFirebaseConfig() {
   if (!configPromise) {
     const testConfig = packagedTestConfig();
-    const load = testConfig
-      ? Promise.resolve(testConfig)
-      : isPackagedNativeApp()
-        ? getMobileFirebaseConfig()
-        : getFirebaseConfig();
+    const load = testConfig ? Promise.resolve(testConfig) : getMobileFirebaseConfig();
 
     configPromise = load.catch(() => ({
       configured: false,
