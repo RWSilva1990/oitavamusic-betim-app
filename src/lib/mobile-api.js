@@ -9,6 +9,7 @@ export function isPackagedNativeApp() {
 }
 
 function apiBaseUrl() {
+  if (!isPackagedNativeApp()) return '';
   const configured = String(import.meta.env.VITE_MOBILE_API_BASE_URL || '').trim();
   return (configured || DEFAULT_API_BASE_URL).replace(/\/$/, '');
 }
