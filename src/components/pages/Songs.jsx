@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Papa from 'papaparse';
 import { Music, Plus, Edit2, Trash2, Check, Search, Upload, Download, Youtube, AlertCircle, Mic2 } from 'lucide-react';
 import { C } from '@/lib/theme';
-import { genId } from '@/lib/db';
+import { genId, normalizeStr } from '@/lib/db';
 import { Btn, Confirm, Field, Inp, Modal, PageTitle } from '../ui-kit';
 import AudioSection, { AudioPlayerList } from '../AudioSection';
 import { useData } from '@/lib/data';
@@ -119,7 +119,29 @@ export default function SongsPage() {
 
   const doImport = () => {
     if (readOnly) return;
-    setSongs((p) => [...p, ...preview.map((s) => ({ ...s, audios: [], id: genId() }))]);
+    setSongs((current) => {
+      const updated = [...current];
+
+      for (const imported of preview) {
+        const importedName = normalizeStr(imported.name);
+        const index = updated.findIndex((song) => normalizeStr(song.name) === importedName);
+
+        if (index >= 0) {
+          const existing = updated[index];
+          updated[index] = {
+            ...existing,
+            youtubeUrl: imported.youtubeUrl || existing.youtubeUrl || '',
+            originalKey: imported.originalKey || existing.originalKey || '',
+            bpm: imported.bpm || existing.bpm || '',
+            timeSignature: imported.timeSignature || existing.timeSignature || '',
+          };
+        } else {
+          updated.push({ ...imported, audios: [], id: genId() });
+        }
+      }
+
+      return updated;
+    });
     setImportModal(false);
     setPreview([]);
   };
@@ -187,10 +209,12 @@ export default function SongsPage() {
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn><Btn onClick={save}><Check size={14} />Salvar</Btn></div>
       </Modal>}
 
-      {!readOnly && importModal && <Modal title="Importar Músicas via CSV" onClose={() => { setImportModal(false); setPreview([]); }} wide>
-        <div style={{ padding: 14, background: C.bgInput, borderRadius: 8, marginBottom: 16, fontSize: 13, color: C.textSecondary, lineHeight: 1.7 }}><strong style={{ color: C.accent }}>Formato esperado:</strong> arquivo <code>.csv</code> com colunas <code>nome</code>, <code>url</code> e opcionalmente <code>tom original</code>, <code>bpm</code> e <code>compasso</code>.</div>
+      {!readOnly && importModal && <Modal title="Importar/Atualizar Músicas via CSV" onClose={() => { setImportModal(false); setPreview([]); }} wide>
+        <div style={{ padding: 14, background: C.bgInput, borderRadius: 8, marginBottom: 16, fontSize: 13, color: C.textSecondary, lineHeight: 1.7 }}>
+          <strong style={{ color: C.accent }}>Atualização segura:</strong> arquivo <code>.csv</code> com colunas <code>nome</code>, <code>url</code> e opcionalmente <code>tom original</code>, <code>bpm</code> e <code>compasso</code>. Se a música já existir pelo nome, os dados preenchidos serão atualizados sem trocar o ID e sem apagar os áudios. Campos vazios da planilha não apagam informações existentes.
+        </div>
         <label style={{ display: 'block', padding: '24px 16px', border: `2px dashed ${C.border}`, borderRadius: 10, textAlign: 'center', cursor: 'pointer', color: C.textSecondary, marginBottom: 16 }}><Upload size={26} style={{ display: 'block', margin: '0 auto 8px' }} />Clique para selecionar o arquivo CSV<input type="file" accept=".csv" onChange={handleCSV} style={{ display: 'none' }} /></label>
-        {preview.length > 0 && <><p style={{ color: C.success, fontSize: 13, marginBottom: 10 }}>✓ {preview.length} música(s) encontrada(s)</p><div style={{ maxHeight: 200, overflowY: 'auto', display: 'grid', gap: 4, marginBottom: 16 }}>{preview.map((s, i) => <div key={i} style={{ padding: '7px 12px', background: C.bgHover, borderRadius: 6, display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 }}><span style={{ color: C.textPrimary }}>{s.name}</span><div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>{s.originalKey && <span style={{ color: C.success, fontSize: 11 }}>Tom: {s.originalKey}</span>}{s.bpm && <span style={{ color: C.accent, fontSize: 11 }}>♩ {s.bpm} BPM</span>}{s.timeSignature && <span style={{ color: C.accent, fontSize: 11 }}>{s.timeSignature}</span>}{s.youtubeUrl && <span style={{ color: C.success, fontSize: 11 }}>✓ YouTube</span>}</div></div>)}</div><Btn onClick={doImport}><Check size={14} />Importar {preview.length} música(s)</Btn></>}
+        {preview.length > 0 && <><p style={{ color: C.success, fontSize: 13, marginBottom: 10 }}>✓ {preview.length} música(s) encontrada(s)</p><div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 4, marginBottom: 16 }}>{preview.map((s, i) => { const exists = songs.some((song) => normalizeStr(song.name) === normalizeStr(s.name)); return <div key={i} style={{ padding: '7px 12px', background: C.bgHover, borderRadius: 6, display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 }}><span style={{ color: C.textPrimary }}>{s.name}</span><div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}><span style={{ color: exists ? C.accent : C.success, fontSize: 11, fontWeight: 700 }}>{exists ? '🔄 Será atualizada' : '✨ Nova música'}</span>{s.originalKey && <span style={{ color: C.success, fontSize: 11 }}>Tom: {s.originalKey}</span>}{s.bpm && <span style={{ color: C.accent, fontSize: 11 }}>♩ {s.bpm} BPM</span>}{s.timeSignature && <span style={{ color: C.accent, fontSize: 11 }}>{s.timeSignature}</span>}{s.youtubeUrl && <span style={{ color: C.success, fontSize: 11 }}>✓ YouTube</span>}</div></div>; })}</div><Btn onClick={doImport}><Check size={14} />Processar {preview.length} música(s)</Btn></>}
       </Modal>}
 
       {!readOnly && confirm && <Confirm msg="Excluir esta música do repertório?" onOk={() => del(confirm)} onCancel={() => setConfirm(null)} />}
