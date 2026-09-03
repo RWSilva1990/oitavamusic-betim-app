@@ -11,19 +11,23 @@ import { startScaleNotificationRuntime } from '@/lib/push-client';
 import { getCommunicationsInbox } from '@/lib/communications';
 
 const COMMUNICATIONS_NAV = { id: 'communications', label: 'Comunicados', emoji: '📢', to: '/comunicados' };
+const METRONOME_NAV = { id: 'metronome', label: 'Metrônomo', emoji: '⏱️', to: '/metronomo' };
 
 const MEMBER_NAV = [
   { id: 'home', label: 'Início', emoji: '🏠', to: '/' },
   { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
   COMMUNICATIONS_NAV,
   { id: 'songs', label: 'Repertório', emoji: '🎵', to: '/repertorio' },
+  METRONOME_NAV,
 ];
 
 const ADMIN_NAV = [
   NAV[0],
   { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
   COMMUNICATIONS_NAV,
-  ...NAV.slice(1),
+  ...NAV.slice(1, 4),
+  METRONOME_NAV,
+  ...NAV.slice(4),
 ];
 
 export function Loader({ label = 'Conectando ao Firebase...' }) {
