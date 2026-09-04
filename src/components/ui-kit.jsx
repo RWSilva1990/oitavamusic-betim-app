@@ -76,7 +76,15 @@ export function PageTitle({ title, subtitle, children }) {
         <h1 style={{ fontSize: 21, fontWeight: 800, color: C.accent }}>{title}</h1>
         {subtitle && <p style={{ color: C.textSecondary, fontSize: 13 }}>{subtitle}</p>}
       </div>
-      {children && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxWidth: '100%', justifyContent: 'flex-end' }}>{children}</div>}
+      {children && (
+        <>
+          <style>{`@media (max-width: 520px) {
+            .page-title-actions { width: 100%; justify-content: flex-start !important; gap: 6px !important; }
+            .page-title-actions .btn { padding: 8px 11px; font-size: 12px; gap: 5px; }
+          }`}</style>
+          <div className="page-title-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxWidth: '100%', justifyContent: 'flex-end' }}>{children}</div>
+        </>
+      )}
     </div>
   );
 }
