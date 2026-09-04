@@ -2,11 +2,14 @@
 
 Publique cada bloco no console do Firebase.
 
+> **Ordem obrigatória para a regra restritiva do Firestore:** primeiro publique uma versão do app que carregue os dados de membros pela função de servidor `getMemberAppData`. Somente depois publique estas regras. Se a regra for aplicada antes do código compatível estar em produção, membros comuns deixarão de carregar Repertório e Minhas Escalas.
+
 Antes disso, confirme:
 
 - **Authentication → Sign-in method:** E-mail/senha e Link de e-mail.
 - **Authentication → Settings → Authorized domains:** domínio de produção/preview usado em `APP_URL`.
 - **Storage:** bucket ativo.
+- **Vercel:** `FIREBASE_ADMIN_SERVICE_ACCOUNT` configurada no ambiente que executa as funções de servidor.
 
 ## Firestore → Regras
 
@@ -41,15 +44,11 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/accessUsers/$(request.auth.token.email)).data.memberId is string;
     }
 
-    function isAuthorized() {
-      return isAdmin() || isMember();
-    }
-
-    // Dados principais do app: administradores e membros vinculados leem.
-    // Apenas administradores gravam nos documentos compartilhados.
+    // Os documentos brutos em /oitava contêm dados administrativos e pessoais.
+    // Apenas administradores podem acessá-los diretamente. Membros recebem uma
+    // visão filtrada por meio da função de servidor getMemberAppData.
     match /oitava/{docId} {
-      allow read: if isAuthorized();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     // Cada usuário pode ler o próprio vínculo. Administradores podem consultar
@@ -185,6 +184,8 @@ configuração do aplicativo e das regras, independentemente do documento em
 - As senhas são gerenciadas pelo Firebase Authentication e não ficam nos documentos do Firestore.
 - O login aceita como administrador tanto o e-mail principal configurado quanto um documento válido em `/accessUsers/{email}` com `role: "admin"`.
 - Membros comuns continuam exigindo `role: "membro"` e um `memberId` válido.
+- Membros não leem diretamente os documentos administrativos `/oitava/members`, `/oitava/groups`, `/oitava/songs` e `/oitava/scales`; a função de servidor devolve somente a visão necessária ao aplicativo do membro.
+- O repertório e os arquivos de áudio continuam disponíveis em modo somente leitura para membros autorizados.
 - O convite de novo membro continua separado. O documento em `/accessUsers/{email}` só é criado quando o administrador aprova o cadastro.
 - A sincronização de acessos preserva cadastros que já estejam marcados como `admin`.
 - O documento legado `/oitava/users` continua existindo por compatibilidade, mas não é usado pelas Security Rules para decidir autorização.

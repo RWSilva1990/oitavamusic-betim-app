@@ -6,14 +6,16 @@ function env(...names: string[]) {
   return '';
 }
 
-function vercelAppUrl() {
+function vercelPreviewUrl() {
   const vercelEnv = env('VERCEL_ENV');
   const branchUrl = env('VERCEL_BRANCH_URL');
-  const productionUrl = env('VERCEL_PROJECT_PRODUCTION_URL');
-
   if (vercelEnv === 'preview' && branchUrl) return `https://${branchUrl}`;
-  if (productionUrl) return `https://${productionUrl}`;
   return '';
+}
+
+function vercelProductionUrl() {
+  const productionUrl = env('VERCEL_PROJECT_PRODUCTION_URL');
+  return productionUrl ? `https://${productionUrl}` : '';
 }
 
 export function readFirebasePublicConfig() {
@@ -33,7 +35,13 @@ export function readFirebasePublicConfig() {
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
 
-  const appUrl = (env('APP_URL', 'VITE_APP_URL') || vercelAppUrl()).replace(/\/$/, '');
+  // Previews must return email-action links to the preview itself. In production,
+  // keep honoring the explicitly configured public APP_URL before the Vercel URL.
+  const appUrl = (
+    vercelPreviewUrl()
+    || env('APP_URL', 'VITE_APP_URL')
+    || vercelProductionUrl()
+  ).replace(/\/$/, '');
 
   return {
     apiKey,

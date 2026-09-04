@@ -23,24 +23,17 @@ const targetSchema = z.object({
   }
 });
 
-const scaleSchema = z.object({
-  id: z.string().min(1).max(160),
-  name: z.string().trim().min(1).max(180),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-});
-
 const requestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('register'), target: targetSchema }),
   z.object({ action: z.literal('unregister'), target: targetSchema }),
   z.object({
     action: z.literal('notify-scale-added'),
-    scale: scaleSchema,
+    scale: z.object({
+      id: z.string().min(1).max(160),
+      name: z.string().trim().min(1).max(180),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }),
     addedMemberIds: z.array(z.string().min(1).max(160)).max(300),
-  }),
-  z.object({
-    action: z.literal('notify-scale-removed'),
-    scale: scaleSchema,
-    removedMemberIds: z.array(z.string().min(1).max(160)).max(300),
   }),
 ]);
 
@@ -63,19 +56,11 @@ export const Route = createFileRoute('/api/mobile/push')({
             result = await registerPushInstallationForToken(idToken, parsed.data.target);
           } else if (parsed.data.action === 'unregister') {
             result = await unregisterPushInstallationForToken(idToken, parsed.data.target);
-          } else if (parsed.data.action === 'notify-scale-removed') {
-            result = await notifyScaleMembersAddedForToken(
-              idToken,
-              parsed.data.scale,
-              parsed.data.removedMemberIds,
-              'removed',
-            );
           } else {
             result = await notifyScaleMembersAddedForToken(
               idToken,
               parsed.data.scale,
               parsed.data.addedMemberIds,
-              'added',
             );
           }
 

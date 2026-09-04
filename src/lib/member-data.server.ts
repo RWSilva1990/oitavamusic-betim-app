@@ -86,7 +86,9 @@ function publicSong(song: any) {
     id: String(song?.id || ''),
     name: String(song?.name || ''),
     youtubeUrl: String(song?.youtubeUrl || ''),
+    originalKey: String(song?.originalKey || ''),
     bpm: song?.bpm ?? '',
+    timeSignature: String(song?.timeSignature || ''),
     audios: Array.isArray(song?.audios) ? song.audios : [],
   };
 }

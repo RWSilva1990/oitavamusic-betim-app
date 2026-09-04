@@ -281,20 +281,6 @@ export async function registerPushInstallationForToken(
     ),
   });
 
-  if (target.type === 'token') {
-    const existing = await findInstallationsByMemberIds(caller.app, [memberId]);
-    const webPaths = existing
-      .filter((installation) => installation.type === 'fid')
-      .map((installation) => installation.path);
-    if (webPaths.length > 0) {
-      await Promise.all(
-        [...new Set(webPaths)].map((webPath) =>
-          firestoreRest(caller.app, `/${webPath}`, { method: 'DELETE' }).catch(() => undefined),
-        ),
-      );
-    }
-  }
-
   console.info('[push-register]', JSON.stringify({ memberId, targetType: target.type }));
   return { success: true, memberId, targetType: target.type };
 }
@@ -324,76 +310,54 @@ export async function unregisterPushInstallationForToken(
   return { success: true };
 }
 
-type ScaleNotificationEvent = 'added' | 'removed';
-
 export async function notifyScaleMembersAddedForToken(
   idToken: string,
   scale: { id: string; name: string; date: string },
-  targetMemberIds: string[],
-  eventType: ScaleNotificationEvent = 'added',
+  addedMemberIds: string[],
 ) {
   const caller = await assertAdmin(idToken);
-  const memberIds = [...new Set(targetMemberIds)].filter(Boolean);
+  const memberIds = [...new Set(addedMemberIds)].filter(Boolean);
   if (memberIds.length === 0) {
-    console.info('[push-scale]', JSON.stringify({ scaleId: scale.id, eventType, memberIds: [], devices: 0, webDevices: 0, androidDevices: 0, sent: 0, failed: 0 }));
+    console.info('[push-scale]', JSON.stringify({ scaleId: scale.id, memberIds: [], devices: 0, webDevices: 0, androidDevices: 0, sent: 0, failed: 0 }));
     return { success: true, sent: 0, failed: 0, devices: 0 };
   }
 
   const installations = await findInstallationsByMemberIds(caller.app, memberIds);
-  const nativeTargets = installations.filter((item) => item.type === 'token');
-  const allWebTargets = installations.filter((item) => item.type === 'fid');
-
-  if (nativeTargets.length === 0) {
-    console.info('[push-scale]', JSON.stringify({
-      scaleId: scale.id,
-      eventType,
-      memberIds,
-      success: true,
-      sent: 0,
-      failed: 0,
-      devices: 0,
-      webDevices: 0,
-      androidDevices: 0,
-      suppressedWebDevices: allWebTargets.length,
-    }));
+  if (installations.length === 0) {
+    console.info('[push-scale]', JSON.stringify({ scaleId: scale.id, memberIds, devices: 0, webDevices: 0, androidDevices: 0, sent: 0, failed: 0 }));
     return { success: true, sent: 0, failed: 0, devices: 0 };
   }
 
-  const added = eventType === 'added';
-  const path = added
-    ? `/minhas-escalas?escala=${encodeURIComponent(scale.id)}`
-    : '/minhas-escalas';
-  const link = `${appUrl()}${path}`;
-  const title = added ? 'Você foi escalado! 🎵' : 'Você foi removido da escala';
-  const body = added
-    ? `Você foi incluído na escala “${scale.name}” de ${formatScaleDate(scale.date)}.`
-    : `Você não está mais na escala “${scale.name}” de ${formatScaleDate(scale.date)}.`;
-  const notificationType = added ? 'scale-added' : 'scale-removed';
+  const link = `${appUrl()}/minhas-escalas?escala=${encodeURIComponent(scale.id)}`;
+  const path = `/minhas-escalas?escala=${encodeURIComponent(scale.id)}`;
+  const title = 'Você foi escalado! 🎵';
+  const body = `Você foi incluído na escala “${scale.name}” de ${formatScaleDate(scale.date)}.`;
 
   let sent = 0;
   let failed = 0;
   const stalePaths: string[] = [];
+  const nativeTargets = installations.filter((item) => item.type === 'token');
+  const membersWithNativePush = new Set(nativeTargets.map((item) => item.memberId));
+  const allWebTargets = installations.filter((item) => item.type === 'fid');
+  const webTargets = allWebTargets.filter((item) => !membersWithNativePush.has(item.memberId));
+  const suppressedWebDevices = allWebTargets.length - webTargets.length;
 
-  for (let i = 0; i < nativeTargets.length; i += 500) {
-    const entries = nativeTargets.slice(i, i + 500);
-    const tokens = entries.map((item) => item.value);
+  for (let i = 0; i < webTargets.length; i += 500) {
+    const entries = webTargets.slice(i, i + 500);
+    const fids = entries.map((item) => item.value);
     const response = await getMessaging(caller.app).sendEachForMulticast({
-      tokens,
-      notification: { title, body },
+      fids,
       data: {
-        type: notificationType,
+        type: 'scale-added',
         title,
         body,
         url: link,
         path,
         scaleId: scale.id,
       },
-      android: {
-        priority: 'high',
-        notification: {
-          channelId: 'escala-alerts',
-          sound: 'default',
-        },
+      webpush: {
+        headers: { Urgency: 'high' },
+        fcmOptions: { link },
       },
     });
 
@@ -402,12 +366,34 @@ export async function notifyScaleMembersAddedForToken(
     response.responses.forEach((item, index) => {
       if (item.success) return;
       const code = String(item.error?.code || '');
-      console.warn('[push-native-failure]', JSON.stringify({
+      if (isStaleTargetError(code)) stalePaths.push(entries[index].path);
+    });
+  }
+
+  for (let i = 0; i < nativeTargets.length; i += 500) {
+    const entries = nativeTargets.slice(i, i + 500);
+    const tokens = entries.map((item) => item.value);
+    const response = await getMessaging(caller.app).sendEachForMulticast({
+      tokens,
+      notification: { title, body },
+      data: {
+        type: 'scale-added',
+        title,
+        body,
+        url: link,
+        path,
         scaleId: scale.id,
-        eventType,
-        memberId: entries[index]?.memberId || '',
-        code,
-      }));
+      },
+      android: {
+        priority: 'high',
+      },
+    });
+
+    sent += response.successCount;
+    failed += response.failureCount;
+    response.responses.forEach((item, index) => {
+      if (item.success) return;
+      const code = String(item.error?.code || '');
       if (isStaleTargetError(code)) stalePaths.push(entries[index].path);
     });
   }
@@ -424,12 +410,12 @@ export async function notifyScaleMembersAddedForToken(
     success: true,
     sent,
     failed,
-    devices: nativeTargets.length,
-    webDevices: 0,
+    devices: webTargets.length + nativeTargets.length,
+    webDevices: webTargets.length,
     androidDevices: nativeTargets.length,
-    suppressedWebDevices: allWebTargets.length,
+    suppressedWebDevices,
   };
 
-  console.info('[push-scale]', JSON.stringify({ scaleId: scale.id, eventType, memberIds, ...result }));
+  console.info('[push-scale]', JSON.stringify({ scaleId: scale.id, memberIds, ...result }));
   return result;
 }

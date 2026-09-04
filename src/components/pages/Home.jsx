@@ -1,15 +1,94 @@
+import { useEffect, useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { Cake, Clock } from 'lucide-react';
+import { Cake, Clock, Megaphone } from 'lucide-react';
 import { C, ROLES, LOGO_HOME } from '@/lib/theme';
 import { fmtDate, todayISO } from '@/lib/db';
+import { getCommunicationsInbox } from '@/lib/communications';
 import { Avatar } from '../ui-kit';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 
+function UnreadCommunicationsAlert({ count }) {
+  if (!count) return null;
+  const singular = count === 1;
+
+  return (
+    <Link
+      to="/comunicados"
+      className="card"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '14px 16px',
+        marginBottom: 18,
+        textDecoration: 'none',
+        borderColor: `${C.accent}88`,
+        background: C.accentGlow,
+        boxShadow: '0 5px 18px rgba(139,92,246,0.10)',
+      }}
+    >
+      <div style={{
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        background: 'rgba(139,92,246,0.15)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}>
+        <Megaphone size={19} color={C.accent} />
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 3 }}>
+          <span className="tag" style={{ fontSize: 9.5 }}>NOVO</span>
+          <strong style={{ color: C.textPrimary, fontSize: 13.5 }}>
+            {singular ? 'Você tem um comunicado para ler' : 'Você tem comunicados para ler'}
+          </strong>
+        </div>
+        <div style={{ color: C.textSecondary, fontSize: 11.5, lineHeight: 1.45 }}>
+          {singular
+            ? 'Existe 1 comunicado não lido aguardando sua leitura.'
+            : `Existem ${count} comunicados não lidos aguardando sua leitura.`}
+        </div>
+      </div>
+      <span style={{ color: C.accent, fontWeight: 800, fontSize: 11.5, flexShrink: 0 }}>
+        Ler →
+      </span>
+    </Link>
+  );
+}
+
 export default function HomePage() {
   const auth = useAuth();
   const { members, groups, songs, scales } = useData();
+  const [unreadCommunications, setUnreadCommunications] = useState(0);
   const today = todayISO();
+
+  useEffect(() => {
+    let alive = true;
+
+    const loadUnread = async () => {
+      try {
+        const data = await getCommunicationsInbox();
+        if (alive) setUnreadCommunications(Number(data?.unread || 0));
+      } catch (error) {
+        console.warn('Não foi possível verificar comunicados não lidos na tela inicial:', error);
+      }
+    };
+
+    const refresh = () => { loadUnread(); };
+    loadUnread();
+    window.addEventListener('oitava:communications-updated', refresh);
+    window.addEventListener('focus', refresh);
+
+    return () => {
+      alive = false;
+      window.removeEventListener('oitava:communications-updated', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [auth.user?.uid]);
 
   if (auth.role === 'membro') {
     const me = auth.memberFor(members);
@@ -51,6 +130,8 @@ export default function HomePage() {
             </div>
           </Link>
         </div>
+
+        <UnreadCommunicationsAlert count={unreadCommunications} />
 
         <div className="section-header" style={{ marginBottom: 10 }}><Clock size={14} />Próxima escala</div>
         {nextScale ? (
@@ -112,6 +193,8 @@ export default function HomePage() {
         </div>
         <h1 style={{ fontWeight: 800, fontSize: 22, color: C.accent, marginBottom: 4, letterSpacing: '-0.5px' }}>Oitava Music Betim</h1>
       </div>
+
+      <UnreadCommunicationsAlert count={unreadCommunications} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 8 }}>
         {cards.map((item) => (

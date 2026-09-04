@@ -1,4 +1,19 @@
+import { Capacitor } from '@capacitor/core';
 import { getFirebaseAuth } from './firebase';
+
+const DEFAULT_API_BASE_URL = 'https://oitavamusicbetim.vercel.app';
+
+function isPackagedNativeApp() {
+  return typeof window !== 'undefined'
+    && Capacitor.isNativePlatform()
+    && window.location.hostname === 'localhost';
+}
+
+function apiBaseUrl() {
+  if (!isPackagedNativeApp()) return '';
+  const configured = String(import.meta.env.VITE_MOBILE_API_BASE_URL || '').trim();
+  return (configured || DEFAULT_API_BASE_URL).replace(/\/$/, '');
+}
 
 async function currentIdToken() {
   const { auth } = await getFirebaseAuth();
@@ -9,7 +24,7 @@ async function currentIdToken() {
 
 async function requestCommunications(payload) {
   const idToken = await currentIdToken();
-  const response = await fetch('/api/mobile/communications', {
+  const response = await fetch(`${apiBaseUrl()}/api/mobile/communications`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',

@@ -1,0 +1,82 @@
+name: Build Android Test APK
+
+on:
+  push:
+    branches:
+      - refactor/android-production-shell-2026-08-27
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_SPA_BUILD: 'true'
+      VITE_ANDROID_TEST_DIRECT_FIREBASE: 'false'
+      VITE_FIREBASE_API_KEY: 'AIzaSyAQuplKbkau95AjkMhS4piewfzVYDULRQw'
+      VITE_FIREBASE_APP_ID: '1:1082908267904:web:df0751076eca92bcb45d65'
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '1082908267904'
+      VITE_FIREBASE_AUTH_DOMAIN: 'oitavamusicbetim.firebaseapp.com'
+      VITE_FIREBASE_PROJECT_ID: 'oitavamusicbetim'
+      VITE_FIREBASE_STORAGE_BUCKET: 'oitavamusicbetim.firebasestorage.app'
+      VITE_ADMIN_EMAILS: 'rwsilvatec@gmail.com'
+      VITE_APP_URL: 'https://oitavamusicbetim.vercel.app'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Android SPA shell
+        run: npm run build
+
+      - name: Prepare packaged web assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHELL_PATH="$(find .output dist -type f -name '_shell.html' 2>/dev/null | head -n 1 || true)"
+          if [ -z "$SHELL_PATH" ]; then
+            echo "TanStack SPA shell (_shell.html) was not found."
+            find .output dist -maxdepth 4 -type f 2>/dev/null | sort || true
+            exit 1
+          fi
+
+          STATIC_DIR="$(dirname "$SHELL_PATH")"
+          echo "Using SPA output from: $STATIC_DIR"
+          rm -rf android-web
+          mkdir -p android-web
+          cp -R "$STATIC_DIR"/. android-web/
+          mv android-web/_shell.html android-web/index.html
+          test -s android-web/index.html
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: oitava-music-android-test
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

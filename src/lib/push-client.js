@@ -5,13 +5,21 @@ import {
   loadFirebaseConfig,
 } from './firebase';
 import {
-  notifyScaleMembersAdded,
-  registerPushInstallation,
-  unregisterPushInstallation,
-} from './push-notifications.functions';
+  disableNativeScaleNotifications,
+  enableNativeScaleNotifications,
+  getNativeScaleNotificationStatus,
+  isNativeAndroid,
+  startNativeScaleNotificationRuntime,
+} from './push-native';
+import {
+  notifyMobileScaleAdded,
+  registerMobilePush,
+  unregisterMobilePush,
+} from './mobile-api';
 
 const PUSH_ENABLED_KEY = 'oitava:push-enabled';
-const PUSH_FID_KEY = 'oitava:push-fid';
+const PUSH_TOKEN_KEY = 'oitava:push-token';
+const LEGACY_PUSH_FID_KEY = 'oitava:push-fid';
 const NOTIFICATION_BADGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAABRUlEQVR42u3cUQ7CIBBFUSHsf8v1yw9jjcZgZxjOXYAt7/KwKOntBgAAAAAAAAAAAACoSttloMdxHE8Db60REBR+JhFt5/AziGjCj5XRfQ2ei/tVngZMaMCVrdCA4FZoQHArNCAYAgjYm7Hj2q0Bws8pICr8yN+Dhpn/KuHKe+nCP5dxVSu68GNFDOHHLk/2AcGtGKvNwCwNmyVBA+wDCAABBIAAAkAAASCAABBAAAggAAQQAAIIAAF1GSvffIVzpEPoxQXMCqzqqelmlhY6Hb3b2f5UT0Grhh/9rohu5i/eAOEHCqgQfvQY7IRXbYClRwMIAAH2AQgSkOW1jyvP/q0bkGUC9eyD+Mc1MrW3Zx7M47NnXiPb0jntZmZvzN4FtcK7QEMEzJTwbVifrrfCg0Kqf8QqPFmlEFBtlgIAAAAAAAAowB3XUph8InDUGgAAAABJRU5ErkJggg==';
 let runtimeCleanup = null;
 let syncPromise = null;
@@ -26,7 +34,9 @@ function preferenceEnabled() {
 
 function cleanServerError(error, fallback) {
   const message = String(error?.message || error || '');
-  if (message.includes('<!doctype html') || message.includes('<html')) return new Error(fallback);
+  if (message.includes('<!doctype html') || message.includes('<html') || message.includes('Only HTML requests are supported here')) {
+    return new Error(fallback);
+  }
   return error instanceof Error ? error : new Error(message || fallback);
 }
 
@@ -37,14 +47,16 @@ async function currentIdToken() {
   return currentUser.getIdToken(true);
 }
 
-async function ensureServiceWorker(cfg) {
+async function ensureServiceWorker() {
   if (!('serviceWorker' in navigator)) throw new Error('Este navegador não oferece suporte a notificações em segundo plano.');
-  const registration = await navigator.serviceWorker.register(firebaseServiceWorkerUrl(cfg));
+  const registration = await navigator.serviceWorker.register(firebaseServiceWorkerUrl());
   await navigator.serviceWorker.ready;
   return registration;
 }
 
 export async function getScaleNotificationStatus() {
+  if (isNativeAndroid()) return getNativeScaleNotificationStatus();
+
   const cfg = await loadFirebaseConfig();
   const supported = browserReady()
     && 'Notification' in window
@@ -62,13 +74,18 @@ export async function getScaleNotificationStatus() {
 
   return {
     supported: supported && firebaseSupported,
-    configured: Boolean(cfg.messagingConfigured),
+    configured: Boolean(cfg.messagingConfigured && cfg.vapidKey),
     permission: supported ? Notification.permission : 'unsupported',
     enabled: supported && Notification.permission === 'granted' && preferenceEnabled(),
+    native: false,
   };
 }
 
 export async function syncScaleNotifications({ requestPermission = false } = {}) {
+  if (isNativeAndroid()) {
+    return requestPermission ? enableNativeScaleNotifications() : null;
+  }
+
   if (!browserReady()) return null;
   if (syncPromise) return syncPromise;
 
@@ -96,98 +113,80 @@ export async function syncScaleNotifications({ requestPermission = false } = {})
 
     if (!requestPermission && !preferenceEnabled()) return null;
 
-    const registration = await ensureServiceWorker(cfg);
+    const registration = await ensureServiceWorker();
     const { messaging, mod } = await getFirebaseMessaging();
-    const idToken = await currentIdToken();
-
-    return new Promise((resolve, reject) => {
-      let finished = false;
-      let unsubscribe = () => {};
-      const timeout = window.setTimeout(() => {
-        if (finished) return;
-        finished = true;
-        unsubscribe();
-        reject(new Error('O aparelho demorou demais para concluir o registro das notificações. Tente novamente.'));
-      }, 20000);
-
-      const finish = (callback) => {
-        if (finished) return;
-        finished = true;
-        window.clearTimeout(timeout);
-        unsubscribe();
-        callback();
-      };
-
-      unsubscribe = mod.onRegistered(messaging, async (fid) => {
-        try {
-          await registerPushInstallation({ data: { idToken, fid } });
-          window.localStorage.setItem(PUSH_FID_KEY, fid);
-          window.localStorage.setItem(PUSH_ENABLED_KEY, 'true');
-          finish(() => resolve(fid));
-        } catch (error) {
-          finish(() => reject(cleanServerError(error, 'Não foi possível vincular este aparelho às notificações.')));
-        }
-      });
-
-      mod.register(messaging, {
-        vapidKey: cfg.vapidKey,
-        serviceWorkerRegistration: registration,
-      }).catch((error) => {
-        finish(() => reject(error));
-      });
+    const token = await mod.getToken(messaging, {
+      vapidKey: cfg.vapidKey,
+      serviceWorkerRegistration: registration,
     });
+    if (!token) throw new Error('O navegador não forneceu um identificador para receber notificações. Tente novamente.');
+
+    const idToken = await currentIdToken();
+    await registerMobilePush(idToken, { token });
+    window.localStorage.setItem(PUSH_TOKEN_KEY, token);
+    window.localStorage.removeItem(LEGACY_PUSH_FID_KEY);
+    window.localStorage.setItem(PUSH_ENABLED_KEY, 'true');
+    return token;
   })();
 
   try {
     return await syncPromise;
+  } catch (error) {
+    throw cleanServerError(error, 'Não foi possível vincular este navegador às notificações.');
   } finally {
     syncPromise = null;
   }
 }
 
 export async function enableScaleNotifications() {
+  if (isNativeAndroid()) return enableNativeScaleNotifications();
   return syncScaleNotifications({ requestPermission: true });
 }
 
 export async function disableScaleNotifications() {
+  if (isNativeAndroid()) return disableNativeScaleNotifications();
   if (!browserReady()) return;
-  const fid = window.localStorage.getItem(PUSH_FID_KEY) || '';
+
+  const token = window.localStorage.getItem(PUSH_TOKEN_KEY) || '';
+  const legacyFid = window.localStorage.getItem(LEGACY_PUSH_FID_KEY) || '';
 
   try {
-    if (fid) {
-      const idToken = await currentIdToken();
-      await unregisterPushInstallation({ data: { idToken, fid } });
-    }
+    const idToken = await currentIdToken();
+    if (token) await unregisterMobilePush(idToken, { token });
+    if (legacyFid) await unregisterMobilePush(idToken, { fid: legacyFid });
   } catch (error) {
     console.warn('Não foi possível remover o vínculo de push no servidor:', error);
   }
 
   try {
     const { messaging, mod } = await getFirebaseMessaging();
-    await mod.unregister(messaging);
+    await mod.deleteToken(messaging);
   } catch (error) {
     console.warn('Não foi possível remover o registro local do FCM:', error);
   }
 
   window.localStorage.setItem(PUSH_ENABLED_KEY, 'false');
-  window.localStorage.removeItem(PUSH_FID_KEY);
+  window.localStorage.removeItem(PUSH_TOKEN_KEY);
+  window.localStorage.removeItem(LEGACY_PUSH_FID_KEY);
 }
 
 async function showForegroundNotification(payload) {
   if (Notification.permission !== 'granted' || !preferenceEnabled()) return;
   const data = payload?.data || {};
+  const notification = payload?.notification || {};
   const registration = await navigator.serviceWorker.ready;
-  await registration.showNotification(data.title || 'Você foi escalado! 🎵', {
-    body: data.body || 'Há uma nova escala para você.',
+  await registration.showNotification(data.title || notification.title || 'Oitava Music Betim', {
+    body: data.body || notification.body || 'Há uma nova atualização para você.',
     icon: '/pwa-icon-192.png',
     badge: NOTIFICATION_BADGE,
-    tag: data.scaleId ? `scale-added-${data.scaleId}` : 'scale-added',
-    data: { url: data.url || '/minhas-escalas' },
+    tag: data.scaleId ? `${data.type || 'oitava'}-${data.scaleId}` : (data.communicationId ? `communication-${data.communicationId}` : 'oitava-music-push'),
+    data: { url: data.url || data.path || '/minhas-escalas' },
     vibrate: [180, 80, 180],
   });
 }
 
 export async function startScaleNotificationRuntime() {
+  if (isNativeAndroid()) return startNativeScaleNotificationRuntime();
   if (!browserReady() || runtimeCleanup) return runtimeCleanup || (() => {});
 
   const cfg = await loadFirebaseConfig();
@@ -195,26 +194,12 @@ export async function startScaleNotificationRuntime() {
 
   try {
     const { messaging, mod } = await getFirebaseMessaging();
-
     const offMessage = mod.onMessage(messaging, (payload) => {
       showForegroundNotification(payload).catch(console.warn);
     });
 
-    const offUnregistered = mod.onUnregistered(messaging, async (fid) => {
-      try {
-        const idToken = await currentIdToken();
-        await unregisterPushInstallation({ data: { idToken, fid } });
-      } catch {
-        // O servidor também elimina instalações inválidas ao tentar enviar.
-      }
-      if (window.localStorage.getItem(PUSH_FID_KEY) === fid) {
-        window.localStorage.removeItem(PUSH_FID_KEY);
-      }
-    });
-
     runtimeCleanup = () => {
       offMessage();
-      offUnregistered();
       runtimeCleanup = null;
     };
 
@@ -235,13 +220,7 @@ export async function sendScaleAddedNotifications(scale, addedMemberIds) {
 
   const idToken = await currentIdToken();
   try {
-    return await notifyScaleMembersAdded({
-      data: {
-        idToken,
-        scale: { id: scale.id, name: scale.name, date: scale.date },
-        addedMemberIds: ids,
-      },
-    });
+    return await notifyMobileScaleAdded(idToken, scale, ids);
   } catch (error) {
     throw cleanServerError(error, 'A escala foi salva, mas não foi possível enviar as notificações.');
   }

@@ -1,9 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { dbGet, dbSet } from './db';
 import { useAuth } from './auth';
-import { sendScaleAddedNotifications } from './push-client';
-import { sendScaleRemovedNotifications } from './scale-removal-notifications';
-import { sendScaleEventNotification } from './scale-event-notifications';
+import { getMemberAppData } from './member-data.functions';
+import {
+  getMobileAdminData,
+  getMobileMemberData,
+  isPackagedNativeApp,
+  saveMobileAdminData,
+} from './mobile-api';
+import { sendScaleEventNotification } from './notification-center';
 
 const DataCtx = createContext(null);
 
@@ -32,16 +37,55 @@ export function DataProvider({ children }) {
   const [syncing, setSyncing] = useState(false);
   const [syncOk, setSyncOk] = useState(null);
   const readyRef = useRef(false);
+  const scalesRef = useRef([]);
 
   const clearAll = useCallback(() => {
     setMembersState([]);
     setGroupsState([]);
     setSongsState([]);
+    scalesRef.current = [];
     setScalesState([]);
   }, []);
 
   const loadAll = useCallback(async () => {
     if (!auth.user || !auth.role) return;
+
+    if (auth.role === 'membro') {
+      const idToken = await auth.user.getIdToken(true);
+      const memberData = isPackagedNativeApp()
+        ? await getMobileMemberData(idToken)
+        : await getMemberAppData({ data: { idToken } });
+      const visibleMembers = Array.isArray(memberData?.members) && memberData.members.length > 0
+        ? memberData.members
+        : memberData?.member
+          ? [memberData.member]
+          : [];
+      setMembersState(visibleMembers);
+      setGroupsState(memberData?.groups || []);
+      setSongsState(memberData?.songs || []);
+      const nextScales = memberData?.scales || [];
+      scalesRef.current = nextScales;
+      setScalesState(nextScales);
+      return;
+    }
+
+    if (isPackagedNativeApp()) {
+      const idToken = await auth.user.getIdToken(true);
+      const adminData = await getMobileAdminData(idToken);
+      const m = adminData?.members || [];
+      const cleaned = m.map((mb) => ({ ...mb, roles: (mb.roles || []).filter((r) => r !== 'vocal') }));
+      setMembersState(cleaned);
+      if (auth.isAdmin && m.some((mb) => (mb.roles || []).includes('vocal'))) {
+        await saveMobileAdminData(idToken, 'members', cleaned);
+      }
+      setGroupsState(adminData?.groups || []);
+      setSongsState(adminData?.songs || []);
+      const nextScales = adminData?.scales || [];
+      scalesRef.current = nextScales;
+      setScalesState(nextScales);
+      return;
+    }
+
     const [m, g, s, sc] = await Promise.all([
       dbGet('members'),
       dbGet('groups'),
@@ -59,7 +103,9 @@ export function DataProvider({ children }) {
     }
     setGroupsState(g || []);
     setSongsState(s || []);
-    setScalesState(sc || []);
+    const nextScales = sc || [];
+    scalesRef.current = nextScales;
+    setScalesState(nextScales);
   }, [auth.user, auth.role, auth.isAdmin]);
 
   useEffect(() => {
@@ -119,7 +165,12 @@ export function DataProvider({ children }) {
     setSyncing(true);
     setSyncOk(null);
     try {
-      await dbSet(key, val);
+      if (isPackagedNativeApp()) {
+        const idToken = await auth.user.getIdToken(true);
+        await saveMobileAdminData(idToken, key, val);
+      } else {
+        await dbSet(key, val);
+      }
       setSyncOk(true);
     } catch (error) {
       console.error(`Falha ao salvar oitava/${key}`, error);
@@ -137,97 +188,108 @@ export function DataProvider({ children }) {
       return next;
     });
 
-  const setScales = (updater) =>
-    setScalesState((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
+  const setScales = useCallback((updater) => {
+    const prev = scalesRef.current;
+    const next = typeof updater === 'function' ? updater(prev) : updater;
 
-      if (readyRef.current && auth.isAdmin) {
-        const notifications = [];
-        for (const scale of next || []) {
-          const previous = (prev || []).find((item) => item.id === scale.id);
-          const previousMembers = previous?.scaleMembers || [];
-          const nextMembers = scale.scaleMembers || [];
-          const previousMemberIds = new Set(previousMembers.map((item) => item.memberId).filter(Boolean));
-          const nextMemberIds = new Set(nextMembers.map((item) => item.memberId).filter(Boolean));
+    scalesRef.current = next;
+    setScalesState(next);
 
-          const addedMemberIds = [...nextMemberIds].filter((memberId) => !previousMemberIds.has(memberId));
-          const removedMemberIds = previous
-            ? [...previousMemberIds].filter((memberId) => !nextMemberIds.has(memberId))
-            : [];
+    if (!readyRef.current || !auth.isAdmin) return next;
 
-          if (addedMemberIds.length > 0) notifications.push({ type: 'added', scale, memberIds: addedMemberIds });
-          if (removedMemberIds.length > 0) notifications.push({ type: 'removed', scale, memberIds: removedMemberIds });
+    const notifications = [];
 
-          if (!previous) continue;
+    for (const scale of next || []) {
+      const previous = (prev || []).find((item) => item.id === scale.id);
+      const previousMembers = previous?.scaleMembers || [];
+      const nextMembers = scale.scaleMembers || [];
+      const previousMemberIds = new Set(previousMembers.map((item) => item.memberId).filter(Boolean));
+      const nextMemberIds = new Set(nextMembers.map((item) => item.memberId).filter(Boolean));
 
-          const existingMemberIds = [...nextMemberIds].filter(
-            (memberId) => previousMemberIds.has(memberId) && !addedMemberIds.includes(memberId),
-          );
+      const addedMemberIds = [...nextMemberIds].filter((memberId) => !previousMemberIds.has(memberId));
+      const removedMemberIds = previous
+        ? [...previousMemberIds].filter((memberId) => !nextMemberIds.has(memberId))
+        : [];
 
-          for (const memberId of existingMemberIds) {
-            const before = previousMembers.find((item) => item.memberId === memberId);
-            const after = nextMembers.find((item) => item.memberId === memberId);
-            if (!sameStringArray(normalizedRoles(before), normalizedRoles(after))) {
-              notifications.push({ type: 'role-changed', scale, memberIds: [memberId] });
-            }
-          }
-
-          const previousSongs = previous.scaleSongs || [];
-          const nextSongs = scale.scaleSongs || [];
-          const previousSongIds = new Set(previousSongs.map((item) => item.songId).filter(Boolean));
-          const nextSongIds = new Set(nextSongs.map((item) => item.songId).filter(Boolean));
-
-          if (!sameIdSet(previousSongIds, nextSongIds) && existingMemberIds.length > 0) {
-            notifications.push({ type: 'repertoire-changed', scale, memberIds: existingMemberIds });
-          }
-
-          const changedSongIds = [];
-          for (const nextSong of nextSongs) {
-            if (!previousSongIds.has(nextSong.songId)) continue;
-            const previousSong = previousSongs.find((item) => item.songId === nextSong.songId);
-            const keyChanged = String(previousSong?.key || '').trim() !== String(nextSong?.key || '').trim();
-            const soloChanged = String(previousSong?.soloMemberId || '') !== String(nextSong?.soloMemberId || '');
-            if (keyChanged || soloChanged) changedSongIds.push(nextSong.songId);
-          }
-
-          if (changedSongIds.length > 0 && existingMemberIds.length > 0) {
-            const detail = changedSongIds.length === 1
-              ? { songName: songs.find((song) => song.id === changedSongIds[0])?.name || '' }
-              : undefined;
-            notifications.push({
-              type: 'song-details-changed',
-              scale,
-              memberIds: existingMemberIds,
-              ...(detail?.songName ? { detail } : {}),
-            });
-          }
-        }
-
-        persist('scales', next, true)
-          .then(async () => {
-            for (const item of notifications) {
-              try {
-                if (item.type === 'removed') {
-                  await sendScaleRemovedNotifications(item.scale, item.memberIds);
-                } else if (item.type === 'added') {
-                  await sendScaleAddedNotifications(item.scale, item.memberIds);
-                } else {
-                  await sendScaleEventNotification(item.type, item.scale, item.memberIds, item.detail);
-                }
-              } catch (error) {
-                console.warn('A escala foi salva, mas a notificação não pôde ser enviada:', error);
-              }
-            }
-          })
-          .catch((error) => console.error('A escala não foi salva; notificações não foram enviadas.', error));
+      if (addedMemberIds.length > 0) {
+        notifications.push({ type: 'scale-added', scale, memberIds: addedMemberIds });
+      }
+      if (removedMemberIds.length > 0) {
+        notifications.push({ type: 'scale-removed', scale, memberIds: removedMemberIds });
       }
 
-      return next;
-    });
+      if (!previous) continue;
+
+      const existingMemberIds = [...nextMemberIds].filter(
+        (memberId) => previousMemberIds.has(memberId) && !addedMemberIds.includes(memberId),
+      );
+
+      for (const memberId of existingMemberIds) {
+        const before = previousMembers.find((item) => item.memberId === memberId);
+        const after = nextMembers.find((item) => item.memberId === memberId);
+        if (!sameStringArray(normalizedRoles(before), normalizedRoles(after))) {
+          notifications.push({ type: 'role-changed', scale, memberIds: [memberId] });
+        }
+      }
+
+      const previousSongs = previous.scaleSongs || [];
+      const nextSongs = scale.scaleSongs || [];
+      const previousSongIds = new Set(previousSongs.map((item) => item.songId).filter(Boolean));
+      const nextSongIds = new Set(nextSongs.map((item) => item.songId).filter(Boolean));
+
+      if (!sameIdSet(previousSongIds, nextSongIds) && existingMemberIds.length > 0) {
+        notifications.push({ type: 'repertoire-changed', scale, memberIds: existingMemberIds });
+      }
+
+      const changedSongIds = [];
+      for (const nextSong of nextSongs) {
+        if (!previousSongIds.has(nextSong.songId)) continue;
+        const previousSong = previousSongs.find((item) => item.songId === nextSong.songId);
+        const keyChanged = String(previousSong?.key || '').trim() !== String(nextSong?.key || '').trim();
+        const soloChanged = String(previousSong?.soloMemberId || '') !== String(nextSong?.soloMemberId || '');
+        if (keyChanged || soloChanged) changedSongIds.push(nextSong.songId);
+      }
+
+      if (changedSongIds.length > 0 && existingMemberIds.length > 0) {
+        const detail = changedSongIds.length === 1
+          ? { songName: songs.find((song) => song.id === changedSongIds[0])?.name || '' }
+          : undefined;
+        notifications.push({
+          type: 'song-details-changed',
+          scale,
+          memberIds: existingMemberIds,
+          ...(detail?.songName ? { detail } : {}),
+        });
+      }
+    }
+
+    for (const previous of prev || []) {
+      if ((next || []).some((scale) => scale.id === previous.id)) continue;
+      const memberIds = [...new Set((previous.scaleMembers || []).map((item) => item.memberId).filter(Boolean))];
+      if (memberIds.length > 0) {
+        notifications.push({ type: 'scale-removed', scale: previous, memberIds });
+      }
+    }
+
+    persist('scales', next, true)
+      .then(async () => {
+        for (const item of notifications) {
+          try {
+            await sendScaleEventNotification(item.type, item.scale, item.memberIds, item.detail);
+          } catch (error) {
+            console.warn('A escala foi salva, mas um aviso não pôde ser enviado:', error);
+          }
+        }
+      })
+      .catch((error) => console.error('A escala não foi salva; avisos não foram enviados.', error));
+
+    return next;
+  }, [auth.isAdmin, persist, songs]);
 
   const saveScales = useCallback(async (next) => {
     if (!readyRef.current) throw new Error('Os dados ainda estão sendo carregados.');
     await persist('scales', next, true);
+    scalesRef.current = next;
     setScalesState(next);
     return next;
   }, [persist]);
