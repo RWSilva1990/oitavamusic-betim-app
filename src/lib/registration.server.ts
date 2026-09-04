@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import {
+  firestoreRest,
+  firestoreString,
+  stringFields,
+} from './firestore-rest.functions';
 import { MobileApiError } from './mobile-api.server';
 
 type RegistrationProfile = {
@@ -9,6 +13,8 @@ type RegistrationProfile = {
   birthdate: string;
   phone: string;
 };
+
+type AdminApp = ReturnType<typeof getRegistrationApp>;
 
 function env(name: string) {
   return process.env[name]?.trim() || '';
@@ -49,6 +55,16 @@ function getRegistrationApp() {
   return initializeApp({ credential: cert({ projectId, clientEmail, privateKey }), projectId }, 'oitava-registrations');
 }
 
+function projectIdOf(app: AdminApp) {
+  const projectId = String(app.options?.projectId || '').trim();
+  if (!projectId) throw new Error('Não foi possível identificar o projeto Firebase.');
+  return projectId;
+}
+
+function documentName(app: AdminApp, path: string) {
+  return `projects/${projectIdOf(app)}/databases/(default)/documents/${path}`;
+}
+
 async function verifyCaller(idToken: string) {
   const app = getRegistrationApp();
   const decoded = await getAuth(app).verifyIdToken(idToken, true);
@@ -61,8 +77,13 @@ async function assertAdmin(idToken: string) {
   const caller = await verifyCaller(idToken);
   if (adminEmails().includes(caller.email)) return caller;
 
-  const snap = await getFirestore(caller.app).doc(`accessUsers/${caller.email}`).get();
-  if (snap.data()?.role !== 'admin') {
+  const access = await firestoreRest(
+    caller.app,
+    `/accessUsers/${encodeURIComponent(caller.email)}`,
+    {},
+    { allowNotFound: true },
+  );
+  if (firestoreString(access, 'role') !== 'admin') {
     throw new MobileApiError(403, 'Apenas administradores podem gerenciar cadastros pendentes.');
   }
   return caller;
@@ -75,6 +96,25 @@ function parseCentralData(value: unknown, fallback: unknown) {
   } catch {
     return fallback;
   }
+}
+
+function registrationFromDocument(document: any) {
+  if (!document) return null;
+  const name = String(document?.name || '');
+  const uid = name.split('/').pop() || '';
+  if (!uid) return null;
+  return {
+    uid,
+    name: firestoreString(document, 'name'),
+    birthdate: firestoreString(document, 'birthdate'),
+    phone: firestoreString(document, 'phone'),
+    email: firestoreString(document, 'email'),
+    status: firestoreString(document, 'status'),
+    createdAt: firestoreString(document, 'createdAt'),
+    updatedAt: firestoreString(document, 'updatedAt'),
+    memberId: firestoreString(document, 'memberId'),
+    acceptedAt: firestoreString(document, 'acceptedAt'),
+  };
 }
 
 export async function submitRegistrationForToken(idToken: string, profile: RegistrationProfile) {
@@ -90,42 +130,62 @@ export async function submitRegistrationForToken(idToken: string, profile: Regis
     throw new MobileApiError(400, 'Preencha nome completo, data de nascimento e telefone.');
   }
 
-  const db = getFirestore(caller.app);
-  const ref = db.doc(`memberRegistrations/${caller.uid}`);
-  const previous = await ref.get();
+  const previous = await firestoreRest(
+    caller.app,
+    `/memberRegistrations/${encodeURIComponent(caller.uid)}`,
+    {},
+    { allowNotFound: true },
+  );
   const now = new Date().toISOString();
-  const createdAt = String(previous.data()?.createdAt || now);
+  const createdAt = firestoreString(previous, 'createdAt') || now;
 
-  await ref.set({
-    name,
-    birthdate,
-    phone,
-    email: caller.email,
-    status: 'pending',
-    createdAt,
-    updatedAt: now,
-  }, { merge: false });
+  await firestoreRest(caller.app, `/memberRegistrations/${encodeURIComponent(caller.uid)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(stringFields({
+      name,
+      birthdate,
+      phone,
+      email: caller.email,
+      status: 'pending',
+      createdAt,
+      updatedAt: now,
+    })),
+  });
 
   return { success: true, status: 'pending' };
 }
 
 export async function listRegistrationsForToken(idToken: string) {
   const caller = await assertAdmin(idToken);
-  const snap = await getFirestore(caller.app).collection('memberRegistrations').get();
-  const registrations = snap.docs
-    .map((doc) => ({ uid: doc.id, ...doc.data() }))
+  const rows = await firestoreRest(caller.app, ':runQuery', {
+    method: 'POST',
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: 'memberRegistrations' }],
+        limit: 500,
+      },
+    }),
+  });
+
+  const registrations = (Array.isArray(rows) ? rows : [])
+    .map((row) => registrationFromDocument(row?.document))
+    .filter(Boolean)
     .sort((a: any, b: any) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
   return { registrations };
 }
 
 export async function acceptRegistrationForToken(idToken: string, uid: string) {
   const caller = await assertAdmin(idToken);
-  const db = getFirestore(caller.app);
-  const registrationRef = db.doc(`memberRegistrations/${uid}`);
-  const registrationSnap = await registrationRef.get();
-  if (!registrationSnap.exists) throw new MobileApiError(404, 'Cadastro pendente não encontrado.');
+  const registrationDocument = await firestoreRest(
+    caller.app,
+    `/memberRegistrations/${encodeURIComponent(uid)}`,
+    {},
+    { allowNotFound: true },
+  );
+  if (!registrationDocument) throw new MobileApiError(404, 'Cadastro pendente não encontrado.');
 
-  const registration = registrationSnap.data() || {};
+  const registration = registrationFromDocument(registrationDocument);
+  if (!registration) throw new MobileApiError(404, 'Cadastro pendente não encontrado.');
   if (registration.status !== 'pending') {
     throw new MobileApiError(409, 'Este cadastro já foi processado.');
   }
@@ -134,11 +194,14 @@ export async function acceptRegistrationForToken(idToken: string, uid: string) {
   const name = String(registration.name || '').trim();
   if (!email || !name) throw new MobileApiError(400, 'O cadastro pendente está incompleto.');
 
-  const membersRef = db.doc('oitava/members');
-  const usersRef = db.doc('oitava/users');
-  const [membersSnap, usersSnap] = await Promise.all([membersRef.get(), usersRef.get()]);
-  const members = parseCentralData(membersSnap.data()?.data, []);
-  const users = parseCentralData(usersSnap.data()?.data, {});
+  const [membersDocument, usersDocument, currentAccess] = await Promise.all([
+    firestoreRest(caller.app, '/oitava/members', {}, { allowNotFound: true }),
+    firestoreRest(caller.app, '/oitava/users', {}, { allowNotFound: true }),
+    firestoreRest(caller.app, `/accessUsers/${encodeURIComponent(email)}`, {}, { allowNotFound: true }),
+  ]);
+
+  const members = parseCentralData(firestoreString(membersDocument, 'data'), []);
+  const users = parseCentralData(firestoreString(usersDocument, 'data'), {});
   if (!Array.isArray(members) || !users || typeof users !== 'object' || Array.isArray(users)) {
     throw new Error('Os dados centrais de membros/acessos estão inválidos.');
   }
@@ -162,20 +225,52 @@ export async function acceptRegistrationForToken(idToken: string, uid: string) {
   else nextMembers.push(memberData);
 
   const nextUsers = { ...(users as Record<string, any>) };
-  nextUsers[email] = { ...(nextUsers[email] || {}), role: 'membro', memberId };
+  const currentRole = firestoreString(currentAccess, 'role');
+  const role = currentRole === 'admin' ? 'admin' : 'membro';
+  nextUsers[email] = { ...(nextUsers[email] || {}), role, memberId };
   const now = new Date().toISOString();
 
-  const batch = db.batch();
-  batch.set(membersRef, { data: JSON.stringify(nextMembers) });
-  batch.set(usersRef, { data: JSON.stringify(nextUsers) });
-  batch.set(db.doc(`accessUsers/${email}`), { email, role: 'membro', memberId, updatedAt: now }, { merge: true });
-  batch.update(registrationRef, {
-    status: 'accepted',
-    memberId,
-    acceptedAt: now,
-    updatedAt: now,
+  await firestoreRest(caller.app, ':commit', {
+    method: 'POST',
+    body: JSON.stringify({
+      writes: [
+        {
+          update: {
+            name: documentName(caller.app, 'oitava/members'),
+            fields: stringFields({ data: JSON.stringify(nextMembers) }).fields,
+          },
+        },
+        {
+          update: {
+            name: documentName(caller.app, 'oitava/users'),
+            fields: stringFields({ data: JSON.stringify(nextUsers) }).fields,
+          },
+        },
+        {
+          update: {
+            name: documentName(caller.app, `accessUsers/${email}`),
+            fields: stringFields({ email, role, memberId, updatedAt: now }).fields,
+          },
+        },
+        {
+          update: {
+            name: documentName(caller.app, `memberRegistrations/${uid}`),
+            fields: stringFields({
+              name: registration.name,
+              birthdate: registration.birthdate,
+              phone: registration.phone,
+              email,
+              status: 'accepted',
+              createdAt: registration.createdAt,
+              updatedAt: now,
+              memberId,
+              acceptedAt: now,
+            }).fields,
+          },
+        },
+      ],
+    }),
   });
-  await batch.commit();
 
   return { success: true, memberId, member: memberData, members: nextMembers };
 }
