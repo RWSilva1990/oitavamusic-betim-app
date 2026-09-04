@@ -89,6 +89,12 @@ async function assertAdmin(idToken: string) {
   return caller;
 }
 
+function accessIsApproved(document: any) {
+  const role = firestoreString(document, 'role');
+  const memberId = firestoreString(document, 'memberId');
+  return Boolean(memberId) && (role === 'membro' || role === 'admin');
+}
+
 function parseCentralData(value: unknown, fallback: unknown) {
   if (typeof value !== 'string' || !value) return fallback;
   try {
@@ -121,6 +127,20 @@ export async function submitRegistrationForToken(idToken: string, profile: Regis
   const caller = await verifyCaller(idToken);
   if (!caller.emailVerified) {
     throw new MobileApiError(403, 'O e-mail precisa estar verificado antes de enviar o cadastro.');
+  }
+
+  if (adminEmails().includes(caller.email)) {
+    throw new MobileApiError(409, 'Este e-mail já possui acesso aprovado. Use a opção “Esqueci minha senha” se precisar redefinir a senha.');
+  }
+
+  const currentAccess = await firestoreRest(
+    caller.app,
+    `/accessUsers/${encodeURIComponent(caller.email)}`,
+    {},
+    { allowNotFound: true },
+  );
+  if (accessIsApproved(currentAccess)) {
+    throw new MobileApiError(409, 'Este e-mail já possui acesso aprovado. Use a opção “Esqueci minha senha” se precisar redefinir a senha.');
   }
 
   const name = profile.name.trim();
@@ -167,8 +187,26 @@ export async function listRegistrationsForToken(idToken: string) {
     }),
   });
 
-  const registrations = (Array.isArray(rows) ? rows : [])
+  const candidates = (Array.isArray(rows) ? rows : [])
     .map((row) => registrationFromDocument(row?.document))
+    .filter(Boolean)
+    .filter((registration: any) => registration.status === 'pending');
+
+  const visible = await Promise.all(
+    candidates.map(async (registration: any) => {
+      const email = normalizeEmail(registration.email);
+      if (!email || adminEmails().includes(email)) return null;
+      const access = await firestoreRest(
+        caller.app,
+        `/accessUsers/${encodeURIComponent(email)}`,
+        {},
+        { allowNotFound: true },
+      );
+      return accessIsApproved(access) ? null : registration;
+    }),
+  );
+
+  const registrations = visible
     .filter(Boolean)
     .sort((a: any, b: any) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
   return { registrations };
@@ -199,6 +237,10 @@ export async function acceptRegistrationForToken(idToken: string, uid: string) {
     firestoreRest(caller.app, '/oitava/users', {}, { allowNotFound: true }),
     firestoreRest(caller.app, `/accessUsers/${encodeURIComponent(email)}`, {}, { allowNotFound: true }),
   ]);
+
+  if (accessIsApproved(currentAccess)) {
+    throw new MobileApiError(409, 'Este e-mail já possui acesso aprovado e não pode ser aprovado novamente.');
+  }
 
   const members = parseCentralData(firestoreString(membersDocument, 'data'), []);
   const users = parseCentralData(firestoreString(usersDocument, 'data'), {});
