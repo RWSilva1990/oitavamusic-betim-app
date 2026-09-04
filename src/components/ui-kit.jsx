@@ -71,12 +71,12 @@ export function Avatar({ member, size = 44, style }) {
 
 export function PageTitle({ title, subtitle, children }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
-      <div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10, maxWidth: '100%' }}>
+      <div style={{ minWidth: 0 }}>
         <h1 style={{ fontSize: 21, fontWeight: 800, color: C.accent }}>{title}</h1>
         {subtitle && <p style={{ color: C.textSecondary, fontSize: 13 }}>{subtitle}</p>}
       </div>
-      {children && <div style={{ display: 'flex', gap: 8 }}>{children}</div>}
+      {children && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxWidth: '100%', justifyContent: 'flex-end' }}>{children}</div>}
     </div>
   );
 }
