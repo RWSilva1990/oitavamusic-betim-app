@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
-import { Menu, LogOut } from 'lucide-react';
+import { Bell, Menu, LogOut, X } from 'lucide-react';
 import { C, NAV, LOGO_HOME, LOGO_SIDEBAR } from '@/lib/theme';
 import { Btn } from './ui-kit';
 import NotificationSettings from './NotificationSettings';
@@ -12,6 +12,7 @@ import { getCommunicationsInbox } from '@/lib/communications';
 
 const COMMUNICATIONS_NAV = { id: 'communications', label: 'Comunicados', emoji: '📢', to: '/comunicados' };
 const METRONOME_NAV = { id: 'metronome', label: 'Metrônomo', emoji: '⏱️', to: '/metronomo' };
+const NATIVE_FOREGROUND_NOTIFICATION_EVENT = 'oitava:native-foreground-notification';
 
 const MEMBER_NAV = [
   { id: 'home', label: 'Início', emoji: '🏠', to: '/' },
@@ -60,6 +61,7 @@ function SetupRequired() {
 export default function AppShell({ children, allowMember = false }) {
   const [sideOpen, setSideOpen] = useState(false);
   const [unreadCommunications, setUnreadCommunications] = useState(0);
+  const [foregroundNotification, setForegroundNotification] = useState(null);
   const auth = useAuth();
   const { syncing, syncOk, ready } = useData();
   const navigate = useNavigate();
@@ -93,6 +95,30 @@ export default function AppShell({ children, allowMember = false }) {
   }, [auth.user?.uid, auth.role]);
 
   useEffect(() => {
+    let timer;
+    const showForegroundNotification = (event) => {
+      const detail = event?.detail || {};
+      const title = String(detail.title || 'Oitava Music').trim();
+      const body = String(detail.body || '').trim();
+      if (!title && !body) return;
+
+      if (timer) window.clearTimeout(timer);
+      setForegroundNotification({
+        title: title || 'Oitava Music',
+        body,
+        path: String(detail.path || '/minhas-escalas'),
+      });
+      timer = window.setTimeout(() => setForegroundNotification(null), 6500);
+    };
+
+    window.addEventListener(NATIVE_FOREGROUND_NOTIFICATION_EVENT, showForegroundNotification);
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      window.removeEventListener(NATIVE_FOREGROUND_NOTIFICATION_EVENT, showForegroundNotification);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!auth.user || !auth.role) {
       setUnreadCommunications(0);
       return undefined;
@@ -114,6 +140,20 @@ export default function AppShell({ children, allowMember = false }) {
       window.removeEventListener('oitava:communications-updated', refreshUnread);
     };
   }, [auth.user?.uid, auth.role]);
+
+  const openForegroundNotification = () => {
+    const path = String(foregroundNotification?.path || '');
+    setForegroundNotification(null);
+    if (!path.startsWith('/')) return;
+
+    const nextUrl = new URL(path, window.location.origin);
+    const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+    const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextPath === currentPath) return;
+
+    window.history.pushState(window.history.state, '', nextPath);
+    window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }));
+  };
 
   if (auth.loading) return <Loader label="Verificando acesso..." />;
   if (!auth.configured) return <SetupRequired />;
@@ -166,6 +206,67 @@ export default function AppShell({ children, allowMember = false }) {
 
       {sideOpen && (
         <div onClick={() => setSideOpen(false)} style={{ position: 'fixed', inset: 0, background: 'var(--app-overlay)', zIndex: 199 }} />
+      )}
+
+      {foregroundNotification && (
+        <div
+          role="alert"
+          onClick={openForegroundNotification}
+          style={{
+            position: 'fixed',
+            top: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1200,
+            width: 'calc(100vw - 24px)',
+            maxWidth: 520,
+            padding: '12px 42px 12px 12px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 11,
+            borderRadius: 16,
+            border: `1px solid ${C.accent}55`,
+            background: C.bgCard,
+            boxShadow: '0 12px 38px var(--app-shadow)',
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{ width: 34, height: 34, borderRadius: 11, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.accentGlow, color: C.accent }}>
+            <Bell size={18} strokeWidth={2.4} />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 13, lineHeight: 1.35, fontWeight: 800, color: C.textPrimary }}>{foregroundNotification.title}</div>
+            {foregroundNotification.body && (
+              <div style={{ marginTop: 3, fontSize: 11.5, lineHeight: 1.45, color: C.textSecondary }}>{foregroundNotification.body}</div>
+            )}
+            <div style={{ marginTop: 5, fontSize: 10.5, fontWeight: 800, color: C.accent }}>Toque para abrir</div>
+          </div>
+          <button
+            type="button"
+            aria-label="Fechar notificação"
+            onClick={(event) => {
+              event.stopPropagation();
+              setForegroundNotification(null);
+            }}
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              width: 28,
+              height: 28,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: 'none',
+              borderRadius: 9,
+              background: 'transparent',
+              color: C.textSecondary,
+              cursor: 'pointer',
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
       )}
 
       <div className="main-content" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', width: 'auto', minWidth: 0 }}>
