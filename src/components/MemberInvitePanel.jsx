@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Check, Copy, Link2, Mail, RefreshCw, UserCheck } from 'lucide-react';
 import { C } from '@/lib/theme';
-import { fmtDate, genId, normalizeStr } from '@/lib/db';
+import { fmtDate } from '@/lib/db';
 import { sendCustomInvitation } from '@/lib/invite-client';
+import { acceptPendingRegistration, listPendingRegistrations } from '@/lib/registration-client';
 import { Btn, Inp, Modal } from './ui-kit';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
@@ -26,7 +27,7 @@ export default function MemberInvitePanel() {
     if (!auth.isAdmin) return;
     setError('');
     try {
-      setRegistrations(await auth.listRegistrations());
+      setRegistrations(await listPendingRegistrations());
     } catch (e) {
       setError(e?.message || 'Não foi possível carregar os cadastros recebidos.');
     }
@@ -98,23 +99,8 @@ export default function MemberInvitePanel() {
     setBusyUid(registration.uid);
     setError('');
     try {
-      const existing = members.find((m) => normalizeStr(m.email) === normalizeStr(registration.email));
-      const memberId = existing?.id || genId();
-      const memberData = {
-        ...(existing || {}),
-        id: memberId,
-        name: registration.name,
-        birthdate: registration.birthdate,
-        phone: registration.phone,
-        email: registration.email,
-        photo: existing?.photo || '',
-        roles: existing?.roles || [],
-      };
-      const nextMembers = existing
-        ? members.map((m) => (m.id === existing.id ? memberData : m))
-        : [...members, memberData];
-      await auth.acceptRegistration(registration, memberId, nextMembers);
-      setMembers(nextMembers);
+      const result = await acceptPendingRegistration(registration.uid);
+      if (Array.isArray(result?.members)) setMembers(result.members);
       setRegistrations((rows) => rows.map((r) => (r.uid === registration.uid ? { ...r, status: 'accepted' } : r)));
     } catch (e) {
       setError(e?.message || 'Não foi possível concluir o cadastro.');
