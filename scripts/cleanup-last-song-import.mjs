@@ -2,7 +2,8 @@ import { cert, getApps, initializeApp } from 'firebase-admin/app';
 
 const BRANCH = 'fix/communications-api-2026-09-03';
 const mode = process.argv.includes('--execute') ? 'execute' : 'dry-run';
-const RECENT_WINDOW_MS = 6 * 60 * 60 * 1000;
+const BATCH_START = Date.parse('2026-09-04T01:45:40.000Z');
+const BATCH_END = Date.parse('2026-09-04T01:46:30.000Z');
 
 function env(name) {
   return String(process.env[name] || '').trim();
@@ -63,19 +64,6 @@ function parseCentral(document, fallback) {
   try { return JSON.parse(raw); } catch { return fallback; }
 }
 
-function normalizeName(value) {
-  return String(value || '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
-    .replace(/[\u00A0\u202F]/g, ' ')
-    .replace(/[‘’´`]/g, "'")
-    .replace(/[–—−]/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
-
 function idTimestamp(id) {
   const value = String(id || '');
   if (!/^[0-9a-z]{8}/i.test(value)) return null;
@@ -83,12 +71,6 @@ function idTimestamp(id) {
   const min = Date.UTC(2024, 0, 1);
   const max = Date.now() + 24 * 60 * 60 * 1000;
   return Number.isFinite(timestamp) && timestamp >= min && timestamp <= max ? timestamp : null;
-}
-
-function chooseOriginal(entries) {
-  const legacy = entries.filter((entry) => entry.timestamp === null);
-  if (legacy.length) return legacy.sort((a, b) => a.index - b.index)[0];
-  return [...entries].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))[0];
 }
 
 function documentName(app, path) {
@@ -109,68 +91,44 @@ const songs = parseCentral(songsDoc, []);
 const scales = parseCentral(scalesDoc, []);
 if (!Array.isArray(songs) || !Array.isArray(scales)) throw new Error('Dados centrais inválidos');
 
-const groups = new Map();
-songs.forEach((song, index) => {
-  const key = normalizeName(song?.name);
-  if (!key) return;
-  const list = groups.get(key) || [];
-  list.push({ song, index, timestamp: idTimestamp(song?.id) });
-  groups.set(key, list);
-});
+const batchSongs = songs
+  .map((song) => ({ song, timestamp: idTimestamp(song?.id) }))
+  .filter((entry) => entry.timestamp !== null && entry.timestamp >= BATCH_START && entry.timestamp <= BATCH_END);
+const batchIds = new Set(batchSongs.map((entry) => String(entry.song?.id || '')));
+const affectedScales = scales.filter((scale) =>
+  Array.isArray(scale?.scaleSongs) && scale.scaleSongs.some((item) => batchIds.has(String(item?.songId || ''))),
+);
 
-const duplicateGroups = [];
-for (const entries of groups.values()) {
-  if (entries.length < 2) continue;
-  const original = chooseOriginal(entries);
-  const duplicates = entries.filter((entry) => entry !== original);
-  duplicateGroups.push({
-    name: String(original.song?.name || ''),
-    keepId: String(original.song?.id || ''),
-    keepCreatedAt: original.timestamp ? new Date(original.timestamp).toISOString() : 'legacy/unknown',
-    duplicates: duplicates.map((entry) => ({
-      id: String(entry.song?.id || ''),
-      createdAt: entry.timestamp ? new Date(entry.timestamp).toISOString() : 'legacy/unknown',
-    })),
-  });
-}
-
-const recentCutoff = Date.now() - RECENT_WINDOW_MS;
-const recentSongs = songs
-  .map((song) => ({
-    id: String(song?.id || ''),
-    name: String(song?.name || ''),
-    timestamp: idTimestamp(song?.id),
-  }))
-  .filter((item) => item.timestamp !== null && item.timestamp >= recentCutoff)
-  .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
-  .map((item) => ({ id: item.id, name: item.name, createdAt: new Date(item.timestamp).toISOString() }));
-
-console.log('[cleanup-last-import] report=' + JSON.stringify({ mode, songsTotal: songs.length, scalesTotal: scales.length, duplicateGroups, recentSongs }));
+const timestamps = batchSongs.map((entry) => entry.timestamp).filter((value) => value !== null);
+const report = {
+  mode,
+  songsTotal: songs.length,
+  scalesTotal: scales.length,
+  batchCount: batchSongs.length,
+  batchFirst: timestamps.length ? new Date(Math.min(...timestamps)).toISOString() : null,
+  batchLast: timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : null,
+  firstFive: batchSongs.slice(0, 5).map((entry) => ({ id: entry.song.id, name: entry.song.name })),
+  lastFive: batchSongs.slice(-5).map((entry) => ({ id: entry.song.id, name: entry.song.name })),
+  affectedScales: affectedScales.map((scale) => ({ id: String(scale?.id || ''), name: String(scale?.name || ''), date: String(scale?.date || '') })),
+};
+console.log('[cleanup-last-import] report=' + JSON.stringify(report));
 
 if (mode === 'execute') {
-  const targetIds = new Set(
-    duplicateGroups.flatMap((group) => group.duplicates.map((item) => item.id)),
-  );
-  const replacementById = new Map();
-  for (const group of duplicateGroups) {
-    for (const item of group.duplicates) replacementById.set(item.id, group.keepId);
-  }
-
-  const nextSongs = songs.filter((song) => !targetIds.has(String(song?.id || '')));
-  const nextScales = scales.map((scale) => ({
-    ...scale,
-    scaleSongs: Array.isArray(scale?.scaleSongs)
-      ? scale.scaleSongs.map((item) => {
-          const replacement = replacementById.get(String(item?.songId || ''));
-          return replacement ? { ...item, songId: replacement } : item;
-        })
-      : scale?.scaleSongs,
-  }));
+  const nextSongs = songs.filter((song) => !batchIds.has(String(song?.id || '')));
+  const affectedScaleIds = new Set(affectedScales.map((scale) => String(scale?.id || '')));
+  const nextScales = scales.filter((scale) => !affectedScaleIds.has(String(scale?.id || '')));
 
   const writes = [
     { update: { name: documentName(app, 'oitava/songs'), ...stringData(nextSongs) } },
     { update: { name: documentName(app, 'oitava/scales'), ...stringData(nextScales) } },
   ];
   await firestore(app, ':commit', { method: 'POST', body: JSON.stringify({ writes }) });
-  console.log('[cleanup-last-import] executed=' + JSON.stringify({ removedSongs: targetIds.size, songsBefore: songs.length, songsAfter: nextSongs.length }));
+  console.log('[cleanup-last-import] executed=' + JSON.stringify({
+    removedSongs: batchIds.size,
+    removedScales: affectedScaleIds.size,
+    songsBefore: songs.length,
+    songsAfter: nextSongs.length,
+    scalesBefore: scales.length,
+    scalesAfter: nextScales.length,
+  }));
 }
