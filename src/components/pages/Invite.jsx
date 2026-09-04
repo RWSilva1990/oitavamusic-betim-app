@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Check, AlertCircle, ShieldCheck, UserRound } from 'lucide-react';
 import { C, LOGO_HOME } from '@/lib/theme';
+import { submitRegistration } from '@/lib/registration-client';
 import { Btn, Inp } from '../ui-kit';
 import { useAuth } from '@/lib/auth';
 
@@ -47,7 +48,7 @@ export default function InvitePage() {
     if (!profile.phone.trim()) { setErr('Informe seu telefone.'); return; }
     setBusy(true);
     try {
-      await auth.saveRegistration(profile);
+      await submitRegistration(profile);
       setStep('password');
     } catch (e) {
       setErr(e?.message || 'Não foi possível salvar seus dados.');
