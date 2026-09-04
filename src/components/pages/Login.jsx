@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { AlertCircle, KeyRound, LogIn, UserPlus } from 'lucide-react';
 import { C, LOGO_HOME } from '@/lib/theme';
+import { requestFirstAccessLink } from '@/lib/first-access';
 import { Btn, Inp } from '../ui-kit';
 import { useAuth } from '@/lib/auth';
 
@@ -40,7 +41,7 @@ export default function LoginPage() {
     if (!validateEmail()) return;
     setErr(''); setMsg(''); setLinkBusy('first');
     try {
-      await auth.sendInvite(email);
+      await requestFirstAccessLink(email);
       setMsg('Enviamos um link de primeiro acesso. Depois de confirmar o e-mail, você poderá preencher seus dados e criar sua senha. Seu cadastro ficará pendente até a aprovação de um administrador.');
     } catch (e2) {
       setErr(traduz(e2));
