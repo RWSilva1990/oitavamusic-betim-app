@@ -3,23 +3,34 @@ import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { Menu, LogOut } from 'lucide-react';
 import { C, NAV, LOGO_HOME, LOGO_SIDEBAR } from '@/lib/theme';
 import { Btn } from './ui-kit';
+import NotificationSettings from './NotificationSettings';
+import AppearanceSettings from './AppearanceSettings';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
 import { startScaleNotificationRuntime } from '@/lib/push-client';
+import { getCommunicationsInbox } from '@/lib/communications';
 
 const COMMUNICATIONS_NAV = { id: 'communications', label: 'Comunicados', emoji: '📢', to: '/comunicados' };
+const METRONOME_NAV = { id: 'metronome', label: 'Metrônomo', emoji: '⏱️', to: '/metronomo' };
 
 const MEMBER_NAV = [
   { id: 'home', label: 'Início', emoji: '🏠', to: '/' },
   { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
-  COMMUNICATIONS_NAV,
   { id: 'songs', label: 'Repertório', emoji: '🎵', to: '/repertorio' },
+  METRONOME_NAV,
+  COMMUNICATIONS_NAV,
 ];
 
 const ADMIN_NAV = [
   NAV[0],
+  { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
+  NAV[1],
+  NAV[2],
+  NAV[3],
+  NAV[4],
+  METRONOME_NAV,
+  NAV[5],
   COMMUNICATIONS_NAV,
-  ...NAV.slice(1),
 ];
 
 export function Loader({ label = 'Conectando ao Firebase...' }) {
@@ -48,6 +59,7 @@ function SetupRequired() {
 
 export default function AppShell({ children, allowMember = false }) {
   const [sideOpen, setSideOpen] = useState(false);
+  const [unreadCommunications, setUnreadCommunications] = useState(0);
   const auth = useAuth();
   const { syncing, syncOk, ready } = useData();
   const navigate = useNavigate();
@@ -80,11 +92,33 @@ export default function AppShell({ children, allowMember = false }) {
     };
   }, [auth.user?.uid, auth.role]);
 
+  useEffect(() => {
+    if (!auth.user || !auth.role) {
+      setUnreadCommunications(0);
+      return undefined;
+    }
+
+    let alive = true;
+    const refreshUnread = () => {
+      getCommunicationsInbox()
+        .then((data) => { if (alive) setUnreadCommunications(Number(data?.unread || 0)); })
+        .catch((error) => console.warn('Falha ao atualizar contador de comunicados:', error));
+    };
+
+    refreshUnread();
+    const interval = window.setInterval(refreshUnread, 30000);
+    window.addEventListener('oitava:communications-updated', refreshUnread);
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+      window.removeEventListener('oitava:communications-updated', refreshUnread);
+    };
+  }, [auth.user?.uid, auth.role]);
+
   if (auth.loading) return <Loader label="Verificando acesso..." />;
   if (!auth.configured) return <SetupRequired />;
   if (!auth.user) return <Loader label="Redirecionando..." />;
   if (auth.role !== 'admin' && !memberAllowed) return <Loader label="Redirecionando..." />;
-
   if (!ready) return <Loader />;
 
   const current = navItems.find((n) => n.to === pathname) || navItems[0];
@@ -107,7 +141,12 @@ export default function AppShell({ children, allowMember = false }) {
               onClick={() => setSideOpen(false)}
             >
               <span style={{ fontSize: 18 }}>{n.emoji}</span>
-              {n.label}
+              <span style={{ flex: 1 }}>{n.label}</span>
+              {n.id === 'communications' && unreadCommunications > 0 && (
+                <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: C.accent, color: '#fff', fontSize: 10, fontWeight: 800 }}>
+                  {unreadCommunications > 99 ? '99+' : unreadCommunications}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
@@ -126,26 +165,28 @@ export default function AppShell({ children, allowMember = false }) {
       </div>
 
       {sideOpen && (
-        <div onClick={() => setSideOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 199 }} />
+        <div onClick={() => setSideOpen(false)} style={{ position: 'fixed', inset: 0, background: 'var(--app-overlay)', zIndex: 199 }} />
       )}
 
-      <div className="main-content" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', width: '100%' }}>
-        <div style={{ height: 54, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: '0 18px', gap: 12, position: 'sticky', top: 0, zIndex: 100 }}>
+      <div className="main-content" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', width: 'auto', minWidth: 0 }}>
+        <div className="topbar-surface" style={{ height: 54, background: 'var(--app-topbar)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: '0 18px', gap: 8, position: 'sticky', top: 0, zIndex: 100 }}>
           <button className="topbar-menu-btn btn-ghost btn" onClick={() => setSideOpen((x) => !x)} style={{ padding: '6px 8px' }}>
             <Menu size={19} />
           </button>
-          <span style={{ fontWeight: 800, color: C.accent, fontSize: 13, flex: 1 }}>
+          <span style={{ fontWeight: 800, color: C.accent, fontSize: 13, flex: 1, minWidth: 0 }}>
             {current?.emoji} {current?.label}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <AppearanceSettings />
+          <NotificationSettings />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
             {syncing ? (
               <div style={{ width: 8, height: 8, borderRadius: '50%', border: `1.5px solid ${C.textSecondary}44`, borderTopColor: C.textSecondary, animation: 'spin 0.8s linear infinite' }} />
             ) : (
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: syncOk === true ? C.success : syncOk === false ? C.danger : C.textSecondary + '44' }} />
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: syncOk === true ? C.success : syncOk === false ? C.danger : C.textSecondary }} />
             )}
           </div>
         </div>
-        <div style={{ flex: 1 }}>{children}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
       </div>
     </>
   );

@@ -7,6 +7,26 @@ const AuthCtx = createContext(null);
 const INVITE_EMAIL_KEY = 'oitava:invite-email';
 const ACCESS_EMAIL_KEY = 'oitava:access-email';
 
+async function relinkNativePushAfterLogin() {
+  if (typeof window === 'undefined') return;
+  try {
+    const { relinkNativePushForCurrentUser } = await import('./push-native');
+    await relinkNativePushForCurrentUser();
+  } catch (error) {
+    console.warn('Login concluído, mas não foi possível reassociar o push nativo:', error);
+  }
+}
+
+async function unlinkNativePushBeforeLogout() {
+  if (typeof window === 'undefined') return;
+  try {
+    const { unlinkNativePushForCurrentUser } = await import('./push-native');
+    await unlinkNativePushForCurrentUser();
+  } catch (error) {
+    console.warn('Não foi possível desvincular o push nativo antes de sair:', error);
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -97,6 +117,7 @@ export function AuthProvider({ children }) {
 
         if (adminEmails.includes(signedEmail)) {
           setAccessEntry({ role: 'admin', email: signedEmail });
+          await relinkNativePushAfterLogin();
           return credential.user;
         }
 
@@ -107,6 +128,7 @@ export function AuthProvider({ children }) {
 
           if (entry?.role === 'admin') {
             setAccessEntry(entry);
+            await relinkNativePushAfterLogin();
             return credential.user;
           }
 
@@ -116,6 +138,7 @@ export function AuthProvider({ children }) {
             throw new Error('Este e-mail não está liberado para acessar o aplicativo.');
           }
           setAccessEntry(entry);
+          await relinkNativePushAfterLogin();
           return credential.user;
         } catch (error) {
           if (auth.currentUser) await mod.signOut(auth);
@@ -187,6 +210,7 @@ export function AuthProvider({ children }) {
         if (adminEmails.includes(clean)) {
           setAccessEntry({ role: 'admin', email: clean });
           window.localStorage.removeItem(ACCESS_EMAIL_KEY);
+          await relinkNativePushAfterLogin();
           return { user: credential.user, role: 'admin' };
         }
 
@@ -198,6 +222,7 @@ export function AuthProvider({ children }) {
           if (entry?.role === 'admin') {
             setAccessEntry(entry);
             window.localStorage.removeItem(ACCESS_EMAIL_KEY);
+            await relinkNativePushAfterLogin();
             return { user: credential.user, role: 'admin' };
           }
 
@@ -207,6 +232,7 @@ export function AuthProvider({ children }) {
           }
           setAccessEntry(entry);
           window.localStorage.removeItem(ACCESS_EMAIL_KEY);
+          await relinkNativePushAfterLogin();
           return { user: credential.user, role: 'membro' };
         } catch (error) {
           if (auth.currentUser) await mod.signOut(auth);
@@ -391,13 +417,18 @@ export function AuthProvider({ children }) {
 
       async logout() {
         const { auth, mod } = await getFirebaseAuth();
+        await unlinkNativePushBeforeLogout();
         await mod.signOut(auth);
         setAccessEntry(null);
       },
 
       memberFor(members) {
-        if (!email || !accessEntry?.memberId) return null;
-        return members.find((m) => m.id === accessEntry.memberId) || null;
+        if (!email) return null;
+        if (accessEntry?.memberId) {
+          const linked = members.find((m) => m.id === accessEntry.memberId);
+          if (linked) return linked;
+        }
+        return members.find((m) => String(m?.email || '').trim().toLowerCase() === email) || null;
       },
     }),
     [user, email, role, loading, accessLoading, configured, accessEntry, adminEmails]

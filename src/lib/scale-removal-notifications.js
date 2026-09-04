@@ -1,5 +1,6 @@
 import { getFirebaseAuth } from './firebase';
 import { notifyScaleMembersAdded } from './push-notifications.functions';
+import { isPackagedNativeApp, notifyMobileScaleRemoved } from './mobile-api';
 
 async function currentIdToken() {
   const { auth } = await getFirebaseAuth();
@@ -20,6 +21,10 @@ export async function sendScaleRemovedNotifications(scale, removedMemberIds) {
 
   const idToken = await currentIdToken();
   try {
+    if (isPackagedNativeApp()) {
+      return await notifyMobileScaleRemoved(idToken, scale, ids);
+    }
+
     return await notifyScaleMembersAdded({
       data: {
         idToken,
