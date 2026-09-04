@@ -30,7 +30,15 @@ export const shortName = (name) => {
 };
 
 export const normalizeStr = (str) =>
-  (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  String(str || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+    .replace(/[’‘`´]/g, "'")
+    .replace(/[–—−]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
 
 export const todayISO = () => new Date().toISOString().split('T')[0];
 
