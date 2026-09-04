@@ -2,6 +2,7 @@ import { cert, getApps, initializeApp } from 'firebase-admin/app';
 
 const BRANCH = 'fix/communications-api-2026-09-03';
 const mode = process.argv.includes('--execute') ? 'execute' : 'dry-run';
+const RECENT_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 function env(name) {
   return String(process.env[name] || '').trim();
@@ -133,7 +134,18 @@ for (const entries of groups.values()) {
   });
 }
 
-console.log('[cleanup-last-import] report=' + JSON.stringify({ mode, songsTotal: songs.length, scalesTotal: scales.length, duplicateGroups }));
+const recentCutoff = Date.now() - RECENT_WINDOW_MS;
+const recentSongs = songs
+  .map((song) => ({
+    id: String(song?.id || ''),
+    name: String(song?.name || ''),
+    timestamp: idTimestamp(song?.id),
+  }))
+  .filter((item) => item.timestamp !== null && item.timestamp >= recentCutoff)
+  .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+  .map((item) => ({ id: item.id, name: item.name, createdAt: new Date(item.timestamp).toISOString() }));
+
+console.log('[cleanup-last-import] report=' + JSON.stringify({ mode, songsTotal: songs.length, scalesTotal: scales.length, duplicateGroups, recentSongs }));
 
 if (mode === 'execute') {
   const targetIds = new Set(
