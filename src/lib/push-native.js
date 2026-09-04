@@ -15,6 +15,7 @@ const NATIVE_PUSH_ENABLED_KEY = 'oitava:native-push-enabled';
 const NATIVE_PUSH_TOKEN_KEY = 'oitava:native-push-token';
 const NATIVE_PUSH_SERVER_LINKED_KEY = 'oitava:native-push-server-linked';
 const NATIVE_PUSH_CHANNEL_ID = 'escala-alerts';
+const NATIVE_FOREGROUND_NOTIFICATION_EVENT = 'oitava:native-foreground-notification';
 let runtimeCleanup = null;
 let registrationPromise = null;
 
@@ -248,6 +249,23 @@ function refreshNativeRegistration() {
   registerNativePush().catch((error) => console.warn('Falha ao atualizar o token FCM nativo:', error));
 }
 
+function emitForegroundNotification(notification) {
+  if (document.visibilityState !== 'visible') return;
+  const data = notification?.data || {};
+  const title = String(notification?.title || data.title || 'Oitava Music').trim();
+  const body = String(notification?.body || data.body || '').trim();
+  const path = String(data.path || '/minhas-escalas').trim();
+
+  window.dispatchEvent(new CustomEvent(NATIVE_FOREGROUND_NOTIFICATION_EVENT, {
+    detail: {
+      title,
+      body,
+      path: path.startsWith('/') ? path : '/minhas-escalas',
+      type: String(data.type || '').trim(),
+    },
+  }));
+}
+
 export async function startNativeScaleNotificationRuntime() {
   if (!isNativeAndroid()) return () => {};
 
@@ -256,6 +274,10 @@ export async function startNativeScaleNotificationRuntime() {
   }
 
   if (runtimeCleanup) return runtimeCleanup;
+
+  const receivedHandle = await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+    emitForegroundNotification(notification);
+  });
 
   const actionHandle = await PushNotifications.addListener('pushNotificationActionPerformed', (event) => {
     const data = event?.notification?.data || {};
@@ -272,6 +294,7 @@ export async function startNativeScaleNotificationRuntime() {
   window.addEventListener('focus', handleFocus);
 
   runtimeCleanup = () => {
+    receivedHandle.remove().catch(() => undefined);
     actionHandle.remove().catch(() => undefined);
     document.removeEventListener('visibilitychange', handleVisibility);
     window.removeEventListener('focus', handleFocus);
