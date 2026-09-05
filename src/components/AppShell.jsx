@@ -12,13 +12,15 @@ import { getCommunicationsInbox } from '@/lib/communications';
 
 const COMMUNICATIONS_NAV = { id: 'communications', label: 'Comunicados', emoji: '📢', to: '/comunicados' };
 const METRONOME_NAV = { id: 'metronome', label: 'Metrônomo', emoji: '⏱️', to: '/metronomo' };
+const PITCH_TEST_NAV = { id: 'pitch-test', label: 'Testar tom de música', emoji: '🎚️', to: '/testar-tom' };
+const TOOLS_NAV = { id: 'tools', label: 'Ferramentas', emoji: '🧰', children: [METRONOME_NAV, PITCH_TEST_NAV] };
 const NATIVE_FOREGROUND_NOTIFICATION_EVENT = 'oitava:native-foreground-notification';
 
 const MEMBER_NAV = [
   { id: 'home', label: 'Início', emoji: '🏠', to: '/' },
   { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
   { id: 'songs', label: 'Repertório', emoji: '🎵', to: '/repertorio' },
-  METRONOME_NAV,
+  TOOLS_NAV,
   COMMUNICATIONS_NAV,
 ];
 
@@ -29,7 +31,7 @@ const ADMIN_NAV = [
   NAV[2],
   NAV[3],
   NAV[4],
-  METRONOME_NAV,
+  TOOLS_NAV,
   NAV[5],
   COMMUNICATIONS_NAV,
 ];
@@ -60,6 +62,7 @@ function SetupRequired() {
 
 export default function AppShell({ children, allowMember = false }) {
   const [sideOpen, setSideOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [unreadCommunications, setUnreadCommunications] = useState(0);
   const [foregroundNotification, setForegroundNotification] = useState(null);
   const auth = useAuth();
@@ -68,6 +71,10 @@ export default function AppShell({ children, allowMember = false }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const memberAllowed = allowMember && auth.role === 'membro';
   const navItems = memberAllowed ? MEMBER_NAV : auth.isAdmin ? ADMIN_NAV : NAV;
+
+  useEffect(() => {
+    if (TOOLS_NAV.children.some((item) => item.to === pathname)) setToolsOpen(true);
+  }, [pathname]);
 
   useEffect(() => {
     if (!auth.configured || auth.loading) return;
@@ -161,7 +168,8 @@ export default function AppShell({ children, allowMember = false }) {
   if (auth.role !== 'admin' && !memberAllowed) return <Loader label="Redirecionando..." />;
   if (!ready) return <Loader />;
 
-  const current = navItems.find((n) => n.to === pathname) || navItems[0];
+  const flatNavItems = navItems.flatMap((item) => item.children || [item]);
+  const current = flatNavItems.find((n) => n.to === pathname) || flatNavItems[0];
 
   return (
     <>
@@ -173,22 +181,59 @@ export default function AppShell({ children, allowMember = false }) {
           </div>
         </div>
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
-          {navItems.map((n) => (
-            <Link
-              key={n.id}
-              to={n.to}
-              className={`nav-item${pathname === n.to ? ' active' : ''}`}
-              onClick={() => setSideOpen(false)}
-            >
-              <span style={{ fontSize: 18 }}>{n.emoji}</span>
-              <span style={{ flex: 1 }}>{n.label}</span>
-              {n.id === 'communications' && unreadCommunications > 0 && (
-                <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: C.accent, color: '#fff', fontSize: 10, fontWeight: 800 }}>
-                  {unreadCommunications > 99 ? '99+' : unreadCommunications}
-                </span>
-              )}
-            </Link>
-          ))}
+          {navItems.map((n) => {
+            if (n.children) {
+              const childActive = n.children.some((item) => item.to === pathname);
+              return (
+                <div key={n.id}>
+                  <button
+                    type="button"
+                    className={`nav-item${childActive ? ' active' : ''}`}
+                    aria-expanded={toolsOpen}
+                    onClick={() => setToolsOpen((open) => !open)}
+                    style={{ width: '100%', border: 'none', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}
+                  >
+                    <span style={{ fontSize: 18 }}>{n.emoji}</span>
+                    <span style={{ flex: 1 }}>{n.label}</span>
+                    <span aria-hidden="true" style={{ fontSize: 12, opacity: 0.75 }}>{toolsOpen ? '▾' : '▸'}</span>
+                  </button>
+                  {toolsOpen && (
+                    <div style={{ paddingLeft: 16 }}>
+                      {n.children.map((child) => (
+                        <Link
+                          key={child.id}
+                          to={child.to}
+                          className={`nav-item${pathname === child.to ? ' active' : ''}`}
+                          onClick={() => setSideOpen(false)}
+                          style={{ fontSize: 12 }}
+                        >
+                          <span style={{ fontSize: 16 }}>{child.emoji}</span>
+                          <span style={{ flex: 1 }}>{child.label}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={n.id}
+                to={n.to}
+                className={`nav-item${pathname === n.to ? ' active' : ''}`}
+                onClick={() => setSideOpen(false)}
+              >
+                <span style={{ fontSize: 18 }}>{n.emoji}</span>
+                <span style={{ flex: 1 }}>{n.label}</span>
+                {n.id === 'communications' && unreadCommunications > 0 && (
+                  <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: C.accent, color: '#fff', fontSize: 10, fontWeight: 800 }}>
+                    {unreadCommunications > 99 ? '99+' : unreadCommunications}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </nav>
         <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.textSecondary, lineHeight: 1.5 }}>
           {auth.configured && auth.user ? (
