@@ -79,10 +79,10 @@ export default function TestSongKeyPage() {
                 <div style={{ width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bgInput, flexShrink: 0 }}><Music2 size={18} color={C.accent} /></div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, color: C.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.name}</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4, fontSize: 11, color: C.textSecondary }}>
-                    <span>{song.youtubeUrl ? 'YouTube disponível' : 'Sem link do YouTube'}</span>
-                    {song.originalKey && <span>• Tom original: {song.originalKey}</span>}
-                    {song.bpm && <span>• {song.bpm} BPM</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                    <span className={song.originalKey ? 'tag green' : 'tag'}>Tom: {song.originalKey || '—'}</span>
+                    {song.bpm && <span className="tag">♩ {song.bpm} BPM</span>}
+                    <span style={{ fontSize: 11, color: C.textSecondary }}>{song.youtubeUrl ? 'YouTube disponível' : 'Sem link do YouTube'}</span>
                   </div>
                 </div>
               </div>
@@ -98,8 +98,8 @@ export default function TestSongKeyPage() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: C.textPrimary }}>{selected.name}</div>
               <div style={{ marginTop: 6, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {selected.originalKey && <span className="tag green">Tom original: {selected.originalKey}</span>}
-                {selected.bpm && <span className="tag">{selected.bpm} BPM</span>}
+                <span className={selected.originalKey ? 'tag green' : 'tag'}>Tom: {selected.originalKey || '—'}</span>
+                {selected.bpm && <span className="tag">♩ {selected.bpm} BPM</span>}
                 {selected.timeSignature && <span className="tag">Compasso: {selected.timeSignature}</span>}
               </div>
               {!selected.youtubeUrl && <div style={{ marginTop: 10, color: C.danger, fontSize: 12 }}>Esta música não possui link do YouTube cadastrado.</div>}
