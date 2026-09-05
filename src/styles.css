@@ -142,3 +142,31 @@
     color: var(--color-foreground);
   }
 }
+
+/* O cabeçalho principal permanece visível enquanto o conteúdo rola. */
+.main-content {
+  padding-top: 54px;
+}
+
+.topbar-surface {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0;
+  right: 0;
+  z-index: 100 !important;
+}
+
+@media (min-width: 900px) {
+  .topbar-surface {
+    left: 230px;
+  }
+}
+
+/* No PWA/iOS a integração Android com o Transpose não é exibida. */
+@supports (-webkit-touch-callout: none) {
+  @media (hover: none) and (pointer: coarse) {
+    a[href="/testar-tom"] {
+      display: none !important;
+    }
+  }
+}
