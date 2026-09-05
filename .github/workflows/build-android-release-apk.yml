@@ -12,7 +12,6 @@ on:
       - feature/comunicados-home-alert-2026-08-30
       - feature/comunicados-home-alert-position-2026-08-30
       - feature/member-search-accent-insensitive-2026-08-30
-      - feature/tools-transpose-integration
     paths:
       - '.github/workflows/build-android-release-apk.yml'
       - 'src/**'
