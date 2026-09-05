@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/tools-transpose-2026-09-05
       - refactor/android-production-shell-2026-08-27
       - feature/scale-song-order-2026-08-29
       - feature/notification-center-2026-08-29
