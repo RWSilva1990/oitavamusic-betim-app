@@ -15,6 +15,7 @@ export default function MyScalesPage() {
   const navigate = useNavigate();
   const { members, groups, songs, scales, ready } = useData();
   const [viewModal, setViewModal] = useState(null);
+  const [pastOpen, setPastOpen] = useState(false);
 
   const me = auth.memberFor(members);
   const today = todayISO();
@@ -107,10 +108,18 @@ export default function MyScalesPage() {
 
           {past.length > 0 && (
             <div>
-              <div className="section-header" style={{ marginBottom: 10 }}>📦 Anteriores ({past.length})</div>
-              <div style={{ display: 'grid', gap: 8, opacity: 0.7 }}>
-                {past.slice(0, 10).map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}
+              <div
+                onClick={() => setPastOpen((open) => !open)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', marginBottom: pastOpen ? 10 : 0 }}
+              >
+                <div className="section-header" style={{ marginBottom: 0, flex: 1 }}>📦 Anteriores ({past.length})</div>
+                <span style={{ fontSize: 11, color: C.textSecondary }}>{pastOpen ? '▲ ocultar' : '▼ mostrar'}</span>
               </div>
+              {pastOpen && (
+                <div style={{ display: 'grid', gap: 8, opacity: 0.7 }}>
+                  {past.slice(0, 10).map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}
+                </div>
+              )}
             </div>
           )}
         </div>
