@@ -93,7 +93,7 @@ export default function PitchTestPage() {
     try {
       const result = await TransposeLauncher.open({ url: youtubeUrl });
       if (result?.opened) {
-        setStatus({ type: 'success', message: 'Música enviada ao Transpose. Ao voltar ao Oitava, sua seleção continuará aqui.' });
+        setStatus({ type: 'success', message: 'Transpose aberto. O link da música já está copiado; cole-o na busca do Transpose para continuar o teste de tom.' });
       } else if (result?.reason === 'not-installed') {
         setTransposeInstalled(false);
         setStatus({ type: 'info', message: 'O Transpose ainda não está instalado. Use o botão de instalação abaixo e depois retorne ao Oitava Music.' });
@@ -128,7 +128,7 @@ export default function PitchTestPage() {
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: C.textPrimary, marginBottom: 3 }}>Oitava + Transpose</div>
           <div style={{ fontSize: 12, color: C.textSecondary }}>
-            O Oitava seleciona a música e envia o link do YouTube. No Transpose você reproduz a referência e sobe ou desce o tom em tempo real.
+            O Oitava copia o link do YouTube e abre o Transpose para você. No Transpose, basta colar o link na busca, reproduzir a referência e subir ou descer o tom em tempo real.
           </div>
           {!nativeAndroid && (
             <div style={{ marginTop: 7, fontSize: 11.5, fontWeight: 700, color: C.accent }}>
