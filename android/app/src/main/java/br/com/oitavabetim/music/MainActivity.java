@@ -74,6 +74,20 @@ public class MainActivity extends BridgeActivity {
             "(function(){" +
                 "if(window.__oitavaCsvDownloadInterceptorInstalled)return;" +
                 "window.__oitavaCsvDownloadInterceptorInstalled=true;" +
+                "window.__oitavaCsvBlobMap=new Map();" +
+                "var originalCreateObjectURL=URL.createObjectURL.bind(URL);" +
+                "var originalRevokeObjectURL=URL.revokeObjectURL.bind(URL);" +
+                "URL.createObjectURL=function(blob){" +
+                    "var url=originalCreateObjectURL(blob);" +
+                    "try{" +
+                        "if(blob&&typeof Blob!=='undefined'&&blob instanceof Blob){window.__oitavaCsvBlobMap.set(url,blob);}" +
+                    "}catch(error){}" +
+                    "return url;" +
+                "};" +
+                "URL.revokeObjectURL=function(url){" +
+                    "originalRevokeObjectURL(url);" +
+                    "setTimeout(function(){window.__oitavaCsvBlobMap.delete(url);},3000);" +
+                "};" +
                 "document.addEventListener('click',function(event){" +
                     "var target=event.target;" +
                     "var anchor=target&&target.closest?target.closest('a[download]'):null;" +
@@ -82,13 +96,16 @@ public class MainActivity extends BridgeActivity {
                     "if(!/\\.csv$/i.test(filename))return;" +
                     "event.preventDefault();" +
                     "event.stopPropagation();" +
-                    "fetch(anchor.href).then(function(response){return response.blob();}).then(function(blob){" +
+                    "var blob=window.__oitavaCsvBlobMap.get(anchor.href);" +
+                    "var sendBlob=function(csvBlob){" +
                         "var reader=new FileReader();" +
                         "reader.onloadend=function(){" +
                             "if(window.OitavaCsvBridge&&reader.result){window.OitavaCsvBridge.saveDataUrl(String(reader.result),filename);}" +
                         "};" +
-                        "reader.readAsDataURL(blob);" +
-                    "}).catch(function(error){console.error('Falha ao exportar CSV no Android',error);});" +
+                        "reader.readAsDataURL(csvBlob);" +
+                    "};" +
+                    "if(blob){sendBlob(blob);return;}" +
+                    "fetch(anchor.href).then(function(response){return response.blob();}).then(sendBlob).catch(function(error){console.error('Falha ao exportar CSV no Android',error);});" +
                 "},true);" +
             "})()",
             null
