@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - refactor/android-production-shell-2026-08-27
+      - feature/tools-transpose-guided-2026-09-05
   workflow_dispatch:
 
 permissions:
