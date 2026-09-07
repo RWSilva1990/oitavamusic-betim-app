@@ -69,20 +69,6 @@ jobs:
       - name: Sync Capacitor Android project
         run: npx cap sync android
 
-      - name: Apply Oitava Music launcher logo
-        shell: bash
-        run: |
-          set -euo pipefail
-          LOGO="public/icon-512.png"
-          test -s "$LOGO"
-          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
-          for dir in android/app/src/main/res/mipmap-mdpi android/app/src/main/res/mipmap-hdpi android/app/src/main/res/mipmap-xhdpi android/app/src/main/res/mipmap-xxhdpi android/app/src/main/res/mipmap-xxxhdpi; do
-            mkdir -p "$dir"
-            cp "$LOGO" "$dir/ic_launcher.png"
-            cp "$LOGO" "$dir/ic_launcher_round.png"
-          done
-
       - name: Build debug APK
         working-directory: android
         run: |
