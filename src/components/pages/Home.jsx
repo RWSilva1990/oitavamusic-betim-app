@@ -60,6 +60,17 @@ function UnreadCommunicationsAlert({ count }) {
   );
 }
 
+function daysUntilCalendarDate(dateIso) {
+  if (!dateIso) return Number.POSITIVE_INFINITY;
+  const [year, month, day] = String(dateIso).split('-').map(Number);
+  if (!year || !month || !day) return Number.POSITIVE_INFINITY;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetStart = new Date(year, month - 1, day);
+  return Math.round((targetStart.getTime() - todayStart.getTime()) / 86400000);
+}
+
 export default function HomePage() {
   const auth = useAuth();
   const { members, groups, songs, scales } = useData();
@@ -218,7 +229,7 @@ export default function HomePage() {
           <div style={{ display: 'grid', gap: 8 }}>
             {upcoming.map((sc) => {
               const g = groups.find((x) => x.id === sc.groupId);
-              const daysUntil = Math.ceil((new Date(sc.date + 'T12:00:00') - new Date()) / 86400000);
+              const daysUntil = daysUntilCalendarDate(sc.date);
               return (
                 <Link key={sc.id} to="/escalas" className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
@@ -229,7 +240,7 @@ export default function HomePage() {
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    {daysUntil <= 0 ? (
+                    {daysUntil === 0 ? (
                       <span style={{ fontSize: 12, fontWeight: 700, color: C.success }}>Hoje!</span>
                     ) : daysUntil === 1 ? (
                       <span style={{ fontSize: 12, fontWeight: 600, color: C.accent }}>Amanhã</span>
