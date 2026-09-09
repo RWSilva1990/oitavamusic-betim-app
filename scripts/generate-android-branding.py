@@ -27,12 +27,15 @@ for folder, size in launcher_sizes.items():
     rendered.save(target_dir / 'ic_launcher.png')
     rendered.save(target_dir / 'ic_launcher_round.png')
 
-    # Adaptive foreground canvases are larger than the visible safe area.
+    # Adaptive foreground canvases are 2.25x the legacy launcher size.
+    # Keep the logo itself at the same visual scale as the legacy icon instead
+    # of enlarging it to the whole adaptive safe area. This prevents Android's
+    # launcher mask from cropping the outer portion of the Oitava logo and
+    # making the white center look artificially zoomed.
     fg_size = int(size * 2.25)
     foreground = Image.new('RGBA', (fg_size, fg_size), (0, 0, 0, 0))
-    safe = int(fg_size * 0.66)
-    mark = logo.resize((safe, safe), Image.Resampling.LANCZOS)
-    foreground.alpha_composite(mark, ((fg_size - safe) // 2, (fg_size - safe) // 2))
+    mark = logo.resize((size, size), Image.Resampling.LANCZOS)
+    foreground.alpha_composite(mark, ((fg_size - size) // 2, (fg_size - size) // 2))
     foreground.save(target_dir / 'ic_launcher_foreground.png')
 
 # Rebuild every existing Capacitor splash image, preserving its original pixel
