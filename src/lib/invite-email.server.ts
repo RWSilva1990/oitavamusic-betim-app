@@ -180,121 +180,45 @@ function invitationHtml(appUrl: string, inviteLink: string) {
   `;
 }
 
-function encodeHeader(value: string) {
-  return `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
-}
+function resendCredentials() {
+  const apiKey = env('RESEND_API_KEY');
+  const from = env('RESEND_FROM_EMAIL');
 
-function toBase64Url(value: string) {
-  return Buffer.from(value, 'utf8')
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-}
-
-function gmailCredentials() {
-  const clientId = env('GMAIL_CLIENT_ID');
-  const clientSecret = env('GMAIL_CLIENT_SECRET');
-  const refreshToken = env('GMAIL_REFRESH_TOKEN');
-  const senderEmail = env('GMAIL_SENDER_EMAIL').toLowerCase();
-
-  if (!clientId || !clientSecret || !refreshToken || !senderEmail) {
-    throw new Error('As credenciais do Gmail não estão completas na Vercel.');
+  if (!apiKey || !from) {
+    throw new Error('RESEND_API_KEY e RESEND_FROM_EMAIL precisam estar configuradas na Vercel.');
   }
 
-  return { clientId, clientSecret, refreshToken, senderEmail };
+  return { apiKey, from };
 }
 
-async function getGmailAccessToken() {
-  const { clientId, clientSecret, refreshToken, senderEmail } = gmailCredentials();
-  const body = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    refresh_token: refreshToken,
-    grant_type: 'refresh_token',
-  });
+async function sendThroughResend(to: string, subject: string, text: string, html: string) {
+  const { apiKey, from } = resendCredentials();
 
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
-
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || !result?.access_token) {
-    const code = String(result?.error || 'unknown_error');
-    const description = String(result?.error_description || `HTTP ${response.status}`);
-    console.error('Gmail OAuth token refresh failed', {
-      status: response.status,
-      code,
-      description,
-      clientIdSuffix: clientId.slice(-18),
-      senderEmail,
-    });
-    throw new Error(`Google recusou a renovação do token do Gmail: ${code} — ${description}`);
-  }
-
-  return String(result.access_token);
-}
-
-function buildRawEmail({
-  from,
-  to,
-  subject,
-  text,
-  html,
-}: {
-  from: string;
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-}) {
-  const boundary = `oitava_${Date.now().toString(16)}_${Math.random().toString(16).slice(2)}`;
-  const lines = [
-    `From: Oitava Music Betim <${from}>`,
-    `To: ${to}`,
-    `Subject: ${encodeHeader(subject)}`,
-    'MIME-Version: 1.0',
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    '',
-    `--${boundary}`,
-    'Content-Type: text/plain; charset="UTF-8"',
-    'Content-Transfer-Encoding: 8bit',
-    '',
-    text,
-    '',
-    `--${boundary}`,
-    'Content-Type: text/html; charset="UTF-8"',
-    'Content-Transfer-Encoding: 8bit',
-    '',
-    html,
-    '',
-    `--${boundary}--`,
-    '',
-  ];
-
-  return toBase64Url(lines.join('\r\n'));
-}
-
-async function sendThroughGmail(to: string, subject: string, text: string, html: string) {
-  const { senderEmail } = gmailCredentials();
-  const accessToken = await getGmailAccessToken();
-  const raw = buildRawEmail({ from: senderEmail, to, subject, text, html });
-
-  const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+  const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ raw }),
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject,
+      text,
+      html,
+    }),
   });
 
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const detail = result?.error?.message || result?.error_description || result?.error || `HTTP ${response.status}`;
-    throw new Error(`Gmail recusou o envio: ${detail}`);
+    const detail = result?.message || result?.error || `HTTP ${response.status}`;
+    console.error('Resend invitation email failed', {
+      status: response.status,
+      detail,
+      from,
+      to,
+    });
+    throw new Error(`Resend recusou o envio: ${detail}`);
   }
 
   return result;
@@ -312,7 +236,7 @@ export async function sendInvitationEmailForToken(email: string, idToken: string
   const subject = 'Crie seu acesso ao Oitava Music Betim';
   const text = `Olá! Você recebeu este e-mail para criar seu acesso ao Oitava Music Betim. Crie seu acesso usando este link pessoal: ${inviteLink}`;
   const html = invitationHtml(appUrl, inviteLink);
-  const result = await sendThroughGmail(clean, subject, text, html);
+  const result = await sendThroughResend(clean, subject, text, html);
 
   return { success: true, id: result?.id || '' };
 }
