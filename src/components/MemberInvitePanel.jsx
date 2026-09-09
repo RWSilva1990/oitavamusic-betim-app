@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Check, Copy, Link2, Mail, RefreshCw, UserCheck } from 'lucide-react';
 import { C } from '@/lib/theme';
 import { fmtDate } from '@/lib/db';
-import { sendCustomInvitation } from '@/lib/invite-client';
 import { acceptPendingRegistration, listPendingRegistrations } from '@/lib/registration-client';
 import { Btn, Inp, Modal } from './ui-kit';
 import { useAuth } from '@/lib/auth';
@@ -45,7 +44,7 @@ export default function MemberInvitePanel() {
     if (!clean) { setMessage('Informe o e-mail da pessoa que será convidada.'); return; }
     setSending(true);
     try {
-      await sendCustomInvitation(clean);
+      await auth.sendInvite(clean);
       setMessage(`Convite enviado para ${clean}.`);
       setSentEmail(clean);
       setEmail('');
