@@ -1,5 +1,5 @@
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'public' / 'icon-512.png'
@@ -14,16 +14,14 @@ logo = Image.open(SOURCE).convert('RGBA')
 def extend_edges(image, target_size):
     """Extend only the outer pixels of the artwork to fill a larger square.
 
-    The original icon remains untouched and centered. The extra adaptive-icon
-    area is filled by stretching the edge pixels outward, so Android never
-    reveals the white adaptive background and the central Oitava mark is not
-    enlarged.
+    The artwork itself stays at the same scale. Only the pixels at its outer
+    edge are stretched outward to fill the extra area.
     """
     width, height = image.size
     if width != height:
-        raise ValueError('Launcher source must be square')
+        raise ValueError('Launcher artwork must be square')
     if target_size < width:
-        raise ValueError('Target size must be at least the source size')
+        raise ValueError('Target size must be at least the artwork size')
 
     canvas = Image.new('RGBA', (target_size, target_size))
     left = (target_size - width) // 2
@@ -31,10 +29,8 @@ def extend_edges(image, target_size):
     right = left + width
     bottom = top + height
 
-    # Keep the official source artwork at exactly its original scale.
     canvas.alpha_composite(image, (left, top))
 
-    # Extend the four edge rows/columns into the surrounding adaptive area.
     if top > 0:
         top_edge = image.crop((0, 0, width, 1)).resize((width, top), Image.Resampling.NEAREST)
         canvas.alpha_composite(top_edge, (left, 0))
@@ -52,7 +48,6 @@ def extend_edges(image, target_size):
         )
         canvas.alpha_composite(right_edge, (right, top))
 
-    # Fill the corners using the corresponding corner pixel from the source.
     corners = [
         ((0, 0, 1, 1), (0, 0, left, top)),
         ((width - 1, 0, width, 1), (right, 0, target_size, top)),
@@ -69,6 +64,44 @@ def extend_edges(image, target_size):
     return canvas
 
 
+def remove_white_frame_without_zoom(image):
+    """Remove the white frame around icon-512 without resizing the artwork.
+
+    icon-512 contains the desired colored artwork already at the visual scale
+    we want, but it also contains white outer padding. We find only the colored
+    artwork, keep that crop at its current pixel size, and extend its own edge
+    colors into the former white area. The central Oitava symbol therefore does
+    not get any larger.
+    """
+    rgb = image.convert('RGB')
+    white = Image.new('RGB', rgb.size, (255, 255, 255))
+    difference = ImageChops.difference(rgb, white).convert('L')
+
+    # Ignore tiny JPEG/PNG antialiasing variations that are visually white.
+    mask = difference.point(lambda value: 255 if value > 12 else 0)
+    bbox = mask.getbbox()
+    if not bbox:
+        return image
+
+    left, top, right, bottom = bbox
+
+    # Keep the crop square and centered so the logo position/scale is preserved.
+    crop_width = right - left
+    crop_height = bottom - top
+    side = max(crop_width, crop_height)
+    center_x = (left + right) // 2
+    center_y = (top + bottom) // 2
+    left = max(0, center_x - side // 2)
+    top = max(0, center_y - side // 2)
+    right = min(image.width, left + side)
+    bottom = min(image.height, top + side)
+    left = max(0, right - side)
+    top = max(0, bottom - side)
+
+    artwork = image.crop((left, top, right, bottom))
+    return extend_edges(artwork, image.width)
+
+
 # Legacy launcher icons. These are used on Android versions/devices that do not
 # render adaptive icons.
 launcher_sizes = {
@@ -82,14 +115,18 @@ launcher_sizes = {
 for folder, size in launcher_sizes.items():
     target_dir = RES / folder
     target_dir.mkdir(parents=True, exist_ok=True)
-    rendered = logo.resize((size, size), Image.Resampling.LANCZOS)
+
+    # First resize the official source exactly as before. Then remove only the
+    # white outer frame by extending the colored background into it. Nothing in
+    # the central artwork is resized during this second step.
+    rendered_source = logo.resize((size, size), Image.Resampling.LANCZOS)
+    rendered = remove_white_frame_without_zoom(rendered_source)
     rendered.save(target_dir / 'ic_launcher.png')
     rendered.save(target_dir / 'ic_launcher_round.png')
 
-    # Adaptive foreground canvases are 2.25x the legacy launcher size.
-    # Keep the official icon at the same visual scale already approved, while
-    # extending only its background to the adaptive canvas edges. This removes
-    # the white border without zooming the central Oitava symbol.
+    # Adaptive foreground canvases are 2.25x the legacy launcher size. Extend
+    # the already cleaned background to the adaptive edges; do not enlarge the
+    # icon artwork itself.
     fg_size = int(size * 2.25)
     foreground = extend_edges(rendered, fg_size)
     foreground.save(target_dir / 'ic_launcher_foreground.png')
