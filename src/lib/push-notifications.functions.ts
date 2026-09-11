@@ -10,6 +10,7 @@ const registerSchema = z.object({
   idToken: z.string().min(20),
   fid: z.string().min(8).max(600).optional(),
   token: z.string().min(8).max(4096).optional(),
+  platform: z.enum(['web', 'android']).optional(),
 }).superRefine((data, ctx) => {
   const targets = [data.fid, data.token].filter(Boolean);
   if (targets.length !== 1) {
@@ -35,7 +36,7 @@ const notifySchema = z.object({
 export const registerPushInstallation = createServerFn({ method: 'POST' })
   .validator(registerSchema)
   .handler(async ({ data }) =>
-    registerPushInstallationForToken(data.idToken, { fid: data.fid, token: data.token })
+    registerPushInstallationForToken(data.idToken, { fid: data.fid, token: data.token, platform: data.platform })
   );
 
 export const unregisterPushInstallation = createServerFn({ method: 'POST' })

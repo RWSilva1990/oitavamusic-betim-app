@@ -214,18 +214,20 @@ async function filterByPreference(
   return allowed;
 }
 
-type PushTarget = { token: string; memberId: string; path: string };
+type PushTarget = { token: string; memberId: string; path: string; platform: 'android' | 'web' };
 
-function nativeTargetFromDocument(document: any): PushTarget | null {
+function pushTargetFromDocument(document: any): PushTarget | null {
   const token = firestoreString(document, 'token')
     || (firestoreString(document, 'targetType') === 'token' ? firestoreString(document, 'target') : '');
   const memberId = firestoreString(document, 'memberId');
   const path = firestoreDocumentPath(document);
+  const storedPlatform = firestoreString(document, 'platform');
+  const platform = storedPlatform === 'web' ? 'web' : 'android';
   if (!token || !memberId || !path) return null;
-  return { token, memberId, path };
+  return { token, memberId, path, platform };
 }
 
-async function nativeTargets(app: ReturnType<typeof getCenterApp>, memberIds: string[]) {
+async function pushTargets(app: ReturnType<typeof getCenterApp>, memberIds: string[]) {
   const unique = [...new Set(memberIds.filter(Boolean))];
   const found = new Map<string, PushTarget>();
   for (let i = 0; i < unique.length; i += 25) {
@@ -239,18 +241,14 @@ async function nativeTargets(app: ReturnType<typeof getCenterApp>, memberIds: st
             fieldFilter: {
               field: { fieldPath: 'memberId' },
               op: 'IN',
-              value: {
-                arrayValue: {
-                  values: chunk.map((memberId) => ({ stringValue: memberId })),
-                },
-              },
+              value: { arrayValue: { values: chunk.map((memberId) => ({ stringValue: memberId })) } },
             },
           },
         },
       }),
     });
     for (const row of Array.isArray(rows) ? rows : []) {
-      const target = nativeTargetFromDocument(row?.document);
+      const target = pushTargetFromDocument(row?.document);
       if (target) found.set(target.token, target);
     }
   }
@@ -263,19 +261,23 @@ function isStaleTargetError(code: string) {
     || code.includes('installation-id-not-registered');
 }
 
-async function sendNative(
+async function sendPush(
   app: ReturnType<typeof getCenterApp>,
   memberIds: string[],
   notification: { type: string; title: string; body: string; path: string; scaleId: string },
 ) {
-  const targets = await nativeTargets(app, memberIds);
+  const targets = await pushTargets(app, memberIds);
+  const nativeTargets = targets.filter((target) => target.platform === 'android');
+  const nativeMemberIds = new Set(nativeTargets.map((target) => target.memberId));
+  const webTargets = targets.filter((target) => target.platform === 'web' && !nativeMemberIds.has(target.memberId));
   let sent = 0;
   let failed = 0;
   const sentMembers = new Set<string>();
   const stalePaths = new Set<string>();
+  const url = `${(env('APP_URL') || 'https://oitavamusicbetim.vercel.app').replace(/\/$/, '')}${notification.path}`;
 
-  for (let i = 0; i < targets.length; i += 500) {
-    const entries = targets.slice(i, i + 500);
+  for (let i = 0; i < nativeTargets.length; i += 500) {
+    const entries = nativeTargets.slice(i, i + 500);
     const response = await getMessaging(app).sendEachForMulticast({
       tokens: entries.map((entry) => entry.token),
       notification: { title: notification.title, body: notification.body },
@@ -284,7 +286,7 @@ async function sendNative(
         title: notification.title,
         body: notification.body,
         path: notification.path,
-        url: `${(env('APP_URL') || 'https://oitavamusicbetim.vercel.app').replace(/\/$/, '')}${notification.path}`,
+        url,
         scaleId: notification.scaleId,
       },
       android: {
@@ -301,13 +303,45 @@ async function sendNative(
     });
   }
 
-  if (stalePaths.size > 0) {
-    await Promise.all(
-      [...stalePaths].map((path) => firestoreRest(app, `/${path}`, { method: 'DELETE' }).catch(() => undefined)),
-    );
+  for (let i = 0; i < webTargets.length; i += 500) {
+    const entries = webTargets.slice(i, i + 500);
+    const response = await getMessaging(app).sendEachForMulticast({
+      tokens: entries.map((entry) => entry.token),
+      data: {
+        type: notification.type,
+        title: notification.title,
+        body: notification.body,
+        path: notification.path,
+        url,
+        scaleId: notification.scaleId,
+      },
+      webpush: {
+        headers: { Urgency: 'high' },
+        fcmOptions: { link: url },
+      },
+    });
+    sent += response.successCount;
+    failed += response.failureCount;
+    response.responses.forEach((item, index) => {
+      const entry = entries[index];
+      if (item.success) sentMembers.add(entry.memberId);
+      else if (isStaleTargetError(String(item.error?.code || ''))) stalePaths.add(entry.path);
+    });
   }
 
-  return { sent, failed, devices: targets.length, sentMemberIds: [...sentMembers] };
+  if (stalePaths.size > 0) {
+    await Promise.all([...stalePaths].map((path) => firestoreRest(app, `/${path}`, { method: 'DELETE' }).catch(() => undefined)));
+  }
+
+  return {
+    sent,
+    failed,
+    devices: nativeTargets.length + webTargets.length,
+    androidDevices: nativeTargets.length,
+    webDevices: webTargets.length,
+    suppressedWebDevices: targets.filter((target) => target.platform === 'web').length - webTargets.length,
+    sentMemberIds: [...sentMembers],
+  };
 }
 
 function formatScaleDate(date: string) {
@@ -364,7 +398,7 @@ export async function notifyScaleEventForToken(
   const allowed = await filterByPreference(caller.app, input.memberIds, preferenceKeyForNotice(input.type));
   if (allowed.length === 0) return { success: true, sent: 0, failed: 0, devices: 0, recipients: 0 };
   const content = noticeContent(input.type, input.scale, input.detail);
-  const result = await sendNative(caller.app, allowed, {
+  const result = await sendPush(caller.app, allowed, {
     type: input.type,
     title: content.title,
     body: content.body,
@@ -468,7 +502,7 @@ export async function runScaleReminderSweep() {
     if (pending.length === 0) continue;
 
     const content = reminderContent(scale as { id: string; name: string; date: string }, days);
-    const result = await sendNative(app, pending, {
+    const result = await sendPush(app, pending, {
       type: 'scale-reminder',
       title: content.title,
       body: content.body,

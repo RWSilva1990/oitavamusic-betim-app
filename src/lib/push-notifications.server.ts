@@ -154,6 +154,7 @@ type InstallationTarget = {
   type: 'fid' | 'token';
   path: string;
   memberId: string;
+  platform: 'web' | 'android';
 };
 
 function installationFromDocument(document: any, memberIdOverride?: string): InstallationTarget | null {
@@ -163,11 +164,15 @@ function installationFromDocument(document: any, memberIdOverride?: string): Ins
   const fid = firestoreString(document, 'fid');
   const storedTarget = firestoreString(document, 'target');
   const storedType = firestoreString(document, 'targetType');
+  const storedPlatform = firestoreString(document, 'platform');
   const value = storedTarget || token || fid;
   const type = storedType === 'token' || (!storedType && token) ? 'token' : 'fid';
+  const platform = storedPlatform === 'web' || storedPlatform === 'android'
+    ? storedPlatform
+    : type === 'fid' ? 'web' : 'android';
   const memberId = memberIdOverride || storedMemberId;
   if (!value || !path || !memberId) return null;
-  return { value, type, path, memberId };
+  return { value, type, path, memberId, platform };
 }
 
 async function findInstallationsByMemberIds(
@@ -255,7 +260,7 @@ function isStaleTargetError(code: string) {
 
 export async function registerPushInstallationForToken(
   idToken: string,
-  data: { fid?: string; token?: string },
+  data: { fid?: string; token?: string; platform?: 'web' | 'android' },
 ) {
   const caller = await verifyCaller(idToken);
   const memberId = await resolveMemberId(caller.app, caller.email);
@@ -273,6 +278,7 @@ export async function registerPushInstallationForToken(
         targetType: target.type,
         fid: target.type === 'fid' ? target.value : '',
         token: target.type === 'token' ? target.value : '',
+        platform: data.platform || (target.type === 'fid' ? 'web' : 'android'),
         memberId,
         email: caller.email,
         uid: caller.uid,
@@ -281,8 +287,9 @@ export async function registerPushInstallationForToken(
     ),
   });
 
-  console.info('[push-register]', JSON.stringify({ memberId, targetType: target.type }));
-  return { success: true, memberId, targetType: target.type };
+  const platform = data.platform || (target.type === 'fid' ? 'web' : 'android');
+  console.info('[push-register]', JSON.stringify({ memberId, targetType: target.type, platform }));
+  return { success: true, memberId, targetType: target.type, platform };
 }
 
 export async function unregisterPushInstallationForToken(
@@ -336,14 +343,16 @@ export async function notifyScaleMembersAddedForToken(
   let sent = 0;
   let failed = 0;
   const stalePaths: string[] = [];
-  const nativeTargets = installations.filter((item) => item.type === 'token');
+  const nativeTargets = installations.filter((item) => item.platform === 'android');
   const membersWithNativePush = new Set(nativeTargets.map((item) => item.memberId));
-  const allWebTargets = installations.filter((item) => item.type === 'fid');
+  const allWebTargets = installations.filter((item) => item.platform === 'web');
   const webTargets = allWebTargets.filter((item) => !membersWithNativePush.has(item.memberId));
   const suppressedWebDevices = allWebTargets.length - webTargets.length;
+  const legacyWebTargets = webTargets.filter((item) => item.type === 'fid');
+  const webTokenTargets = webTargets.filter((item) => item.type === 'token');
 
-  for (let i = 0; i < webTargets.length; i += 500) {
-    const entries = webTargets.slice(i, i + 500);
+  for (let i = 0; i < legacyWebTargets.length; i += 500) {
+    const entries = legacyWebTargets.slice(i, i + 500);
     const fids = entries.map((item) => item.value);
     const response = await getMessaging(caller.app).sendEachForMulticast({
       fids,
@@ -360,7 +369,33 @@ export async function notifyScaleMembersAddedForToken(
         fcmOptions: { link },
       },
     });
+    sent += response.successCount;
+    failed += response.failureCount;
+    response.responses.forEach((item, index) => {
+      if (item.success) return;
+      const code = String(item.error?.code || '');
+      if (isStaleTargetError(code)) stalePaths.push(entries[index].path);
+    });
+  }
 
+  for (let i = 0; i < webTokenTargets.length; i += 500) {
+    const entries = webTokenTargets.slice(i, i + 500);
+    const tokens = entries.map((item) => item.value);
+    const response = await getMessaging(caller.app).sendEachForMulticast({
+      tokens,
+      data: {
+        type: 'scale-added',
+        title,
+        body,
+        url: link,
+        path,
+        scaleId: scale.id,
+      },
+      webpush: {
+        headers: { Urgency: 'high' },
+        fcmOptions: { link },
+      },
+    });
     sent += response.successCount;
     failed += response.failureCount;
     response.responses.forEach((item, index) => {
