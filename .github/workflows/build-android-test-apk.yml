@@ -87,3 +87,72 @@ jobs:
           name: oitava-music-golden-icon-direct-transpose
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+  build-transpose-integration-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Transpose recovery branch
+        uses: actions/checkout@v4
+        with:
+          repository: RWSilva1990/Transpose
+          ref: recovery/oitava-direct-link-2026-09-11
+          path: transpose
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Provide test Firebase configuration
+        working-directory: transpose
+        shell: bash
+        run: |
+          cat > app/google-services.json <<'EOF'
+          {
+            "project_info": {
+              "project_number": "100000000001",
+              "project_id": "transpose-integration-test",
+              "storage_bucket": "transpose-integration-test.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:100000000001:android:0000000000000000000000",
+                  "android_client_info": {
+                    "package_name": "com.example.transpose"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyDUMMY_TRANSPOSE_INTEGRATION_TEST_KEY"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+
+      - name: Build Transpose debug APK
+        working-directory: transpose
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Upload Transpose APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: transpose-oitava-direct-link-test
+          path: transpose/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
