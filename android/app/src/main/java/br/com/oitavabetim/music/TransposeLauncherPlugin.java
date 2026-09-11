@@ -1,8 +1,6 @@
 package br.com.oitavabetim.music;
 
-import android.content.ClipData;
-import android.content.ClipboardManager;
-import android.content.Context;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -44,25 +42,20 @@ public class TransposeLauncherPlugin extends Plugin {
             return;
         }
 
-        String cleanUrl = url.trim();
-        copyLinkToClipboard(cleanUrl);
-
-        PackageManager packageManager = getContext().getPackageManager();
-        Intent launchIntent = packageManager.getLaunchIntentForPackage(TRANSPOSE_PACKAGE);
-
-        if (launchIntent == null) {
-            result.put("opened", false);
-            result.put("reason", "launch-unavailable");
-            call.resolve(result);
-            return;
-        }
-
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        Intent intent = new Intent(Intent.ACTION_SEND);
+        intent.setType("text/plain");
+        intent.putExtra(Intent.EXTRA_TEXT, url.trim());
+        intent.setPackage(TRANSPOSE_PACKAGE);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
         try {
-            getActivity().startActivity(launchIntent);
+            getActivity().startActivity(intent);
             result.put("opened", true);
-            result.put("linkCopied", true);
+            result.put("linkSent", true);
+            call.resolve(result);
+        } catch (ActivityNotFoundException error) {
+            result.put("opened", false);
+            result.put("reason", "incompatible-version");
             call.resolve(result);
         } catch (Exception error) {
             result.put("opened", false);
@@ -85,14 +78,6 @@ public class TransposeLauncherPlugin extends Plugin {
             result.put("opened", false);
             result.put("reason", "launch-failed");
             call.resolve(result);
-        }
-    }
-
-    private void copyLinkToClipboard(String url) {
-        ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-        if (clipboard != null) {
-            ClipData clip = ClipData.newPlainText("Link da música - Oitava Music", url);
-            clipboard.setPrimaryClip(clip);
         }
     }
 
