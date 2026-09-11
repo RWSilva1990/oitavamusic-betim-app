@@ -105,8 +105,10 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.12.1
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12.1'
 
       - name: Provide test Firebase configuration
         working-directory: transpose
@@ -146,9 +148,7 @@ jobs:
 
       - name: Build Transpose debug APK
         working-directory: transpose
-        run: |
-          chmod +x gradlew
-          ./gradlew :app:assembleDebug --stacktrace
+        run: gradle :app:assembleDebug --stacktrace
 
       - name: Upload Transpose APK
         uses: actions/upload-artifact@v4
