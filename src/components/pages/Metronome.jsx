@@ -264,12 +264,6 @@ export default function MetronomePage() {
           </div>
         )}
       </div>
-
-      <div style={{ maxWidth: 620, margin: '14px auto 0', padding: '12px 14px', borderRadius: 12, background: C.accentGlow, border: `1px solid ${C.accent}33`, color: C.textSecondary, fontSize: 12, lineHeight: 1.6 }}>
-        {mode === 'setlist'
-          ? 'Ao avançar ou voltar uma música, o metrônomo para e carrega o BPM e o compasso cadastrados. Alterações feitas aqui são temporárias e não modificam o repertório.'
-          : 'O primeiro tempo do compasso recebe um clique mais agudo e um marcador visual maior. O Tap Tempo calcula o andamento pelas últimas batidas feitas no botão.'}
-      </div>
     </div>
   );
 }
