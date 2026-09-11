@@ -18,6 +18,28 @@ jobs:
           ref: fix/ios-pwa-web-push-2026-09-11
           fetch-depth: 0
 
+      - name: Make schema patch unambiguous
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/patch-ios-web-push.py')
+          text = p.read_text()
+          old = '''replace(
+              'src/lib/push-notifications.functions.ts',
+              "  token: z.string().min(8).max(4096).optional(),\\n}).superRefine",
+              "  token: z.string().min(8).max(4096).optional(),\\n  platform: z.enum(['web', 'android']).optional(),\\n}).superRefine",
+          )'''
+          new = '''replace(
+              'src/lib/push-notifications.functions.ts',
+              "  idToken: z.string().min(20),\\n  fid: z.string().min(8).max(600).optional(),\\n  token: z.string().min(8).max(4096).optional(),\\n}).superRefine",
+              "  idToken: z.string().min(20),\\n  fid: z.string().min(8).max(600).optional(),\\n  token: z.string().min(8).max(4096).optional(),\\n  platform: z.enum(['web', 'android']).optional(),\\n}).superRefine",
+          )'''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one patch block, found {text.count(old)}')
+          p.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Apply isolated patch
         run: python scripts/patch-ios-web-push.py
 
@@ -28,17 +50,18 @@ jobs:
           git diff --check
           changed="$(git diff --name-only)"
           printf '%s\n' "$changed"
-          unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(src/lib/push-client.js|src/lib/push-native.js|src/lib/push-notifications.functions.ts|src/lib/push-notifications.server.ts|src/lib/notification-center.server.ts|src/routes/api/mobile/push.ts)$' || true)"
+          unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(src/lib/push-client.js|src/lib/push-native.js|src/lib/push-notifications.functions.ts|src/lib/push-notifications.server.ts|src/lib/notification-center.server.ts|src/routes/api/mobile/push.ts|scripts/patch-ios-web-push.py)$' || true)"
           test -z "$unexpected"
           grep -F "platform: 'web'" src/lib/push-client.js
           grep -F "platform: 'android'" src/lib/push-native.js
           grep -F "webpush:" src/lib/notification-center.server.ts
           grep -F "android:" src/lib/notification-center.server.ts
 
-      - name: Commit only the intended code changes
+      - name: Commit only intended code changes
         shell: bash
         run: |
           set -euo pipefail
+          git checkout -- scripts/patch-ios-web-push.py
           rm .github/workflows/patch-ios-web-push.yml scripts/patch-ios-web-push.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
