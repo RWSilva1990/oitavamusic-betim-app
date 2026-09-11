@@ -1,0 +1,311 @@
+name: Patch iOS/PWA Web Push
+
+on:
+  push:
+    branches:
+      - fix/ios-pwa-web-push-2026-09-11
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ios-pwa-web-push-2026-09-11
+          fetch-depth: 0
+
+      - name: Apply narrowly scoped push-platform patch
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def replace(path, old, new, count=1):
+              p = Path(path)
+              text = p.read_text()
+              actual = text.count(old)
+              if actual != count:
+                  raise SystemExit(f'{path}: expected {count} occurrence(s), found {actual}')
+              p.write_text(text.replace(old, new, count))
+
+          replace('src/lib/push-client.js', "await registerMobilePush(idToken, { token });", "await registerMobilePush(idToken, { token, platform: 'web' });")
+          replace('src/lib/push-native.js', "if (isPackagedNativeApp()) return registerMobilePush(idToken, { token });\n  return registerPushInstallation({ data: { idToken, token } });", "if (isPackagedNativeApp()) return registerMobilePush(idToken, { token, platform: 'android' });\n  return registerPushInstallation({ data: { idToken, token, platform: 'android' } });")
+          replace('src/lib/push-notifications.functions.ts', "  token: z.string().min(8).max(4096).optional(),\n}).superRefine", "  token: z.string().min(8).max(4096).optional(),\n  platform: z.enum(['web', 'android']).optional(),\n}).superRefine")
+          replace('src/lib/push-notifications.functions.ts', "registerPushInstallationForToken(data.idToken, { fid: data.fid, token: data.token })", "registerPushInstallationForToken(data.idToken, { fid: data.fid, token: data.token, platform: data.platform })")
+          replace('src/routes/api/mobile/push.ts', "  token: z.string().min(8).max(4096).optional(),\n}).superRefine", "  token: z.string().min(8).max(4096).optional(),\n  platform: z.enum(['web', 'android']).optional(),\n}).superRefine")
+
+          p = Path('src/lib/push-notifications.server.ts')
+          text = p.read_text()
+          text, n = re.subn(r"type InstallationTarget = \{\n  value: string;\n  type: 'fid' \| 'token';\n  path: string;\n  memberId: string;\n\};", "type InstallationTarget = {\n  value: string;\n  type: 'fid' | 'token';\n  path: string;\n  memberId: string;\n  platform: 'web' | 'android';\n};", text, count=1)
+          if n != 1: raise SystemExit('push-notifications.server.ts: InstallationTarget block mismatch')
+          text, n = re.subn(r"function installationFromDocument\(document: any, memberIdOverride\?: string\): InstallationTarget \| null \{.*?\n\}\n\nasync function findInstallationsByMemberIds", """function installationFromDocument(document: any, memberIdOverride?: string): InstallationTarget | null {
+  const path = firestoreDocumentPath(document);
+  const storedMemberId = firestoreString(document, 'memberId');
+  const token = firestoreString(document, 'token');
+  const fid = firestoreString(document, 'fid');
+  const storedTarget = firestoreString(document, 'target');
+  const storedType = firestoreString(document, 'targetType');
+  const storedPlatform = firestoreString(document, 'platform');
+  const value = storedTarget || token || fid;
+  const type = storedType === 'token' || (!storedType && token) ? 'token' : 'fid';
+  const platform = storedPlatform === 'web' || storedPlatform === 'android'
+    ? storedPlatform
+    : type === 'fid' ? 'web' : 'android';
+  const memberId = memberIdOverride || storedMemberId;
+  if (!value || !path || !memberId) return null;
+  return { value, type, path, memberId, platform };
+}
+
+async function findInstallationsByMemberIds""", text, count=1, flags=re.S)
+          if n != 1: raise SystemExit('push-notifications.server.ts: installationFromDocument block mismatch')
+          text, n = re.subn(r"data: \{ fid\?: string; token\?: string \},", "data: { fid?: string; token?: string; platform?: 'web' | 'android' },", text, count=1)
+          if n != 1: raise SystemExit('push-notifications.server.ts: register signature mismatch')
+          old = """        token: target.type === 'token' ? target.value : '',
+        memberId,"""
+          new = """        token: target.type === 'token' ? target.value : '',
+        platform: data.platform || (target.type === 'fid' ? 'web' : 'android'),
+        memberId,"""
+          if text.count(old) != 1: raise SystemExit('push-notifications.server.ts: storage block mismatch')
+          text = text.replace(old, new, 1)
+          old = """  console.info('[push-register]', JSON.stringify({ memberId, targetType: target.type }));
+  return { success: true, memberId, targetType: target.type };"""
+          new = """  const platform = data.platform || (target.type === 'fid' ? 'web' : 'android');
+  console.info('[push-register]', JSON.stringify({ memberId, targetType: target.type, platform }));
+  return { success: true, memberId, targetType: target.type, platform };"""
+          if text.count(old) != 1: raise SystemExit('push-notifications.server.ts: register result block mismatch')
+          text = text.replace(old, new, 1)
+          start = text.index("  const nativeTargets = installations.filter((item) => item.type === 'token');")
+          end = text.index("\n  for (let i = 0; i < nativeTargets.length; i += 500) {", start)
+          web_block = """  const nativeTargets = installations.filter((item) => item.platform === 'android');
+  const membersWithNativePush = new Set(nativeTargets.map((item) => item.memberId));
+  const allWebTargets = installations.filter((item) => item.platform === 'web');
+  const webTargets = allWebTargets.filter((item) => !membersWithNativePush.has(item.memberId));
+  const suppressedWebDevices = allWebTargets.length - webTargets.length;
+  const legacyWebTargets = webTargets.filter((item) => item.type === 'fid');
+  const webTokenTargets = webTargets.filter((item) => item.type === 'token');
+
+  for (let i = 0; i < legacyWebTargets.length; i += 500) {
+    const entries = legacyWebTargets.slice(i, i + 500);
+    const fids = entries.map((item) => item.value);
+    const response = await getMessaging(caller.app).sendEachForMulticast({
+      fids,
+      data: {
+        type: 'scale-added',
+        title,
+        body,
+        url: link,
+        path,
+        scaleId: scale.id,
+      },
+      webpush: {
+        headers: { Urgency: 'high' },
+        fcmOptions: { link },
+      },
+    });
+    sent += response.successCount;
+    failed += response.failureCount;
+    response.responses.forEach((item, index) => {
+      if (item.success) return;
+      const code = String(item.error?.code || '');
+      if (isStaleTargetError(code)) stalePaths.push(entries[index].path);
+    });
+  }
+
+  for (let i = 0; i < webTokenTargets.length; i += 500) {
+    const entries = webTokenTargets.slice(i, i + 500);
+    const tokens = entries.map((item) => item.value);
+    const response = await getMessaging(caller.app).sendEachForMulticast({
+      tokens,
+      data: {
+        type: 'scale-added',
+        title,
+        body,
+        url: link,
+        path,
+        scaleId: scale.id,
+      },
+      webpush: {
+        headers: { Urgency: 'high' },
+        fcmOptions: { link },
+      },
+    });
+    sent += response.successCount;
+    failed += response.failureCount;
+    response.responses.forEach((item, index) => {
+      if (item.success) return;
+      const code = String(item.error?.code || '');
+      if (isStaleTargetError(code)) stalePaths.push(entries[index].path);
+    });
+  }
+"""
+          text = text[:start] + web_block + text[end:]
+          p.write_text(text)
+
+          p = Path('src/lib/notification-center.server.ts')
+          text = p.read_text()
+          start = text.index('type PushTarget =')
+          end = text.index('\nfunction formatScaleDate', start)
+          replacement = """type PushTarget = { token: string; memberId: string; path: string; platform: 'android' | 'web' };
+
+function pushTargetFromDocument(document: any): PushTarget | null {
+  const token = firestoreString(document, 'token')
+    || (firestoreString(document, 'targetType') === 'token' ? firestoreString(document, 'target') : '');
+  const memberId = firestoreString(document, 'memberId');
+  const path = firestoreDocumentPath(document);
+  const storedPlatform = firestoreString(document, 'platform');
+  const platform = storedPlatform === 'web' ? 'web' : 'android';
+  if (!token || !memberId || !path) return null;
+  return { token, memberId, path, platform };
+}
+
+async function pushTargets(app: ReturnType<typeof getCenterApp>, memberIds: string[]) {
+  const unique = [...new Set(memberIds.filter(Boolean))];
+  const found = new Map<string, PushTarget>();
+  for (let i = 0; i < unique.length; i += 25) {
+    const chunk = unique.slice(i, i + 25);
+    const rows = await firestoreRest(app, ':runQuery', {
+      method: 'POST',
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: 'pushInstallations' }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: 'memberId' },
+              op: 'IN',
+              value: { arrayValue: { values: chunk.map((memberId) => ({ stringValue: memberId })) } },
+            },
+          },
+        },
+      }),
+    });
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const target = pushTargetFromDocument(row?.document);
+      if (target) found.set(target.token, target);
+    }
+  }
+  return [...found.values()];
+}
+
+function isStaleTargetError(code: string) {
+  return code.includes('registration-token-not-registered')
+    || code.includes('invalid-registration-token')
+    || code.includes('installation-id-not-registered');
+}
+
+async function sendPush(
+  app: ReturnType<typeof getCenterApp>,
+  memberIds: string[],
+  notification: { type: string; title: string; body: string; path: string; scaleId: string },
+) {
+  const targets = await pushTargets(app, memberIds);
+  const nativeTargets = targets.filter((target) => target.platform === 'android');
+  const nativeMemberIds = new Set(nativeTargets.map((target) => target.memberId));
+  const webTargets = targets.filter((target) => target.platform === 'web' && !nativeMemberIds.has(target.memberId));
+  let sent = 0;
+  let failed = 0;
+  const sentMembers = new Set<string>();
+  const stalePaths = new Set<string>();
+  const url = `${(env('APP_URL') || 'https://oitavamusicbetim.vercel.app').replace(/\/$/, '')}${notification.path}`;
+
+  for (let i = 0; i < nativeTargets.length; i += 500) {
+    const entries = nativeTargets.slice(i, i + 500);
+    const response = await getMessaging(app).sendEachForMulticast({
+      tokens: entries.map((entry) => entry.token),
+      notification: { title: notification.title, body: notification.body },
+      data: {
+        type: notification.type,
+        title: notification.title,
+        body: notification.body,
+        path: notification.path,
+        url,
+        scaleId: notification.scaleId,
+      },
+      android: {
+        priority: 'high',
+        notification: { channelId: 'escala-alerts', sound: 'default' },
+      },
+    });
+    sent += response.successCount;
+    failed += response.failureCount;
+    response.responses.forEach((item, index) => {
+      const entry = entries[index];
+      if (item.success) sentMembers.add(entry.memberId);
+      else if (isStaleTargetError(String(item.error?.code || ''))) stalePaths.add(entry.path);
+    });
+  }
+
+  for (let i = 0; i < webTargets.length; i += 500) {
+    const entries = webTargets.slice(i, i + 500);
+    const response = await getMessaging(app).sendEachForMulticast({
+      tokens: entries.map((entry) => entry.token),
+      data: {
+        type: notification.type,
+        title: notification.title,
+        body: notification.body,
+        path: notification.path,
+        url,
+        scaleId: notification.scaleId,
+      },
+      webpush: {
+        headers: { Urgency: 'high' },
+        fcmOptions: { link: url },
+      },
+    });
+    sent += response.successCount;
+    failed += response.failureCount;
+    response.responses.forEach((item, index) => {
+      const entry = entries[index];
+      if (item.success) sentMembers.add(entry.memberId);
+      else if (isStaleTargetError(String(item.error?.code || ''))) stalePaths.add(entry.path);
+    });
+  }
+
+  if (stalePaths.size > 0) {
+    await Promise.all([...stalePaths].map((path) => firestoreRest(app, `/${path}`, { method: 'DELETE' }).catch(() => undefined)));
+  }
+
+  return {
+    sent,
+    failed,
+    devices: nativeTargets.length + webTargets.length,
+    androidDevices: nativeTargets.length,
+    webDevices: webTargets.length,
+    suppressedWebDevices: targets.filter((target) => target.platform === 'web').length - webTargets.length,
+    sentMemberIds: [...sentMembers],
+  };
+}
+"""
+          text = text[:start] + replacement + text[end:]
+          if text.count('sendNative(caller.app, allowed, {') != 1: raise SystemExit('notification-center.server.ts: notice send call mismatch')
+          text = text.replace('sendNative(caller.app, allowed, {', 'sendPush(caller.app, allowed, {', 1)
+          if text.count('sendNative(app, pending, {') != 1: raise SystemExit('notification-center.server.ts: reminder send call mismatch')
+          text = text.replace('sendNative(app, pending, {', 'sendPush(app, pending, {', 1)
+          p.write_text(text)
+
+      - name: Verify scope and basic invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          changed="$(git diff --name-only)"
+          printf '%s\n' "$changed"
+          test "$(printf '%s\n' "$changed" | grep -Ev '^(src/lib/push-client.js|src/lib/push-native.js|src/lib/push-notifications.functions.ts|src/lib/push-notifications.server.ts|src/lib/notification-center.server.ts|src/routes/api/mobile/push.ts|.github/workflows/patch-ios-web-push.yml)$' | wc -l)" -eq 0
+          grep -F "platform: 'web'" src/lib/push-client.js
+          grep -F "platform: 'android'" src/lib/push-native.js
+          grep -F "webpush:" src/lib/notification-center.server.ts
+          grep -F "android:" src/lib/notification-center.server.ts
+
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/patch-ios-web-push.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/push-client.js src/lib/push-native.js src/lib/push-notifications.functions.ts src/lib/push-notifications.server.ts src/lib/notification-center.server.ts src/routes/api/mobile/push.ts .github/workflows/patch-ios-web-push.yml
+          git commit -m "fix(push): classificar web e Android sem alterar fluxo existente"
+          git push origin HEAD:fix/ios-pwa-web-push-2026-09-11
