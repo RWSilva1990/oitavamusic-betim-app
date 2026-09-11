@@ -122,7 +122,7 @@ export async function syncScaleNotifications({ requestPermission = false } = {})
     if (!token) throw new Error('O navegador não forneceu um identificador para receber notificações. Tente novamente.');
 
     const idToken = await currentIdToken();
-    await registerMobilePush(idToken, { token });
+    await registerMobilePush(idToken, { token, platform: 'web' });
     window.localStorage.setItem(PUSH_TOKEN_KEY, token);
     window.localStorage.removeItem(LEGACY_PUSH_FID_KEY);
     window.localStorage.setItem(PUSH_ENABLED_KEY, 'true');

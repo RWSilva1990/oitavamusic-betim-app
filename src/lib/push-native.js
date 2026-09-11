@@ -42,8 +42,8 @@ async function currentIdToken() {
 }
 
 async function registerTarget(idToken, token) {
-  if (isPackagedNativeApp()) return registerMobilePush(idToken, { token });
-  return registerPushInstallation({ data: { idToken, token } });
+  if (isPackagedNativeApp()) return registerMobilePush(idToken, { token, platform: 'android' });
+  return registerPushInstallation({ data: { idToken, token, platform: 'android' } });
 }
 
 async function unregisterTarget(idToken, token) {

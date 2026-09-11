@@ -17,6 +17,7 @@ import {
 const targetSchema = z.object({
   fid: z.string().min(8).max(600).optional(),
   token: z.string().min(8).max(4096).optional(),
+  platform: z.enum(['web', 'android']).optional(),
 }).superRefine((data, ctx) => {
   if ([data.fid, data.token].filter(Boolean).length !== 1) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Informe exatamente um identificador de instalação.' });
