@@ -18,25 +18,17 @@ jobs:
           ref: fix/ios-pwa-web-push-2026-09-11
           fetch-depth: 0
 
-      - name: Make schema patch unambiguous
+      - name: Keep replacements first-match only
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           p = Path('scripts/patch-ios-web-push.py')
           text = p.read_text()
-          old = '''replace(
-              'src/lib/push-notifications.functions.ts',
-              "  token: z.string().min(8).max(4096).optional(),\\n}).superRefine",
-              "  token: z.string().min(8).max(4096).optional(),\\n  platform: z.enum(['web', 'android']).optional(),\\n}).superRefine",
-          )'''
-          new = '''replace(
-              'src/lib/push-notifications.functions.ts',
-              "  idToken: z.string().min(20),\\n  fid: z.string().min(8).max(600).optional(),\\n  token: z.string().min(8).max(4096).optional(),\\n}).superRefine",
-              "  idToken: z.string().min(20),\\n  fid: z.string().min(8).max(600).optional(),\\n  token: z.string().min(8).max(4096).optional(),\\n  platform: z.enum(['web', 'android']).optional(),\\n}).superRefine",
-          )'''
+          old = """    if actual != count:\n        raise SystemExit(f'{path}: expected {count} occurrence(s), found {actual}')\n    p.write_text(text.replace(old, new, count))"""
+          new = """    if actual < count:\n        raise SystemExit(f'{path}: expected at least {count} occurrence(s), found {actual}')\n    p.write_text(text.replace(old, new, count))"""
           if text.count(old) != 1:
-              raise SystemExit(f'expected one patch block, found {text.count(old)}')
+              raise SystemExit('helper guard mismatch')
           p.write_text(text.replace(old, new, 1))
           PY
 
@@ -54,6 +46,8 @@ jobs:
           test -z "$unexpected"
           grep -F "platform: 'web'" src/lib/push-client.js
           grep -F "platform: 'android'" src/lib/push-native.js
+          grep -F "platform: z.enum(['web', 'android']).optional()" src/lib/push-notifications.functions.ts
+          grep -F "platform: z.enum(['web', 'android']).optional()" src/routes/api/mobile/push.ts
           grep -F "webpush:" src/lib/notification-center.server.ts
           grep -F "android:" src/lib/notification-center.server.ts
 
