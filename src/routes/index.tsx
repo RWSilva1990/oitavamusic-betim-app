@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AppShell from "@/components/AppShell";
 import HomePage from "@/components/pages/Home";
+import IosInstallHint from "@/components/IosInstallHint";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/")({
   }),
   component: () => (
     <AppShell allowMember>
+      <IosInstallHint />
       <HomePage />
     </AppShell>
   ),
