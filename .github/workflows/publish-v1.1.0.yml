@@ -1,0 +1,57 @@
+name: Publish Oitava Music v1.1.0
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/releases/v1.1.0.md'
+      - '.github/workflows/publish-v1.1.0.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download validated Android APK artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-apk
+          gh run download 34076196594 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name oitava-music-android-test \
+            --dir release-apk
+          APK_PATH="$(find release-apk -type f -name '*.apk' | head -n 1)"
+          test -n "$APK_PATH"
+          cp "$APK_PATH" Oitava-Music-Betim-v1.1.0-android-validado.apk
+          echo "3962c77740cb1cc5a9f0772395eb400a5aac1cca22a4dfe27f67c87c8207105c  Oitava-Music-Betim-v1.1.0-android-validado.apk" | sha256sum -c -
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.1.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v1.1.0 already exists; keeping existing release metadata."
+          else
+            gh release create v1.1.0 \
+              --repo "$GITHUB_REPOSITORY" \
+              --target 9f1f20b1e8918e61e81f99e436643d2d6063855e \
+              --title "Oitava Music Betim v1.1.0" \
+              --notes-file docs/releases/v1.1.0.md
+          fi
+
+      - name: Attach validated Android APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload v1.1.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            'Oitava-Music-Betim-v1.1.0-android-validado.apk#APK Android validado de teste'
