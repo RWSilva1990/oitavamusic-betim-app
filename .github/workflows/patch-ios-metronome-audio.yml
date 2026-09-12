@@ -28,39 +28,28 @@ jobs:
           path = Path('src/components/pages/Metronome.jsx')
           text = path.read_text()
 
-          old_helper = """function validSignature(value) {
-            return TIME_SIGNATURES.some((item) => item.value === value) ? value : '4/4';
-          }
-
-          export default function MetronomePage() {"""
-          new_helper = """function validSignature(value) {
-            return TIME_SIGNATURES.some((item) => item.value === value) ? value : '4/4';
-          }
-
-          function isIOSDevice() {
+          export_anchor = 'export default function MetronomePage() {'
+          if text.count(export_anchor) != 1:
+              raise SystemExit(f'export anchor mismatch: {text.count(export_anchor)}')
+          ios_helper = """function isIOSDevice() {
             if (typeof navigator === 'undefined') return false;
             return /iPad|iPhone|iPod/.test(navigator.userAgent)
               || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
           }
 
-          export default function MetronomePage() {"""
-          if text.count(old_helper) != 1:
-              raise SystemExit(f'helper anchor mismatch: {text.count(old_helper)}')
-          text = text.replace(old_helper, new_helper, 1)
+          """
+          ios_helper = '\n'.join(line[10:] if line.startswith('          ') else line for line in ios_helper.split('\n'))
+          text = text.replace(export_anchor, ios_helper + export_anchor, 1)
 
-          old_start = """  const start = useCallback(async () => {
-            const context = getAudioContext();
-            if (!context) return;
-            if (context.state === 'suspended') await context.resume();
-            if (timerRef.current) window.clearInterval(timerRef.current);
-            currentBeatRef.current = 0;
-            nextNoteTimeRef.current = context.currentTime + 0.05;
-            runningRef.current = true;
-            setRunning(true);
-            setActiveBeat(0);
-            scheduler();
-            timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);
-          }, [getAudioContext, scheduler]);"""
+          start_anchor = '  const start = useCallback(async () => {'
+          end_anchor = '\n\n  useEffect(() => () => {'
+          start_index = text.find(start_anchor)
+          if start_index < 0:
+              raise SystemExit('start anchor not found')
+          end_index = text.find(end_anchor, start_index)
+          if end_index < 0:
+              raise SystemExit('start end anchor not found')
+
           new_start = """  const start = useCallback(async () => {
             if (isIOSDevice()) {
               try {
@@ -92,9 +81,8 @@ jobs:
             scheduler();
             timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);
           }, [getAudioContext, scheduler]);"""
-          if text.count(old_start) != 1:
-              raise SystemExit(f'start anchor mismatch: {text.count(old_start)}')
-          text = text.replace(old_start, new_start, 1)
+          new_start = '\n'.join(line[10:] if line.startswith('          ') else line for line in new_start.split('\n'))
+          text = text[:start_index] + new_start + text[end_index:]
 
           path.write_text(text)
           PY
@@ -109,6 +97,7 @@ jobs:
           test "$changed" = "src/components/pages/Metronome.jsx"
           grep -F "navigator.audioSession.type = 'playback'" src/components/pages/Metronome.jsx
           grep -F "context.state === 'suspended' || context.state === 'interrupted'" src/components/pages/Metronome.jsx
+          grep -F "const existingContext = audioContextRef.current;" src/components/pages/Metronome.jsx
 
       - name: Commit only metronome change
         shell: bash
