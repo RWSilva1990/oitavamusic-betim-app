@@ -1,0 +1,122 @@
+name: Patch iOS PWA Metronome Audio
+
+on:
+  push:
+    branches:
+      - fix/ios-pwa-metronome-audio-2026-09-12
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ios-pwa-metronome-audio-2026-09-12
+          fetch-depth: 0
+
+      - name: Apply isolated metronome audio patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/components/pages/Metronome.jsx')
+          text = path.read_text()
+
+          old_helper = """function validSignature(value) {
+            return TIME_SIGNATURES.some((item) => item.value === value) ? value : '4/4';
+          }
+
+          export default function MetronomePage() {"""
+          new_helper = """function validSignature(value) {
+            return TIME_SIGNATURES.some((item) => item.value === value) ? value : '4/4';
+          }
+
+          function isIOSDevice() {
+            if (typeof navigator === 'undefined') return false;
+            return /iPad|iPhone|iPod/.test(navigator.userAgent)
+              || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+          }
+
+          export default function MetronomePage() {"""
+          if text.count(old_helper) != 1:
+              raise SystemExit(f'helper anchor mismatch: {text.count(old_helper)}')
+          text = text.replace(old_helper, new_helper, 1)
+
+          old_start = """  const start = useCallback(async () => {
+            const context = getAudioContext();
+            if (!context) return;
+            if (context.state === 'suspended') await context.resume();
+            if (timerRef.current) window.clearInterval(timerRef.current);
+            currentBeatRef.current = 0;
+            nextNoteTimeRef.current = context.currentTime + 0.05;
+            runningRef.current = true;
+            setRunning(true);
+            setActiveBeat(0);
+            scheduler();
+            timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);
+          }, [getAudioContext, scheduler]);"""
+          new_start = """  const start = useCallback(async () => {
+            if (isIOSDevice()) {
+              try {
+                if (navigator.audioSession && 'type' in navigator.audioSession) {
+                  navigator.audioSession.type = 'playback';
+                }
+              } catch {}
+
+              const existingContext = audioContextRef.current;
+              if (existingContext && existingContext.state !== 'closed') {
+                existingContext.close().catch(() => {});
+                audioContextRef.current = null;
+              }
+            }
+
+            const context = getAudioContext();
+            if (!context) return;
+            if (context.state === 'suspended' || context.state === 'interrupted') {
+              try {
+                await context.resume();
+              } catch {}
+            }
+            if (timerRef.current) window.clearInterval(timerRef.current);
+            currentBeatRef.current = 0;
+            nextNoteTimeRef.current = context.currentTime + 0.05;
+            runningRef.current = true;
+            setRunning(true);
+            setActiveBeat(0);
+            scheduler();
+            timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);
+          }, [getAudioContext, scheduler]);"""
+          if text.count(old_start) != 1:
+              raise SystemExit(f'start anchor mismatch: {text.count(old_start)}')
+          text = text.replace(old_start, new_start, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Verify strict scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          changed="$(git diff --name-only)"
+          printf '%s\n' "$changed"
+          test "$changed" = "src/components/pages/Metronome.jsx"
+          grep -F "navigator.audioSession.type = 'playback'" src/components/pages/Metronome.jsx
+          grep -F "context.state === 'suspended' || context.state === 'interrupted'" src/components/pages/Metronome.jsx
+
+      - name: Commit only metronome change
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/patch-ios-metronome-audio.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/pages/Metronome.jsx .github/workflows/patch-ios-metronome-audio.yml
+          git commit -m "fix(metronome): restaurar áudio no PWA do iOS"
+          git push origin HEAD:fix/ios-pwa-metronome-audio-2026-09-12
