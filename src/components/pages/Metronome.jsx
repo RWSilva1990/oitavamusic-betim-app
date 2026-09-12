@@ -132,36 +132,36 @@ export default function MetronomePage() {
   }, []);
 
   const start = useCallback(async () => {
-  if (isIOSDevice()) {
-    try {
-      if (navigator.audioSession && 'type' in navigator.audioSession) {
-        navigator.audioSession.type = 'playback';
+    if (isIOSDevice()) {
+      try {
+        if (navigator.audioSession && 'type' in navigator.audioSession) {
+          navigator.audioSession.type = 'playback';
+        }
+      } catch {}
+
+      const existingContext = audioContextRef.current;
+      if (existingContext && existingContext.state !== 'closed') {
+        existingContext.close().catch(() => {});
+        audioContextRef.current = null;
       }
-    } catch {}
-
-    const existingContext = audioContextRef.current;
-    if (existingContext && existingContext.state !== 'closed') {
-      existingContext.close().catch(() => {});
-      audioContextRef.current = null;
     }
-  }
 
-  const context = getAudioContext();
-  if (!context) return;
-  if (context.state === 'suspended' || context.state === 'interrupted') {
-    try {
-      await context.resume();
-    } catch {}
-  }
-  if (timerRef.current) window.clearInterval(timerRef.current);
-  currentBeatRef.current = 0;
-  nextNoteTimeRef.current = context.currentTime + 0.05;
-  runningRef.current = true;
-  setRunning(true);
-  setActiveBeat(0);
-  scheduler();
-  timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);
-}, [getAudioContext, scheduler]);
+    const context = getAudioContext();
+    if (!context) return;
+    if (context.state === 'suspended' || context.state === 'interrupted') {
+      try {
+        await context.resume();
+      } catch {}
+    }
+    if (timerRef.current) window.clearInterval(timerRef.current);
+    currentBeatRef.current = 0;
+    nextNoteTimeRef.current = context.currentTime + 0.05;
+    runningRef.current = true;
+    setRunning(true);
+    setActiveBeat(0);
+    scheduler();
+    timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);
+  }, [getAudioContext, scheduler]);
 
   useEffect(() => () => {
     runningRef.current = false;
