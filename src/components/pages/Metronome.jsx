@@ -29,6 +29,12 @@ function validSignature(value) {
   return TIME_SIGNATURES.some((item) => item.value === value) ? value : '4/4';
 }
 
+function isIOSDevice() {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
 export default function MetronomePage() {
   const { scales, songs } = useData();
   const [mode, setMode] = useState('manual');
@@ -126,18 +132,36 @@ export default function MetronomePage() {
   }, []);
 
   const start = useCallback(async () => {
-    const context = getAudioContext();
-    if (!context) return;
-    if (context.state === 'suspended') await context.resume();
-    if (timerRef.current) window.clearInterval(timerRef.current);
-    currentBeatRef.current = 0;
-    nextNoteTimeRef.current = context.currentTime + 0.05;
-    runningRef.current = true;
-    setRunning(true);
-    setActiveBeat(0);
-    scheduler();
-    timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);
-  }, [getAudioContext, scheduler]);
+  if (isIOSDevice()) {
+    try {
+      if (navigator.audioSession && 'type' in navigator.audioSession) {
+        navigator.audioSession.type = 'playback';
+      }
+    } catch {}
+
+    const existingContext = audioContextRef.current;
+    if (existingContext && existingContext.state !== 'closed') {
+      existingContext.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+  }
+
+  const context = getAudioContext();
+  if (!context) return;
+  if (context.state === 'suspended' || context.state === 'interrupted') {
+    try {
+      await context.resume();
+    } catch {}
+  }
+  if (timerRef.current) window.clearInterval(timerRef.current);
+  currentBeatRef.current = 0;
+  nextNoteTimeRef.current = context.currentTime + 0.05;
+  runningRef.current = true;
+  setRunning(true);
+  setActiveBeat(0);
+  scheduler();
+  timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);
+}, [getAudioContext, scheduler]);
 
   useEffect(() => () => {
     runningRef.current = false;
