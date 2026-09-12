@@ -1,0 +1,92 @@
+name: Format iOS PWA Metronome Audio
+
+on:
+  push:
+    branches:
+      - fix/ios-pwa-metronome-audio-2026-09-12
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ios-pwa-metronome-audio-2026-09-12
+          fetch-depth: 0
+
+      - name: Normalize only start block formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/components/pages/Metronome.jsx')
+          text = path.read_text()
+          start_anchor = '  const start = useCallback(async () => {'
+          end_anchor = '\n\n  useEffect(() => () => {'
+          start_index = text.find(start_anchor)
+          end_index = text.find(end_anchor, start_index)
+          if start_index < 0 or end_index < 0:
+              raise SystemExit('metronome start block anchors not found')
+
+          block = (
+              "  const start = useCallback(async () => {\n"
+              "    if (isIOSDevice()) {\n"
+              "      try {\n"
+              "        if (navigator.audioSession && 'type' in navigator.audioSession) {\n"
+              "          navigator.audioSession.type = 'playback';\n"
+              "        }\n"
+              "      } catch {}\n"
+              "\n"
+              "      const existingContext = audioContextRef.current;\n"
+              "      if (existingContext && existingContext.state !== 'closed') {\n"
+              "        existingContext.close().catch(() => {});\n"
+              "        audioContextRef.current = null;\n"
+              "      }\n"
+              "    }\n"
+              "\n"
+              "    const context = getAudioContext();\n"
+              "    if (!context) return;\n"
+              "    if (context.state === 'suspended' || context.state === 'interrupted') {\n"
+              "      try {\n"
+              "        await context.resume();\n"
+              "      } catch {}\n"
+              "    }\n"
+              "    if (timerRef.current) window.clearInterval(timerRef.current);\n"
+              "    currentBeatRef.current = 0;\n"
+              "    nextNoteTimeRef.current = context.currentTime + 0.05;\n"
+              "    runningRef.current = true;\n"
+              "    setRunning(true);\n"
+              "    setActiveBeat(0);\n"
+              "    scheduler();\n"
+              "    timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);\n"
+              "  }, [getAudioContext, scheduler]);"
+          )
+          path.write_text(text[:start_index] + block + text[end_index:])
+          PY
+
+      - name: Verify strict scope and formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          changed="$(git diff --name-only)"
+          test "$changed" = "src/components/pages/Metronome.jsx"
+          grep -F "          navigator.audioSession.type = 'playback';" src/components/pages/Metronome.jsx
+          grep -F "    if (context.state === 'suspended' || context.state === 'interrupted') {" src/components/pages/Metronome.jsx
+
+      - name: Commit only formatting correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/format-ios-metronome-audio.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/pages/Metronome.jsx .github/workflows/format-ios-metronome-audio.yml
+          git commit -m "chore(metronome): normalizar bloco de áudio iOS"
+          git push origin HEAD:fix/ios-pwa-metronome-audio-2026-09-12
