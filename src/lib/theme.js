@@ -111,12 +111,15 @@ export const GLOBAL_CSS = `
     transition: transform 0.28s cubic-bezier(.4,0,.2,1), background-color .18s ease;
     display: flex; flex-direction: column;
     box-shadow: 2px 0 18px var(--app-shadow);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
   }
   .sidebar.open { transform: translateX(0); }
   .topbar-menu-btn { display: flex; }
   .main-content { margin-left: 0; color: var(--app-text); }
 
-  @media (min-width: 900px) {
+  @media (min-width: 900px) and (min-height: 600px) {
     .sidebar { transform: translateX(0) !important; }
     .main-content { margin-left: 230px; }
     .topbar-menu-btn { display: none !important; }
