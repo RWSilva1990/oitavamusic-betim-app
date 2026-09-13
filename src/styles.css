@@ -145,7 +145,10 @@
 
 /* O cabeçalho principal permanece visível enquanto o conteúdo rola. */
 .main-content {
-  padding-top: 54px;
+  padding-top: calc(54px + env(safe-area-inset-top, 0px));
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
 }
 
 .topbar-surface {
@@ -154,9 +157,13 @@
   left: 0;
   right: 0;
   z-index: 100 !important;
+  height: calc(54px + env(safe-area-inset-top, 0px)) !important;
+  padding-top: env(safe-area-inset-top, 0px) !important;
+  padding-right: max(18px, env(safe-area-inset-right, 0px)) !important;
+  padding-left: max(18px, env(safe-area-inset-left, 0px)) !important;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 900px) and (min-height: 600px) {
   .topbar-surface {
     left: 230px;
   }
