@@ -1,0 +1,88 @@
+name: Patch PWA Landscape Safe Area
+
+on:
+  push:
+    branches:
+      - fix/pwa-landscape-safe-area-2026-09-12
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/pwa-landscape-safe-area-2026-09-12
+          fetch-depth: 0
+
+      - name: Apply isolated responsive PWA patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new, label):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label} anchor mismatch: {count}')
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              'src/routes/__root.tsx',
+              '{ name: "viewport", content: "width=device-width, initial-scale=1" },',
+              '{ name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },',
+              'viewport',
+          )
+
+          replace_once(
+              'src/styles.css',
+              '''.main-content {\n  padding-top: 54px;\n}\n\n.topbar-surface {\n  position: fixed !important;\n  top: 0 !important;\n  left: 0;\n  right: 0;\n  z-index: 100 !important;\n}\n\n@media (min-width: 900px) {\n  .topbar-surface {\n    left: 230px;\n  }\n}\n''',
+              '''.main-content {\n  padding-top: calc(54px + env(safe-area-inset-top, 0px));\n  padding-right: env(safe-area-inset-right, 0px);\n  padding-bottom: env(safe-area-inset-bottom, 0px);\n  padding-left: env(safe-area-inset-left, 0px);\n}\n\n.topbar-surface {\n  position: fixed !important;\n  top: 0 !important;\n  left: 0;\n  right: 0;\n  z-index: 100 !important;\n  height: calc(54px + env(safe-area-inset-top, 0px)) !important;\n  padding-top: env(safe-area-inset-top, 0px) !important;\n  padding-right: max(18px, env(safe-area-inset-right, 0px)) !important;\n  padding-left: max(18px, env(safe-area-inset-left, 0px)) !important;\n}\n\n@media (min-width: 900px) and (min-height: 600px) {\n  .topbar-surface {\n    left: 230px;\n  }\n}\n''',
+              'global shell css',
+          )
+
+          replace_once(
+              'src/lib/theme.js',
+              '''  .sidebar {\n    width: 230px; background: var(--app-sidebar);\n    border-right: 1px solid var(--app-border);\n    position: fixed; top: 0; left: 0; bottom: 0; z-index: 200;\n    transform: translateX(-100%);\n    transition: transform 0.28s cubic-bezier(.4,0,.2,1), background-color .18s ease;\n    display: flex; flex-direction: column;\n    box-shadow: 2px 0 18px var(--app-shadow);\n  }\n''',
+              '''  .sidebar {\n    width: 230px; background: var(--app-sidebar);\n    border-right: 1px solid var(--app-border);\n    position: fixed; top: 0; left: 0; bottom: 0; z-index: 200;\n    transform: translateX(-100%);\n    transition: transform 0.28s cubic-bezier(.4,0,.2,1), background-color .18s ease;\n    display: flex; flex-direction: column;\n    box-shadow: 2px 0 18px var(--app-shadow);\n    padding-top: env(safe-area-inset-top, 0px);\n    padding-bottom: env(safe-area-inset-bottom, 0px);\n    padding-left: env(safe-area-inset-left, 0px);\n  }\n''',
+              'sidebar safe area',
+          )
+
+          replace_once(
+              'src/lib/theme.js',
+              '''  @media (min-width: 900px) {\n    .sidebar { transform: translateX(0) !important; }\n    .main-content { margin-left: 230px; }\n    .topbar-menu-btn { display: none !important; }\n  }\n''',
+              '''  @media (min-width: 900px) and (min-height: 600px) {\n    .sidebar { transform: translateX(0) !important; }\n    .main-content { margin-left: 230px; }\n    .topbar-menu-btn { display: none !important; }\n  }\n''',
+              'desktop breakpoint',
+          )
+          PY
+
+      - name: Verify strict scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          changed="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' src/lib/theme.js src/routes/__root.tsx src/styles.css | sort)"
+          printf '%s\n' "$changed"
+          test "$changed" = "$expected"
+          grep -F 'viewport-fit=cover' src/routes/__root.tsx
+          grep -F 'safe-area-inset-left' src/styles.css
+          grep -F '@media (min-width: 900px) and (min-height: 600px)' src/styles.css
+          grep -F '@media (min-width: 900px) and (min-height: 600px)' src/lib/theme.js
+
+      - name: Commit only responsive PWA change
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/patch-pwa-landscape-safe-area.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/routes/__root.tsx src/styles.css src/lib/theme.js .github/workflows/patch-pwa-landscape-safe-area.yml
+          git commit -m "fix(pwa): respeitar safe areas e landscape em smartphones"
+          git push origin HEAD:fix/pwa-landscape-safe-area-2026-09-12
