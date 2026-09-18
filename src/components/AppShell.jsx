@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
-import { Bell, Menu, LogOut, X } from 'lucide-react';
+import { Bell, ChevronDown, ChevronRight, Menu, LogOut, X } from 'lucide-react';
 import { C, NAV, LOGO_HOME, LOGO_SIDEBAR } from '@/lib/theme';
 import { Btn } from './ui-kit';
 import NotificationSettings from './NotificationSettings';
@@ -11,7 +11,9 @@ import { startScaleNotificationRuntime } from '@/lib/push-client';
 import { getCommunicationsInbox } from '@/lib/communications';
 
 const COMMUNICATIONS_NAV = { id: 'communications', label: 'Comunicados', emoji: '📢', to: '/comunicados' };
-const TOOLS_NAV = { id: 'tools', label: 'Ferramentas', emoji: '🛠️', to: '/ferramentas' };
+const METRONOME_NAV = { id: 'metronome', label: 'Metrônomo', emoji: '⏱️', to: '/metronomo' };
+const SONG_KEY_TEST_NAV = { id: 'song-key-test', label: 'Testar tom de música', emoji: '🎚️', to: '/testar-tom' };
+const TOOLS_NAV = { id: 'tools', label: 'Ferramentas', emoji: '🛠️', children: [METRONOME_NAV, SONG_KEY_TEST_NAV] };
 const NATIVE_FOREGROUND_NOTIFICATION_EVENT = 'oitava:native-foreground-notification';
 
 const MEMBER_NAV = [
@@ -60,6 +62,7 @@ function SetupRequired() {
 
 export default function AppShell({ children, allowMember = false }) {
   const [sideOpen, setSideOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [unreadCommunications, setUnreadCommunications] = useState(0);
   const [foregroundNotification, setForegroundNotification] = useState(null);
   const auth = useAuth();
@@ -161,7 +164,9 @@ export default function AppShell({ children, allowMember = false }) {
   if (auth.role !== 'admin' && !memberAllowed) return <Loader label="Redirecionando..." />;
   if (!ready) return <Loader />;
 
-  const current = navItems.find((n) => n.to === pathname) || navItems[0];
+  const flatNavItems = navItems.flatMap((item) => item.children || [item]);
+  const current = flatNavItems.find((n) => n.to === pathname) || navItems[0];
+  const toolsActive = TOOLS_NAV.children.some((item) => item.to === pathname);
 
   return (
     <>
@@ -173,22 +178,58 @@ export default function AppShell({ children, allowMember = false }) {
           </div>
         </div>
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
-          {navItems.map((n) => (
-            <Link
-              key={n.id}
-              to={n.to}
-              className={`nav-item${pathname === n.to ? ' active' : ''}`}
-              onClick={() => setSideOpen(false)}
-            >
-              <span style={{ fontSize: 18 }}>{n.emoji}</span>
-              <span style={{ flex: 1 }}>{n.label}</span>
-              {n.id === 'communications' && unreadCommunications > 0 && (
-                <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: C.accent, color: '#fff', fontSize: 10, fontWeight: 800 }}>
-                  {unreadCommunications > 99 ? '99+' : unreadCommunications}
-                </span>
-              )}
-            </Link>
-          ))}
+          {navItems.map((n) => {
+            if (n.children) {
+              const expanded = toolsOpen || toolsActive;
+              return (
+                <div key={n.id}>
+                  <button
+                    type="button"
+                    className={`nav-item${toolsActive ? ' active' : ''}`}
+                    onClick={() => setToolsOpen((open) => !open)}
+                    style={{ width: '100%', border: 0, textAlign: 'left' }}
+                  >
+                    <span style={{ fontSize: 18 }}>{n.emoji}</span>
+                    <span style={{ flex: 1 }}>{n.label}</span>
+                    {expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                  </button>
+                  {expanded && (
+                    <div style={{ marginLeft: 18, paddingLeft: 8, borderLeft: `1px solid ${C.border}` }}>
+                      {n.children.map((child) => (
+                        <Link
+                          key={child.id}
+                          to={child.to}
+                          className={`nav-item${pathname === child.to ? ' active' : ''}`}
+                          onClick={() => setSideOpen(false)}
+                          style={{ fontSize: 12 }}
+                        >
+                          <span style={{ fontSize: 16 }}>{child.emoji}</span>
+                          <span style={{ flex: 1 }}>{child.label}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={n.id}
+                to={n.to}
+                className={`nav-item${pathname === n.to ? ' active' : ''}`}
+                onClick={() => setSideOpen(false)}
+              >
+                <span style={{ fontSize: 18 }}>{n.emoji}</span>
+                <span style={{ flex: 1 }}>{n.label}</span>
+                {n.id === 'communications' && unreadCommunications > 0 && (
+                  <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: C.accent, color: '#fff', fontSize: 10, fontWeight: 800 }}>
+                    {unreadCommunications > 99 ? '99+' : unreadCommunications}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </nav>
         <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.textSecondary, lineHeight: 1.5 }}>
           {auth.configured && auth.user ? (
