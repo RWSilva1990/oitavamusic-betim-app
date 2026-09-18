@@ -12,7 +12,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 @CapacitorPlugin(name = "PitchHandoff")
 public class PitchHandoffPlugin extends Plugin {
-    private static final String TRANSPOSE_PACKAGE = "com.hybridmediastudio";
+    private static final String TRANSPOSE_PACKAGE = "com.example.transpose";
+    private static final String TRANSPOSE_RELEASES_URL = "https://github.com/joh9911/Transpose/releases/latest";
 
     @PluginMethod
     public void openInTranspose(PluginCall call) {
@@ -20,7 +21,8 @@ public class PitchHandoffPlugin extends Plugin {
         if (url == null || url.trim().isEmpty()) { call.reject("URL_REQUIRED"); return; }
         Intent shareIntent = new Intent(Intent.ACTION_SEND);
         shareIntent.setType("text/plain");
-        shareIntent.putExtra(Intent.EXTRA_TEXT, url);
+        shareIntent.putExtra(Intent.EXTRA_TEXT, url.trim());
+        shareIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         shareIntent.setPackage(TRANSPOSE_PACKAGE);
         try { getActivity().startActivity(shareIntent); resolveOpened(call, "share"); return; }
         catch (ActivityNotFoundException | SecurityException ignored) {}
@@ -36,7 +38,7 @@ public class PitchHandoffPlugin extends Plugin {
         if (url == null || url.trim().isEmpty()) { call.reject("URL_REQUIRED"); return; }
         Intent shareIntent = new Intent(Intent.ACTION_SEND);
         shareIntent.setType("text/plain");
-        shareIntent.putExtra(Intent.EXTRA_TEXT, url);
+        shareIntent.putExtra(Intent.EXTRA_TEXT, url.trim());
         Intent chooser = Intent.createChooser(shareIntent, "Testar tom em outro aplicativo");
         try { getActivity().startActivity(chooser); resolveOpened(call, "chooser"); }
         catch (ActivityNotFoundException error) { call.reject("NO_SHARE_TARGET", "Nenhum aplicativo compatível foi encontrado.", error); }
@@ -44,12 +46,9 @@ public class PitchHandoffPlugin extends Plugin {
 
     @PluginMethod
     public void openTransposeStore(PluginCall call) {
-        Intent marketIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + TRANSPOSE_PACKAGE));
-        try { getActivity().startActivity(marketIntent); resolveOpened(call, "store"); return; }
-        catch (ActivityNotFoundException ignored) {}
-        Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + TRANSPOSE_PACKAGE));
-        try { getActivity().startActivity(webIntent); resolveOpened(call, "store-web"); }
-        catch (ActivityNotFoundException error) { call.reject("STORE_UNAVAILABLE", "Não foi possível abrir a página do Transpose.", error); }
+        Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(TRANSPOSE_RELEASES_URL));
+        try { getActivity().startActivity(webIntent); resolveOpened(call, "releases"); }
+        catch (ActivityNotFoundException error) { call.reject("STORE_UNAVAILABLE", "Não foi possível abrir a página de download do Transpose.", error); }
     }
 
     private void resolveOpened(PluginCall call, String method) {
