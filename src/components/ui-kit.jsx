@@ -28,8 +28,18 @@ export function Inp({ label, ...p }) {
 
 export function Modal({ title, onClose, wide, children }) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ maxWidth: wide ? 680 : 460 }} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} style={{ alignItems: 'center' }}>
+      <div
+        className="modal-box"
+        style={{
+          maxWidth: wide ? 680 : 460,
+          width: 'min(100%, calc(100vw - 24px))',
+          height: 'auto',
+          maxHeight: 'calc(100dvh - 24px)',
+          alignSelf: 'center',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <h2 style={{ fontSize: 16, fontWeight: 800, color: C.accent }}>{title}</h2>
           <Btn variant="ghost" onClick={onClose} style={{ padding: 4 }}>
@@ -44,8 +54,8 @@ export function Modal({ title, onClose, wide, children }) {
 
 export function Confirm({ msg, onOk, onCancel }) {
   return (
-    <div className="modal-overlay" style={{ zIndex: 900 }}>
-      <div className="modal-box" style={{ maxWidth: 340, borderRadius: 14, height: 'auto', display: 'block' }}>
+    <div className="modal-overlay" style={{ zIndex: 900, alignItems: 'center' }}>
+      <div className="modal-box" style={{ maxWidth: 340, width: 'min(100%, calc(100vw - 24px))', borderRadius: 14, height: 'auto', display: 'block', alignSelf: 'center' }}>
         <div className="modal-body" style={{ textAlign: 'center', padding: 28 }}>
           <AlertCircle size={32} color={C.danger} style={{ marginBottom: 12 }} />
           <p style={{ color: C.textPrimary, marginBottom: 20 }}>{msg}</p>
