@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Calendar, Eye, Youtube } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Eye, Youtube } from 'lucide-react';
 import { C, ROLES, LOGO_HOME } from '@/lib/theme';
 import { fmtDate, todayISO } from '@/lib/db';
 import { Avatar, Btn, Field, Modal } from '../ui-kit';
@@ -15,6 +15,7 @@ export default function MyScalesPage() {
   const navigate = useNavigate();
   const { members, groups, songs, scales, ready } = useData();
   const [viewModal, setViewModal] = useState(null);
+  const [pastOpen, setPastOpen] = useState(false);
 
   const me = auth.memberFor(members);
   const today = todayISO();
@@ -107,10 +108,35 @@ export default function MyScalesPage() {
 
           {past.length > 0 && (
             <div>
-              <div className="section-header" style={{ marginBottom: 10 }}>📦 Anteriores ({past.length})</div>
-              <div style={{ display: 'grid', gap: 8, opacity: 0.7 }}>
-                {past.slice(0, 10).map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}
-              </div>
+              <button
+                type="button"
+                onClick={() => setPastOpen((open) => !open)}
+                aria-expanded={pastOpen}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: pastOpen ? 10 : 0,
+                  padding: 0,
+                  border: 0,
+                  background: 'transparent',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <div className="section-header" style={{ marginBottom: 0, flex: 1 }}>📦 Anteriores ({past.length})</div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: C.textSecondary }}>
+                  {pastOpen ? 'Recolher' : 'Expandir'}
+                  {pastOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </span>
+              </button>
+              {pastOpen && (
+                <div style={{ display: 'grid', gap: 8, opacity: 0.7 }}>
+                  {past.map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}
+                </div>
+              )}
             </div>
           )}
         </div>
