@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
+import { Capacitor } from '@capacitor/core';
 import { Bell, ChevronDown, ChevronRight, Menu, LogOut, X } from 'lucide-react';
 import { C, NAV, LOGO_HOME, LOGO_SIDEBAR } from '@/lib/theme';
 import { Btn } from './ui-kit';
@@ -13,7 +14,8 @@ import { getCommunicationsInbox } from '@/lib/communications';
 const COMMUNICATIONS_NAV = { id: 'communications', label: 'Comunicados', emoji: '📢', to: '/comunicados' };
 const METRONOME_NAV = { id: 'metronome', label: 'Metrônomo', emoji: '⏱️', to: '/metronomo' };
 const SONG_KEY_TEST_NAV = { id: 'song-key-test', label: 'Testar tom de música', emoji: '🎚️', to: '/testar-tom' };
-const TOOLS_NAV = { id: 'tools', label: 'Ferramentas', emoji: '🛠️', children: [METRONOME_NAV, SONG_KEY_TEST_NAV] };
+const IS_ANDROID_APK = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+const TOOLS_NAV = { id: 'tools', label: 'Ferramentas', emoji: '🛠️', children: IS_ANDROID_APK ? [METRONOME_NAV, SONG_KEY_TEST_NAV] : [METRONOME_NAV] };
 const NATIVE_FOREGROUND_NOTIFICATION_EVENT = 'oitava:native-foreground-notification';
 
 const MEMBER_NAV = [
