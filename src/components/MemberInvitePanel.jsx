@@ -3,6 +3,7 @@ import { Check, Copy, Link2, Mail, RefreshCw, UserCheck } from 'lucide-react';
 import { C } from '@/lib/theme';
 import { fmtDate } from '@/lib/db';
 import { acceptPendingRegistration, listPendingRegistrations } from '@/lib/registration-client';
+import { sendCustomInvitation } from '@/lib/invite-client';
 import { Btn, Inp, Modal } from './ui-kit';
 import { useAuth } from '@/lib/auth';
 import { useData } from '@/lib/data';
@@ -56,7 +57,7 @@ export default function MemberInvitePanel() {
     setMessage(''); setSentEmail(''); setNoticeCopied(false);
     if (!clean) { setMessage('Informe o e-mail da pessoa que será convidada.'); return; }
     setSending(true);
-    try { await auth.sendInvite(clean); setMessage(`Convite enviado para ${clean}.`); setSentEmail(clean); setEmail(''); }
+    try { await sendCustomInvitation(clean); setMessage(`Convite enviado para ${clean}.`); setSentEmail(clean); setEmail(''); }
     catch (e) { setMessage(e?.message || 'Falha ao enviar convite.'); }
     finally { setSending(false); }
   };
@@ -102,6 +103,6 @@ export default function MemberInvitePanel() {
       {!error && !refreshing && pending.length === 0 && <div style={{ padding: '12px 14px', background: C.bgInput, borderRadius: 8, color: C.textSecondary, fontSize: 12 }}>Nenhum cadastro pendente no momento.</div>}
       <div style={{ display: 'grid', gap: 8 }}>{pending.map((r) => <div key={r.uid} className="pending-registration-row"><div style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}><div style={{ fontWeight: 700, color: C.textPrimary }}>{r.name}</div><div style={{ fontSize: 12, color: C.textSecondary }}>{r.email} · {r.phone}</div><div style={{ fontSize: 11, color: C.textSecondary, marginTop: 2 }}>Nascimento: {fmtDate(r.birthdate)}</div></div><Btn disabled={busyUid === r.uid} onClick={() => accept(r)}><Check size={14} />{busyUid === r.uid ? 'Adicionando...' : 'Adicionar membro'}</Btn></div>)}</div>
     </div>
-    {open && <Modal title="Convidar novo membro" onClose={() => setOpen(false)}><div style={{ padding: 12, background: C.bgInput, borderRadius: 8, marginBottom: 14, fontSize: 12, color: C.textSecondary, lineHeight: 1.6 }}>Informe apenas o e-mail. A pessoa receberá um link seguro e preencherá nome completo, data de nascimento e telefone.</div><Inp label="E-mail *" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="pessoa@email.com" />{message && <div style={{ marginBottom: 12, color: C.accent, fontSize: 12 }}>{message}</div>}{sentEmail && <div style={{ marginBottom: 12, padding: '12px 14px', background: C.bgInput, borderRadius: 8 }}><div style={{ marginBottom: 9, color: C.textSecondary, fontSize: 12, lineHeight: 1.5 }}>Avise a pessoa pelo WhatsApp para que ela saiba onde procurar o convite.</div><Btn variant="secondary" onClick={copyWhatsAppNotice}><Copy size={14} />{noticeCopied ? 'Aviso copiado!' : 'Copiar aviso para WhatsApp'}</Btn></div>}<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}><Btn variant="secondary" onClick={() => setOpen(false)}>Fechar</Btn><Btn disabled={sending} onClick={send}><Mail size={14} />{sending ? 'Enviando...' : 'Enviar convite'}</Btn></div></Modal>}
+    {open && <Modal title="Convidar novo membro" onClose={() => setOpen(false)}><div style={{ padding: 12, background: C.bgInput, borderRadius: 8, marginBottom: 14, fontSize: 12, color: C.textSecondary, lineHeight: 1.6 }}>Informe apenas o e-mail. A pessoa receberá um link seguro e preencherá nome completo, data de nascimento e telefone. O acesso só será liberado depois que você aprovar o cadastro recebido.</div><Inp label="E-mail *" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="pessoa@email.com" />{message && <div style={{ marginBottom: 12, color: C.accent, fontSize: 12 }}>{message}</div>}{sentEmail && <div style={{ marginBottom: 12, padding: '12px 14px', background: C.bgInput, borderRadius: 8 }}><div style={{ marginBottom: 9, color: C.textSecondary, fontSize: 12, lineHeight: 1.5 }}>Avise a pessoa pelo WhatsApp para que ela saiba onde procurar o convite.</div><Btn variant="secondary" onClick={copyWhatsAppNotice}><Copy size={14} />{noticeCopied ? 'Aviso copiado!' : 'Copiar aviso para WhatsApp'}</Btn></div>}<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}><Btn variant="secondary" onClick={() => setOpen(false)}>Fechar</Btn><Btn disabled={sending} onClick={send}><Mail size={14} />{sending ? 'Enviando...' : 'Enviar convite'}</Btn></div></Modal>}
   </>;
 }
