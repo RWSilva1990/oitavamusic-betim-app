@@ -4,7 +4,7 @@ import { C } from '@/lib/theme';
 import { Btn, Modal } from './ui-kit';
 
 const PitchHandoff = registerPlugin('PitchHandoff');
-const TRANSPOSE_PLAY_URL = 'https://play.google.com/store/apps/details?id=com.hybridmediastudio';
+const TRANSPOSE_PLAY_URL = 'https://github.com/joh9911/Transpose/releases/latest';
 
 export default function KeyTestAssistant({ song, currentKey, onApply, onClose }) {
   if (!song) return null;
@@ -50,7 +50,7 @@ export default function KeyTestAssistant({ song, currentKey, onApply, onClose })
           <div style={{ fontSize: 12, color: C.textSecondary, marginBottom: 6 }}>Depois de testar, informe o tom escolhido para esta escala:</div>
           <input className="input-field" value={currentKey || ''} onChange={(e) => onApply(e.target.value)} placeholder={originalKey ? `Ex: ${originalKey}` : 'Ex: D, Eb, F#'} />
         </div>
-        <button type="button" onClick={openTransposeStore} style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: C.textSecondary, textDecoration: 'underline' }}>Instalar / abrir Transpose Pitch Speed Control</button>
+        <button type="button" onClick={openTransposeStore} style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: C.textSecondary, textDecoration: 'underline' }}>Instalar / abrir Transpose</button>
       </>)}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}><Btn onClick={onClose}>{currentKey ? 'Usar este tom' : 'Fechar'}</Btn></div>
     </Modal>
