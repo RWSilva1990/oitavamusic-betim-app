@@ -4,6 +4,7 @@ import { Check, AlertCircle, ShieldCheck, UserRound } from 'lucide-react';
 import { C, LOGO_HOME } from '@/lib/theme';
 import { Btn, Inp } from '../ui-kit';
 import { useAuth } from '@/lib/auth';
+import { submitRegistration } from '@/lib/registration-client';
 
 export default function InvitePage() {
   const auth = useAuth();
@@ -54,13 +55,8 @@ export default function InvitePage() {
     if (pass !== pass2) { setErr('As senhas não coincidem.'); return; }
     setBusy(true);
     try {
-      // Criar a senha não significa liberar o acesso.
       await auth.definePassword(pass);
-
-      // O cadastro é sempre registrado como pendente com os dados obrigatórios.
-      await auth.saveRegistration(profile);
-
-      // O usuário não permanece autenticado enquanto aguarda a aprovação administrativa.
+      await submitRegistration(profile);
       await auth.logout();
       setStep('pending');
     } catch (e) {
@@ -77,32 +73,16 @@ export default function InvitePage() {
     }
   };
 
-  const subtitle =
-    step === 'email'
-      ? 'Confirme o e-mail que recebeu o convite'
-      : step === 'profile'
-        ? 'Preencha seus dados básicos'
-        : step === 'password'
-          ? 'Defina e confirme sua senha pessoal'
-          : 'Seu cadastro foi enviado para aprovação';
+  const subtitle = step === 'email' ? 'Confirme o e-mail que recebeu o convite' : step === 'profile' ? 'Preencha seus dados básicos' : step === 'password' ? 'Defina e confirme sua senha pessoal' : 'Seu cadastro foi enviado para aprovação';
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ width: '100%', maxWidth: 380 }}>
-        <div style={{ textAlign: 'center', marginBottom: 26 }}>
-          <img src={LOGO_HOME} alt="" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${C.accent}` }} />
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: C.accent, marginTop: 12 }}>Ativar meu acesso</h1>
-          <p style={{ color: C.textSecondary, fontSize: 13 }}>{subtitle}</p>
-        </div>
-
+        <div style={{ textAlign: 'center', marginBottom: 26 }}><img src={LOGO_HOME} alt="" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${C.accent}` }} /><h1 style={{ fontSize: 20, fontWeight: 800, color: C.accent, marginTop: 12 }}>Ativar meu acesso</h1><p style={{ color: C.textSecondary, fontSize: 13 }}>{subtitle}</p></div>
         {step === 'email' && <><Inp label="E-mail do convite" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" /><Btn disabled={busy} onClick={confirmEmail} style={{ width: '100%', justifyContent: 'center', padding: 12 }}><ShieldCheck size={15} />{busy ? 'Validando...' : 'Continuar'}</Btn></>}
-
         {step === 'profile' && <><Inp label="Nome completo *" value={profile.name} onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))} placeholder="Seu nome completo" /><Inp label="Data de nascimento *" type="date" value={profile.birthdate} onChange={(e) => setProfile((p) => ({ ...p, birthdate: e.target.value }))} /><Inp label="Telefone *" type="tel" value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} placeholder="(31) 99999-9999" /><Inp label="E-mail verificado" type="email" value={email} disabled /><div style={{ padding: '10px 12px', background: C.bgInput, borderRadius: 8, fontSize: 12, color: C.textSecondary, lineHeight: 1.6, marginBottom: 14 }}>O e-mail fica bloqueado porque ele foi validado pelo link do convite. Seus dados ainda não serão enviados para aprovação nesta etapa.</div><Btn disabled={busy} onClick={continueToPassword} style={{ width: '100%', justifyContent: 'center', padding: 12 }}><UserRound size={15} />Continuar para criar senha</Btn></>}
-
         {step === 'password' && <><Inp label="Nova senha" type="password" autoComplete="new-password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="mínimo 6 caracteres" /><Inp label="Confirmar senha" type="password" autoComplete="new-password" value={pass2} onChange={(e) => setPass2(e.target.value)} placeholder="repita a senha" /><div style={{ padding: '10px 12px', background: C.bgInput, borderRadius: 8, fontSize: 12, color: C.textSecondary, lineHeight: 1.6, marginBottom: 14 }}>Ao concluir, sua senha será criada no Firebase e seu cadastro será enviado como pendente. A criação da senha não libera o acesso ao aplicativo.</div><Btn disabled={busy} onClick={savePassword} style={{ width: '100%', justifyContent: 'center', padding: 12 }}><Check size={15} />{busy ? 'Enviando cadastro...' : 'Concluir cadastro'}</Btn></>}
-
         {step === 'pending' && <div style={{ textAlign: 'center' }}><div style={{ width: 58, height: 58, margin: '0 auto 16px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.accentGlow, color: C.accent }}><Check size={28} /></div><div style={{ padding: '14px 16px', background: C.bgInput, borderRadius: 10, fontSize: 13, color: C.textSecondary, lineHeight: 1.65, marginBottom: 16 }}><strong style={{ color: C.textPrimary }}>Cadastro recebido e aguardando aprovação.</strong><br />Sua senha foi criada, mas seu acesso ainda não está liberado. Um administrador precisa aprovar seu cadastro antes do primeiro login. Depois da aprovação, entre usando <strong style={{ color: C.textPrimary }}>{email}</strong> e a senha que você acabou de criar.</div><Btn onClick={() => navigate({ to: '/entrar', replace: true })} style={{ width: '100%', justifyContent: 'center', padding: 12 }}>Ir para a tela de login</Btn></div>}
-
         {err && <div style={{ marginTop: 14, display: 'flex', gap: 8, alignItems: 'center', color: C.danger, fontSize: 13 }}><AlertCircle size={14} />{err}</div>}
         {step !== 'pending' && <p style={{ marginTop: 18, fontSize: 11, color: C.textSecondary, textAlign: 'center', lineHeight: 1.6 }}>Sua senha é gerenciada pelo Firebase Authentication e não fica armazenada junto aos seus dados de membro.</p>}
       </div>
