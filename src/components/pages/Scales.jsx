@@ -22,7 +22,7 @@ function ArchivedSection({ archived, renderCard }) {
     <div>
       <div onClick={() => setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', marginBottom: open ? 10 : 0 }}>
         <div className="section-header" style={{ marginBottom: 0, flex: 1 }}>📦 Arquivadas ({archived.length})</div>
-        <span style={{ fontSize: 11, color: C.textSecondary }}>{open ? '▲ ocultar' : '▼ mostrar'}</span>
+        <span style={{ fontSize: 11, color: C.textSecondary }}>{open ? '▲ recolher' : '▼ expandir'}</span>
       </div>
       {open && (
         <div style={{ display: 'grid', gap: 8 }}>
