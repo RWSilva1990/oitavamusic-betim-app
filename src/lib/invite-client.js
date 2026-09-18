@@ -1,4 +1,3 @@
-import { dbGet, dbSet } from './db';
 import { getFirebaseAuth, loadFirebaseConfig } from './firebase';
 
 async function sendFirebaseInvitation(auth, mod, clean) {
@@ -27,7 +26,7 @@ export async function sendCustomInvitation(mail) {
     throw new Error(`Não foi possível enviar o convite pelo Firebase Authentication: ${message}`);
   }
 
-  const users = (await dbGet('users')) || {};
-  if (!users[clean]) users[clean] = { role: 'membro' };
-  await dbSet('users', users);
+  // O convite apenas valida o e-mail. Ele não libera acesso nem cria vínculo de membro.
+  // O acesso será criado somente após o cadastro ficar pendente e ser aprovado pelo administrador.
+  return { success: true, email: clean };
 }
