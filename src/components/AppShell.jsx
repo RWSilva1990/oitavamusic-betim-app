@@ -11,14 +11,14 @@ import { startScaleNotificationRuntime } from '@/lib/push-client';
 import { getCommunicationsInbox } from '@/lib/communications';
 
 const COMMUNICATIONS_NAV = { id: 'communications', label: 'Comunicados', emoji: '📢', to: '/comunicados' };
-const METRONOME_NAV = { id: 'metronome', label: 'Metrônomo', emoji: '⏱️', to: '/metronomo' };
+const TOOLS_NAV = { id: 'tools', label: 'Ferramentas', emoji: '🛠️', to: '/ferramentas' };
 const NATIVE_FOREGROUND_NOTIFICATION_EVENT = 'oitava:native-foreground-notification';
 
 const MEMBER_NAV = [
   { id: 'home', label: 'Início', emoji: '🏠', to: '/' },
   { id: 'my-scales', label: 'Minhas Escalas', emoji: '📅', to: '/minhas-escalas' },
   { id: 'songs', label: 'Repertório', emoji: '🎵', to: '/repertorio' },
-  METRONOME_NAV,
+  TOOLS_NAV,
   COMMUNICATIONS_NAV,
 ];
 
@@ -29,7 +29,7 @@ const ADMIN_NAV = [
   NAV[2],
   NAV[3],
   NAV[4],
-  METRONOME_NAV,
+  TOOLS_NAV,
   NAV[5],
   COMMUNICATIONS_NAV,
 ];
