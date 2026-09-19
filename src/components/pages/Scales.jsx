@@ -17,42 +17,18 @@ function normalizeSearchText(value) {
 }
 
 function ArchivedSection({ archived, renderCard }) {
-  const [open, setOpen] = useState(false);
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        style={{
-          width: '100%',
-          minHeight: 44,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          cursor: 'pointer',
-          userSelect: 'none',
-          marginBottom: open ? 10 : 0,
-          padding: 0,
-          border: 0,
-          background: 'transparent',
-          color: 'inherit',
-          textAlign: 'left',
-          touchAction: 'manipulation',
-          WebkitTapHighlightColor: 'transparent',
-        }}
-      >
-        <div className="section-header" style={{ marginBottom: 0, flex: 1 }}>📦 Anteriores ({archived.length})</div>
-        <span style={{ fontSize: 11, color: C.textSecondary }}>{open ? '▲ recolher' : '▼ expandir'}</span>
-      </button>
-      {open && (
-        <div style={{ display: 'grid', gap: 8 }}>
-          {archived.map((sc) => (
-            <div key={sc.id} style={{ opacity: 0.65 }}>{renderCard(sc)}</div>
-          ))}
-        </div>
-      )}
-    </div>
+    <details className="previous-scales-details">
+      <summary className="section-header previous-scales-summary">
+        <span>📦 Anteriores ({archived.length})</span>
+        <span className="previous-scales-toggle" aria-hidden="true" />
+      </summary>
+      <div className="previous-scales-content">
+        {archived.map((sc) => (
+          <div key={sc.id} style={{ opacity: 0.65 }}>{renderCard(sc)}</div>
+        ))}
+      </div>
+    </details>
   );
 }
 
