@@ -106,29 +106,15 @@ export default function MyScalesPage() {
           </div>
 
           {past.length > 0 && (
-            <details style={{ width: '100%' }}>
-              <summary
-                className="section-header"
-                style={{
-                  marginBottom: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  listStyle: 'none',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                <span style={{ flex: 1 }}>📦 Anteriores ({past.length})</span>
-                <span className="previous-scales-toggle" style={{ fontSize: 11, color: C.textSecondary }}>Expandir</span>
+            <details className="previous-scales-details">
+              <summary className="section-header previous-scales-summary">
+                <span>📦 Anteriores ({past.length})</span>
+                <span className="previous-scales-toggle" aria-hidden="true" />
               </summary>
-              <div className="previous-scales-content" style={{ display: 'grid', gap: 8, opacity: 0.7, marginTop: 10 }}>
+              <div className="previous-scales-content">
                 {past.map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}
               </div>
             </details>
-          )}
-            </div>
           )}
         </div>
       )}
