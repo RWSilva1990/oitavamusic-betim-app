@@ -301,8 +301,8 @@ export const GLOBAL_CSS = `
     .app-page-host>div{
       width:100% !important;
       max-width:100% !important;
-      padding-left:max(14px,env(safe-area-inset-left,0px)) !important;
-      padding-right:max(14px,env(safe-area-inset-right,0px)) !important;
+      padding-left:14px !important;
+      padding-right:14px !important;
     }
     .topbar-surface{
       padding-left:max(10px,env(safe-area-inset-left,0px)) !important;
