@@ -214,17 +214,28 @@ async function filterByPreference(
   return allowed;
 }
 
-type PushTarget = { token: string; memberId: string; path: string; platform: 'android' | 'web' };
+type PushTarget = {
+  value: string;
+  type: 'fid' | 'token';
+  memberId: string;
+  path: string;
+  platform: 'android' | 'web';
+};
 
 function pushTargetFromDocument(document: any): PushTarget | null {
-  const token = firestoreString(document, 'token')
-    || (firestoreString(document, 'targetType') === 'token' ? firestoreString(document, 'target') : '');
+  const token = firestoreString(document, 'token');
+  const fid = firestoreString(document, 'fid');
+  const storedTarget = firestoreString(document, 'target');
+  const storedType = firestoreString(document, 'targetType');
   const memberId = firestoreString(document, 'memberId');
   const path = firestoreDocumentPath(document);
   const storedPlatform = firestoreString(document, 'platform');
+
+  const type: 'fid' | 'token' = storedType === 'fid' || (!storedType && fid) ? 'fid' : 'token';
+  const value = storedTarget || (type === 'fid' ? fid : token) || token || fid;
   const platform = storedPlatform === 'web' ? 'web' : 'android';
-  if (!token || !memberId || !path) return null;
-  return { token, memberId, path, platform };
+  if (!value || !memberId || !path) return null;
+  return { value, type, memberId, path, platform };
 }
 
 async function pushTargets(app: ReturnType<typeof getCenterApp>, memberIds: string[]) {
@@ -249,7 +260,7 @@ async function pushTargets(app: ReturnType<typeof getCenterApp>, memberIds: stri
     });
     for (const row of Array.isArray(rows) ? rows : []) {
       const target = pushTargetFromDocument(row?.document);
-      if (target) found.set(target.token, target);
+      if (target) found.set(`${target.type}:${target.value}`, target);
     }
   }
   return [...found.values()];
@@ -258,7 +269,8 @@ async function pushTargets(app: ReturnType<typeof getCenterApp>, memberIds: stri
 function isStaleTargetError(code: string) {
   return code.includes('registration-token-not-registered')
     || code.includes('invalid-registration-token')
-    || code.includes('installation-id-not-registered');
+    || code.includes('installation-id-not-registered')
+    || code.includes('invalid-installation-id');
 }
 
 async function sendPush(
@@ -276,11 +288,10 @@ async function sendPush(
   const stalePaths = new Set<string>();
   const url = `${(env('APP_URL') || 'https://oitavamusicbetim.vercel.app').replace(/\/$/, '')}${notification.path}`;
 
-  for (let i = 0; i < nativeTargets.length; i += 500) {
-    const entries = nativeTargets.slice(i, i + 500);
-    const response = await getMessaging(app).sendEachForMulticast({
-      tokens: entries.map((entry) => entry.token),
-      notification: { title: notification.title, body: notification.body },
+  const sendBatch = async (entries: PushTarget[], platform: 'android' | 'web', targetType: 'fid' | 'token') => {
+    if (entries.length === 0) return;
+    const message: any = {
+      [targetType === 'fid' ? 'fids' : 'tokens']: entries.map((entry) => entry.value),
       data: {
         type: notification.type,
         title: notification.title,
@@ -289,37 +300,22 @@ async function sendPush(
         url,
         scaleId: notification.scaleId,
       },
-      android: {
+    };
+
+    if (platform === 'android') {
+      message.notification = { title: notification.title, body: notification.body };
+      message.android = {
         priority: 'high',
         notification: { channelId: 'escala-alerts', sound: 'default' },
-      },
-    });
-    sent += response.successCount;
-    failed += response.failureCount;
-    response.responses.forEach((item, index) => {
-      const entry = entries[index];
-      if (item.success) sentMembers.add(entry.memberId);
-      else if (isStaleTargetError(String(item.error?.code || ''))) stalePaths.add(entry.path);
-    });
-  }
-
-  for (let i = 0; i < webTargets.length; i += 500) {
-    const entries = webTargets.slice(i, i + 500);
-    const response = await getMessaging(app).sendEachForMulticast({
-      tokens: entries.map((entry) => entry.token),
-      data: {
-        type: notification.type,
-        title: notification.title,
-        body: notification.body,
-        path: notification.path,
-        url,
-        scaleId: notification.scaleId,
-      },
-      webpush: {
+      };
+    } else {
+      message.webpush = {
         headers: { Urgency: 'high' },
         fcmOptions: { link: url },
-      },
-    });
+      };
+    }
+
+    const response = await getMessaging(app).sendEachForMulticast(message);
     sent += response.successCount;
     failed += response.failureCount;
     response.responses.forEach((item, index) => {
@@ -327,6 +323,16 @@ async function sendPush(
       if (item.success) sentMembers.add(entry.memberId);
       else if (isStaleTargetError(String(item.error?.code || ''))) stalePaths.add(entry.path);
     });
+  };
+
+  for (const platform of ['android', 'web'] as const) {
+    const platformTargets = platform === 'android' ? nativeTargets : webTargets;
+    for (const targetType of ['fid', 'token'] as const) {
+      const typedTargets = platformTargets.filter((target) => target.type === targetType);
+      for (let i = 0; i < typedTargets.length; i += 500) {
+        await sendBatch(typedTargets.slice(i, i + 500), platform, targetType);
+      }
+    }
   }
 
   if (stalePaths.size > 0) {
