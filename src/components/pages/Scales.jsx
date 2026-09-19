@@ -17,21 +17,18 @@ function normalizeSearchText(value) {
 }
 
 function ArchivedSection({ archived, renderCard }) {
-  const [open, setOpen] = useState(false);
   return (
-    <div>
-      <div onClick={() => setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', marginBottom: open ? 10 : 0 }}>
-        <div className="section-header" style={{ marginBottom: 0, flex: 1 }}>📦 Arquivadas ({archived.length})</div>
-        <span style={{ fontSize: 11, color: C.textSecondary }}>{open ? '▲ ocultar' : '▼ mostrar'}</span>
+    <details className="previous-scales-details">
+      <summary className="section-header previous-scales-summary">
+        <span>📦 Anteriores ({archived.length})</span>
+        <span className="previous-scales-toggle" aria-hidden="true" />
+      </summary>
+      <div className="previous-scales-content">
+        {archived.map((sc) => (
+          <div key={sc.id} style={{ opacity: 0.65 }}>{renderCard(sc)}</div>
+        ))}
       </div>
-      {open && (
-        <div style={{ display: 'grid', gap: 8 }}>
-          {archived.map((sc) => (
-            <div key={sc.id} style={{ opacity: 0.65 }}>{renderCard(sc)}</div>
-          ))}
-        </div>
-      )}
-    </div>
+    </details>
   );
 }
 

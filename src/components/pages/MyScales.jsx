@@ -106,12 +106,15 @@ export default function MyScalesPage() {
           </div>
 
           {past.length > 0 && (
-            <div>
-              <div className="section-header" style={{ marginBottom: 10 }}>📦 Anteriores ({past.length})</div>
-              <div style={{ display: 'grid', gap: 8, opacity: 0.7 }}>
-                {past.slice(0, 10).map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}
+            <details className="previous-scales-details">
+              <summary className="section-header previous-scales-summary">
+                <span>📦 Anteriores ({past.length})</span>
+                <span className="previous-scales-toggle" aria-hidden="true" />
+              </summary>
+              <div className="previous-scales-content">
+                {past.map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}
               </div>
-            </div>
+            </details>
           )}
         </div>
       )}

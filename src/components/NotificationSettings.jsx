@@ -173,7 +173,12 @@ export default function NotificationSettings() {
     if (deviceBusy) return;
     if (status.checking) return flash('Aguarde a verificação das notificações.', true);
     if (!status.configured) return flash('Notificações ainda não estão configuradas.', true);
-    if (!status.supported) return flash('Este dispositivo não oferece suporte a notificações.', true);
+    if (!status.supported) {
+      if (status.requiresHomeScreen) {
+        return flash('No iPhone, abra o Oitava Music pelo ícone adicionado à Tela de Início para ativar as notificações.', true);
+      }
+      return flash('Este dispositivo não oferece suporte a notificações.', true);
+    }
     if (status.permission === 'denied') {
       return flash('Notificações bloqueadas nas configurações do dispositivo.', true);
     }
@@ -212,8 +217,10 @@ export default function NotificationSettings() {
   let deviceText = 'O estado das notificações não pôde ser identificado neste dispositivo.';
   if (status.checking) {
     deviceText = 'Verificando disponibilidade das notificações...';
+  } else if (status.requiresHomeScreen) {
+    deviceText = 'No iPhone, o Web Push funciona no Oitava Music instalado na Tela de Início. Abra o aplicativo pelo ícone da Tela de Início e volte aqui.';
   } else if (!status.supported) {
-    deviceText = 'Este dispositivo não oferece suporte às notificações do aplicativo.';
+    deviceText = 'Este dispositivo não disponibilizou os recursos de Web Push necessários.';
   } else if (!status.configured) {
     deviceText = 'As notificações ainda não estão configuradas neste ambiente.';
   } else if (deviceEnabled) {
