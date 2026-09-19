@@ -114,6 +114,7 @@ export default function MyScalesPage() {
                 aria-expanded={pastOpen}
                 style={{
                   width: '100%',
+                  minHeight: 44,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
@@ -124,6 +125,8 @@ export default function MyScalesPage() {
                   color: 'inherit',
                   cursor: 'pointer',
                   textAlign: 'left',
+                  touchAction: 'manipulation',
+                  WebkitTapHighlightColor: 'transparent',
                 }}
               >
                 <div className="section-header" style={{ marginBottom: 0, flex: 1 }}>📦 Anteriores ({past.length})</div>
