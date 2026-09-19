@@ -83,7 +83,18 @@ export const GLOBAL_CSS = `
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body, #root { width: 100%; max-width: 100vw; overflow-x: hidden; }
+  html, body, #root {
+    width:100%; max-width:100%; min-width:0;
+    margin:0; padding:0; overflow-x:hidden;
+    -webkit-text-size-adjust:100%; text-size-adjust:100%;
+  }
+  html { height:100%; }
+  body { min-height:100%; min-height:100dvh; }
+  body > div:first-child {
+    width:100% !important; max-width:100% !important; min-width:0 !important;
+    box-sizing:border-box !important; overflow-x:hidden !important;
+    touch-action:pan-y;
+  }
   html, body {
     background: var(--app-bg);
     font-family: 'Plus Jakarta Sans', sans-serif;
@@ -266,6 +277,8 @@ export const GLOBAL_CSS = `
   /* Mobile/PWA guardrails: keep every screen inside the actual iOS viewport. */
   html { width:100%; max-width:100%; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
   body,#root { width:100%; min-width:0; max-width:100%; }
+  .app-page-host { width:100%; min-width:0; max-width:100%; overflow-x:hidden; }
+  .app-page-host > * { max-width:100%; min-width:0; }
   img,svg,video,canvas,audio { max-width:100%; }
   input,select,textarea,button { max-width:100%; }
   .main-content { width:100%; max-width:100%; min-width:0; }
@@ -278,7 +291,25 @@ export const GLOBAL_CSS = `
   .pending-registration-row { padding:10px 12px; background:var(--app-hover); border-radius:9px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; }
   .pending-registration-row>.btn { flex-shrink:0; }
   @media (min-width:900px) and (min-height:600px) { .main-content { width:calc(100% - 230px); max-width:calc(100% - 230px); } }
-  @media (max-width:600px) { .modal-overlay{align-items:stretch}.modal-box{max-height:100dvh;border-radius:16px}.modal-header{padding:14px 16px}.modal-body{padding:16px}.pending-registration-row{align-items:stretch}.pending-registration-row>.btn{width:100%} }
+  @media (max-width:600px) {
+    .modal-overlay{align-items:stretch}
+    .modal-box{max-height:100dvh;border-radius:16px}
+    .modal-header{padding:14px 16px}
+    .modal-body{padding:16px}
+    .pending-registration-row{align-items:stretch}
+    .pending-registration-row>.btn{width:100%}
+    .app-page-host>div{
+      width:100% !important;
+      max-width:100% !important;
+      padding-left:max(14px,env(safe-area-inset-left,0px)) !important;
+      padding-right:max(14px,env(safe-area-inset-right,0px)) !important;
+    }
+    .topbar-surface{
+      padding-left:max(10px,env(safe-area-inset-left,0px)) !important;
+      padding-right:max(10px,env(safe-area-inset-right,0px)) !important;
+    }
+    input:not([type='checkbox']):not([type='radio']),select,textarea{font-size:16px !important}
+  }
   @media (max-width:500px) { .grid-2 { grid-template-columns:minmax(0,1fr); } }
   @media (orientation:landscape) and (max-height:500px) { .modal-overlay{align-items:stretch}.modal-box{max-height:100dvh} }
 
