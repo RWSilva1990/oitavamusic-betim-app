@@ -19,13 +19,42 @@ import {
 
 const PUSH_ENABLED_KEY = 'oitava:push-enabled';
 const PUSH_TOKEN_KEY = 'oitava:push-token';
-const LEGACY_PUSH_FID_KEY = 'oitava:push-fid';
+const PUSH_FID_KEY = 'oitava:push-fid';
 const NOTIFICATION_BADGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAABRUlEQVR42u3cUQ7CIBBFUSHsf8v1yw9jjcZgZxjOXYAt7/KwKOntBgAAAAAAAAAAAACoSttloMdxHE8Db60REBR+JhFt5/AziGjCj5XRfQ2ei/tVngZMaMCVrdCA4FZoQHArNCAYAgjYm7Hj2q0Bws8pICr8yN+Dhpn/KuHKe+nCP5dxVSu68GNFDOHHLk/2AcGtGKvNwCwNmyVBA+wDCAABBIAAAkAAASCAABBAAAggAAQQAAIIAAF1GSvffIVzpEPoxQXMCqzqqelmlhY6Hb3b2f5UT0Grhh/9rohu5i/eAOEHCqgQfvQY7IRXbYClRwMIAAH2AQgSkOW1jyvP/q0bkGUC9eyD+Mc1MrW3Zx7M47NnXiPb0jntZmZvzN4FtcK7QEMEzJTwbVifrrfCg0Kqf8QqPFmlEFBtlgIAAAAAAAAowB3XUph8InDUGgAAAABJRU5ErkJggg==';
 let runtimeCleanup = null;
 let syncPromise = null;
 
 function browserReady() {
   return typeof window !== 'undefined' && typeof navigator !== 'undefined';
+}
+
+function isIOSDevice() {
+  if (!browserReady()) return false;
+  const ua = String(navigator.userAgent || '');
+  return /iPad|iPhone|iPod/i.test(ua)
+    || (navigator.platform === 'MacIntel' && Number(navigator.maxTouchPoints || 0) > 1);
+}
+
+function isStandaloneWebApp() {
+  if (!browserReady()) return false;
+  return window.matchMedia?.('(display-mode: standalone)')?.matches === true
+    || navigator.standalone === true;
+}
+
+function hasWebPushApis() {
+  return browserReady()
+    && 'Notification' in window
+    && 'serviceWorker' in navigator;
+}
+
+async function serviceWorkerSupportsPush() {
+  if (!hasWebPushApis()) return false;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    return Boolean(registration?.pushManager);
+  } catch {
+    return false;
+  }
 }
 
 function preferenceEnabled() {
@@ -50,20 +79,57 @@ async function currentIdToken() {
 async function ensureServiceWorker() {
   if (!('serviceWorker' in navigator)) throw new Error('Este navegador não oferece suporte a notificações em segundo plano.');
   const registration = await navigator.serviceWorker.register(firebaseServiceWorkerUrl());
-  await navigator.serviceWorker.ready;
-  return registration;
+  const readyRegistration = await navigator.serviceWorker.ready;
+  const activeRegistration = readyRegistration || registration;
+  if (!activeRegistration?.pushManager) {
+    throw new Error('O Web Push não está disponível neste PWA. No iPhone, use o app instalado na Tela de Início e mantenha o iOS atualizado.');
+  }
+  return activeRegistration;
+}
+
+async function registerWebPush(messaging, mod, options) {
+  if (typeof mod.register === 'function' && typeof mod.onRegistered === 'function') {
+    let unsubscribe = () => {};
+    let timer;
+    const fidPromise = new Promise((resolve, reject) => {
+      timer = window.setTimeout(
+        () => reject(new Error('O registro de notificações demorou mais que o esperado. Tente novamente.')),
+        20000,
+      );
+      unsubscribe = mod.onRegistered(messaging, (fid) => {
+        const value = String(fid || '').trim();
+        if (!value) return;
+        window.clearTimeout(timer);
+        resolve(value);
+      });
+    });
+
+    try {
+      await mod.register(messaging, options);
+      const fid = await fidPromise;
+      return { type: 'fid', value: fid };
+    } finally {
+      if (timer) window.clearTimeout(timer);
+      unsubscribe();
+    }
+  }
+
+  const token = await mod.getToken(messaging, options);
+  if (!token) throw new Error('O navegador não forneceu um identificador para receber notificações. Tente novamente.');
+  return { type: 'token', value: token };
 }
 
 export async function getScaleNotificationStatus() {
   if (isNativeAndroid()) return getNativeScaleNotificationStatus();
 
   const cfg = await loadFirebaseConfig();
-  const supported = browserReady()
-    && 'Notification' in window
-    && 'serviceWorker' in navigator;
+  const ios = isIOSDevice();
+  const standalone = isStandaloneWebApp();
+  const webPushApis = hasWebPushApis();
+  const pushManagerAvailable = webPushApis ? await serviceWorkerSupportsPush() : false;
 
   let firebaseSupported = false;
-  if (supported) {
+  if (webPushApis) {
     try {
       const mod = await import('firebase/messaging');
       firebaseSupported = await mod.isSupported();
@@ -72,12 +138,20 @@ export async function getScaleNotificationStatus() {
     }
   }
 
+  // iOS/iPadOS Web Push is exposed by the Home Screen web app through
+  // ServiceWorkerRegistration.pushManager. Do not require window.PushManager,
+  // because Safari may not expose that constructor globally.
+  const supported = webPushApis && pushManagerAvailable && (!ios || standalone);
   return {
-    supported: supported && firebaseSupported,
+    supported,
     configured: Boolean(cfg.messagingConfigured && cfg.vapidKey),
-    permission: supported ? Notification.permission : 'unsupported',
+    permission: 'Notification' in window ? Notification.permission : 'unsupported',
     enabled: supported && Notification.permission === 'granted' && preferenceEnabled(),
     native: false,
+    ios,
+    standalone,
+    requiresHomeScreen: ios && !standalone,
+    firebaseSupported,
   };
 }
 
@@ -96,8 +170,14 @@ export async function syncScaleNotifications({ requestPermission = false } = {})
       return null;
     }
 
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-      throw new Error('Este aparelho não oferece suporte a notificações do aplicativo.');
+    const ios = isIOSDevice();
+    const standalone = isStandaloneWebApp();
+    if (ios && !standalone) {
+      throw new Error('No iPhone, as notificações funcionam no Oitava Music instalado na Tela de Início. Abra o aplicativo pelo ícone da Tela de Início e tente novamente.');
+    }
+
+    if (!hasWebPushApis()) {
+      throw new Error('Este aparelho não disponibilizou os recursos de Web Push necessários.');
     }
 
     let permission = Notification.permission;
@@ -114,19 +194,38 @@ export async function syncScaleNotifications({ requestPermission = false } = {})
     if (!requestPermission && !preferenceEnabled()) return null;
 
     const registration = await ensureServiceWorker();
-    const { messaging, mod } = await getFirebaseMessaging();
-    const token = await mod.getToken(messaging, {
+    const allowWebPushFallback = ios && standalone && hasWebPushApis();
+    const { messaging, mod } = await getFirebaseMessaging({ allowWebPushFallback });
+    const target = await registerWebPush(messaging, mod, {
       vapidKey: cfg.vapidKey,
       serviceWorkerRegistration: registration,
     });
-    if (!token) throw new Error('O navegador não forneceu um identificador para receber notificações. Tente novamente.');
 
     const idToken = await currentIdToken();
-    await registerMobilePush(idToken, { token, platform: 'web' });
-    window.localStorage.setItem(PUSH_TOKEN_KEY, token);
-    window.localStorage.removeItem(LEGACY_PUSH_FID_KEY);
+    const previousToken = window.localStorage.getItem(PUSH_TOKEN_KEY) || '';
+    const previousFid = window.localStorage.getItem(PUSH_FID_KEY) || '';
+
+    if (target.type === 'fid') {
+      await registerMobilePush(idToken, { fid: target.value, platform: 'web' });
+      if (previousToken) {
+        await unregisterMobilePush(idToken, { token: previousToken }).catch(() => undefined);
+      }
+      if (previousFid && previousFid !== target.value) {
+        await unregisterMobilePush(idToken, { fid: previousFid }).catch(() => undefined);
+      }
+      window.localStorage.setItem(PUSH_FID_KEY, target.value);
+      window.localStorage.removeItem(PUSH_TOKEN_KEY);
+    } else {
+      await registerMobilePush(idToken, { token: target.value, platform: 'web' });
+      if (previousFid) {
+        await unregisterMobilePush(idToken, { fid: previousFid }).catch(() => undefined);
+      }
+      window.localStorage.setItem(PUSH_TOKEN_KEY, target.value);
+      window.localStorage.removeItem(PUSH_FID_KEY);
+    }
+
     window.localStorage.setItem(PUSH_ENABLED_KEY, 'true');
-    return token;
+    return target.value;
   })();
 
   try {
@@ -148,26 +247,28 @@ export async function disableScaleNotifications() {
   if (!browserReady()) return;
 
   const token = window.localStorage.getItem(PUSH_TOKEN_KEY) || '';
-  const legacyFid = window.localStorage.getItem(LEGACY_PUSH_FID_KEY) || '';
+  const fid = window.localStorage.getItem(PUSH_FID_KEY) || '';
 
   try {
     const idToken = await currentIdToken();
     if (token) await unregisterMobilePush(idToken, { token });
-    if (legacyFid) await unregisterMobilePush(idToken, { fid: legacyFid });
+    if (fid) await unregisterMobilePush(idToken, { fid });
   } catch (error) {
     console.warn('Não foi possível remover o vínculo de push no servidor:', error);
   }
 
   try {
-    const { messaging, mod } = await getFirebaseMessaging();
-    await mod.deleteToken(messaging);
+    const allowWebPushFallback = isIOSDevice() && isStandaloneWebApp() && hasWebPushApis();
+    const { messaging, mod } = await getFirebaseMessaging({ allowWebPushFallback });
+    if (fid && typeof mod.unregister === 'function') await mod.unregister(messaging);
+    else if (typeof mod.deleteToken === 'function') await mod.deleteToken(messaging);
   } catch (error) {
     console.warn('Não foi possível remover o registro local do FCM:', error);
   }
 
   window.localStorage.setItem(PUSH_ENABLED_KEY, 'false');
   window.localStorage.removeItem(PUSH_TOKEN_KEY);
-  window.localStorage.removeItem(LEGACY_PUSH_FID_KEY);
+  window.localStorage.removeItem(PUSH_FID_KEY);
 }
 
 async function showForegroundNotification(payload) {
@@ -193,7 +294,8 @@ export async function startScaleNotificationRuntime() {
   if (!cfg.messagingConfigured) return () => {};
 
   try {
-    const { messaging, mod } = await getFirebaseMessaging();
+    const allowWebPushFallback = isIOSDevice() && isStandaloneWebApp() && hasWebPushApis();
+    const { messaging, mod } = await getFirebaseMessaging({ allowWebPushFallback });
     const offMessage = mod.onMessage(messaging, (payload) => {
       showForegroundNotification(payload).catch(console.warn);
     });
