@@ -330,7 +330,7 @@ export default function AppShell({ children, allowMember = false }) {
             )}
           </div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+        <div className="app-page-host" style={{ flex: 1, minWidth: 0 }}>{children}</div>
       </div>
     </>
   );
