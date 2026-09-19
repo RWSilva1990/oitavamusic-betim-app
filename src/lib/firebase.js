@@ -73,11 +73,14 @@ export async function getFirebaseStorage() {
   return { storage: mod.getStorage(app), mod };
 }
 
-export async function getFirebaseMessaging() {
+export async function getFirebaseMessaging({ allowWebPushFallback = false } = {}) {
   const mod = await import('firebase/messaging');
-  if (!(await mod.isSupported())) throw new Error('Este aparelho não oferece suporte a notificações push do Firebase.');
+  const supported = await mod.isSupported().catch(() => false);
+  if (!supported && !allowWebPushFallback) {
+    throw new Error('Este aparelho não oferece suporte a notificações push do Firebase.');
+  }
   const app = await getApp();
-  return { messaging: mod.getMessaging(app), mod };
+  return { messaging: mod.getMessaging(app), mod, supported };
 }
 
 export function firebaseServiceWorkerUrl() {
