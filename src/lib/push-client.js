@@ -44,8 +44,17 @@ function isStandaloneWebApp() {
 function hasWebPushApis() {
   return browserReady()
     && 'Notification' in window
-    && 'serviceWorker' in navigator
-    && 'PushManager' in window;
+    && 'serviceWorker' in navigator;
+}
+
+async function serviceWorkerSupportsPush() {
+  if (!hasWebPushApis()) return false;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    return Boolean(registration?.pushManager);
+  } catch {
+    return false;
+  }
 }
 
 function preferenceEnabled() {
@@ -70,8 +79,12 @@ async function currentIdToken() {
 async function ensureServiceWorker() {
   if (!('serviceWorker' in navigator)) throw new Error('Este navegador não oferece suporte a notificações em segundo plano.');
   const registration = await navigator.serviceWorker.register(firebaseServiceWorkerUrl());
-  await navigator.serviceWorker.ready;
-  return registration;
+  const readyRegistration = await navigator.serviceWorker.ready;
+  const activeRegistration = readyRegistration || registration;
+  if (!activeRegistration?.pushManager) {
+    throw new Error('O Web Push não está disponível neste PWA. No iPhone, use o app instalado na Tela de Início e mantenha o iOS atualizado.');
+  }
+  return activeRegistration;
 }
 
 async function registerWebPush(messaging, mod, options) {
@@ -113,6 +126,7 @@ export async function getScaleNotificationStatus() {
   const ios = isIOSDevice();
   const standalone = isStandaloneWebApp();
   const webPushApis = hasWebPushApis();
+  const pushManagerAvailable = webPushApis ? await serviceWorkerSupportsPush() : false;
 
   let firebaseSupported = false;
   if (webPushApis) {
@@ -124,7 +138,10 @@ export async function getScaleNotificationStatus() {
     }
   }
 
-  const supported = webPushApis && (!ios || standalone);
+  // iOS/iPadOS Web Push is exposed by the Home Screen web app through
+  // ServiceWorkerRegistration.pushManager. Do not require window.PushManager,
+  // because Safari may not expose that constructor globally.
+  const supported = webPushApis && pushManagerAvailable && (!ios || standalone);
   return {
     supported,
     configured: Boolean(cfg.messagingConfigured && cfg.vapidKey),
