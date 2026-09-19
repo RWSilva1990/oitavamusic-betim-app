@@ -91,8 +91,14 @@ export const GLOBAL_CSS = `
   html { height:100%; }
   body { min-height:100%; min-height:100dvh; }
   body > div:first-child {
-    width:100% !important; max-width:100% !important; min-width:0 !important;
-    box-sizing:border-box !important; overflow-x:hidden !important;
+    position:fixed !important;
+    inset:0 !important;
+    width:auto !important; max-width:none !important; min-width:0 !important;
+    height:auto !important; max-height:100dvh !important;
+    box-sizing:border-box !important;
+    overflow-x:hidden !important; overflow-y:auto !important;
+    overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
     touch-action:pan-y;
   }
   html, body {
@@ -183,6 +189,20 @@ export const GLOBAL_CSS = `
     max-width: 100%; overflow: hidden;
   }
   .card:hover { border-color: rgba(139,92,246,0.32); box-shadow: 0 5px 20px var(--app-shadow); }
+
+  .previous-scales-details { width:100%; min-width:0; }
+  .previous-scales-summary {
+    width:100%; min-height:44px; margin-bottom:0 !important;
+    display:flex; align-items:center; gap:8px;
+    cursor:pointer; user-select:none; list-style:none;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+  }
+  .previous-scales-summary::-webkit-details-marker { display:none; }
+  .previous-scales-summary::marker { content:''; }
+  .previous-scales-summary > span:first-child { flex:1; min-width:0; }
+  .previous-scales-toggle::after { content:'Expandir ▼'; font-size:11px; color:var(--app-text-muted); white-space:nowrap; }
+  .previous-scales-details[open] .previous-scales-toggle::after { content:'Recolher ▲'; }
+  .previous-scales-content { display:grid; gap:8px; margin-top:10px; min-width:0; }
 
   .tag {
     padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
