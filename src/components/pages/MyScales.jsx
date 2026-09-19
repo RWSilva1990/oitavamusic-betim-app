@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Calendar, ChevronDown, ChevronUp, Eye, Youtube } from 'lucide-react';
+import { Calendar, Eye, Youtube } from 'lucide-react';
 import { C, ROLES, LOGO_HOME } from '@/lib/theme';
 import { fmtDate, todayISO } from '@/lib/db';
 import { Avatar, Btn, Field, Modal } from '../ui-kit';
@@ -15,7 +15,6 @@ export default function MyScalesPage() {
   const navigate = useNavigate();
   const { members, groups, songs, scales, ready } = useData();
   const [viewModal, setViewModal] = useState(null);
-  const [pastOpen, setPastOpen] = useState(false);
 
   const me = auth.memberFor(members);
   const today = todayISO();
@@ -107,39 +106,28 @@ export default function MyScalesPage() {
           </div>
 
           {past.length > 0 && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setPastOpen((open) => !open)}
-                aria-expanded={pastOpen}
+            <details style={{ width: '100%' }}>
+              <summary
+                className="section-header"
                 style={{
-                  width: '100%',
-                  minHeight: 44,
+                  marginBottom: 0,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  marginBottom: pastOpen ? 10 : 0,
-                  padding: 0,
-                  border: 0,
-                  background: 'transparent',
-                  color: 'inherit',
                   cursor: 'pointer',
-                  textAlign: 'left',
-                  touchAction: 'manipulation',
+                  userSelect: 'none',
+                  listStyle: 'none',
                   WebkitTapHighlightColor: 'transparent',
                 }}
               >
-                <div className="section-header" style={{ marginBottom: 0, flex: 1 }}>📦 Anteriores ({past.length})</div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: C.textSecondary }}>
-                  {pastOpen ? 'Recolher' : 'Expandir'}
-                  {pastOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </span>
-              </button>
-              {pastOpen && (
-                <div style={{ display: 'grid', gap: 8, opacity: 0.7 }}>
-                  {past.map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}
-                </div>
-              )}
+                <span style={{ flex: 1 }}>📦 Anteriores ({past.length})</span>
+                <span className="previous-scales-toggle" style={{ fontSize: 11, color: C.textSecondary }}>Expandir</span>
+              </summary>
+              <div className="previous-scales-content" style={{ display: 'grid', gap: 8, opacity: 0.7, marginTop: 10 }}>
+                {past.map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}
+              </div>
+            </details>
+          )}
             </div>
           )}
         </div>
