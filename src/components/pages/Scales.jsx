@@ -20,10 +20,31 @@ function ArchivedSection({ archived, renderCard }) {
   const [open, setOpen] = useState(false);
   return (
     <div>
-      <div onClick={() => setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', marginBottom: open ? 10 : 0 }}>
-        <div className="section-header" style={{ marginBottom: 0, flex: 1 }}>📦 Arquivadas ({archived.length})</div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        style={{
+          width: '100%',
+          minHeight: 44,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          cursor: 'pointer',
+          userSelect: 'none',
+          marginBottom: open ? 10 : 0,
+          padding: 0,
+          border: 0,
+          background: 'transparent',
+          color: 'inherit',
+          textAlign: 'left',
+          touchAction: 'manipulation',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        <div className="section-header" style={{ marginBottom: 0, flex: 1 }}>📦 Anteriores ({archived.length})</div>
         <span style={{ fontSize: 11, color: C.textSecondary }}>{open ? '▲ recolher' : '▼ expandir'}</span>
-      </div>
+      </button>
       {open && (
         <div style={{ display: 'grid', gap: 8 }}>
           {archived.map((sc) => (
