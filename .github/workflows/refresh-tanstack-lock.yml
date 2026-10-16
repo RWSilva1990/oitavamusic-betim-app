@@ -1,0 +1,58 @@
+name: Refresh TanStack security lock
+
+on:
+  push:
+    branches:
+      - feature/scale-workflow-improvements-2026-10-16
+    paths:
+      - '.github/workflows/refresh-tanstack-lock.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/scale-workflow-improvements-2026-10-16
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Align patched TanStack packages
+        run: npm install @tanstack/react-start@1.168.60 @tanstack/react-router@1.170.41 @tanstack/router-plugin@1.168.42 --save-exact --package-lock-only --ignore-scripts
+
+      - name: Verify compatible versions
+        run: |
+          node - <<'NODE'
+          const lock = require('./package-lock.json')
+          const versions = {
+            start: lock.packages['node_modules/@tanstack/react-start']?.version,
+            router: lock.packages['node_modules/@tanstack/react-router']?.version,
+            plugin: lock.packages['node_modules/@tanstack/router-plugin']?.version,
+            core: lock.packages['node_modules/@tanstack/router-core']?.version,
+            server: lock.packages['node_modules/@tanstack/start-server-core']?.version,
+          }
+          console.log(versions)
+          if (versions.start !== '1.168.60') process.exit(1)
+          if (versions.router !== '1.170.41') process.exit(1)
+          if (versions.plugin !== '1.168.42') process.exit(1)
+          if (versions.core !== '1.171.34') process.exit(1)
+          if (versions.server !== '1.169.39') process.exit(1)
+          NODE
+
+      - name: Commit refreshed lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: alinhar dependências TanStack corrigidas"
+          git push
