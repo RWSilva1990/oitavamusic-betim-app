@@ -59,42 +59,48 @@ export function buildWhatsAppText(sc, members, groups, songs) {
     .map((ss) => ({ ...ss, song: songs.find((s) => s.id === ss.songId) }))
     .filter((x) => x.song);
 
-  let txt = `🎵 *${sc.name}*\n`;
-  txt += `📅 *Data:* ${fmtDate(sc.date)}\n`;
-  if (group) txt += `🎸 *Grupo:* ${group.name}\n`;
-  txt += `\n`;
+  // A mensagem compartilhada evita emojis como marcadores estruturais.
+  // Isso mantém a formatação compatível entre WhatsApp mobile, desktop e web.
+  let txt = `*${sc.name}*\n`;
+  txt += `*Data:* ${fmtDate(sc.date)}\n`;
+  if (group) txt += `*Grupo:* ${group.name}\n`;
+
+  const observations = String(sc.observations || '').trim();
+  if (observations) {
+    txt += `\n*Observações:*\n${observations}\n`;
+  }
 
   if (scMembers.length > 0) {
-    txt += `*👥 Integrantes:*\n`;
+    txt += `\n*Integrantes:*\n`;
     scMembers.forEach((x) => {
       const activeRoles = x.roles || (x.role ? [x.role] : []);
       const roleLabel =
         activeRoles.length > 0
           ? activeRoles
-              .map((r) => {
-                const ro = ROLES.find((o) => o.key === r);
-                return ro ? `${ro.emoji} ${ro.label}` : null;
-              })
+              .map((r) => ROLES.find((o) => o.key === r)?.label)
               .filter(Boolean)
               .join(' + ')
           : (x.member.roles || [])
               .map((r) => ROLES.find((o) => o.key === r)?.label)
               .filter(Boolean)
               .join(', ');
-      txt += `• ${shortName(x.member.name)}${x.isSub ? ' ↔ (substituto)' : ''}${roleLabel ? ` — ${roleLabel}` : ''}\n`;
+      txt += `- ${shortName(x.member.name)}${roleLabel ? ` - ${roleLabel}` : ''}\n`;
     });
-    txt += `\n`;
   }
 
   if (scSongs.length > 0) {
-    txt += `*🎵 Repertório:*\n`;
+    txt += `\n*Repertório:*\n`;
     const playlistIds = [];
+
     scSongs.forEach((x, i) => {
       txt += `\n*${i + 1}. ${x.song.name}*\n`;
-      const tomBpm = [x.key ? `Tom: *${x.key}*` : null, x.song.bpm ? `BPM: *${x.song.bpm}*` : null]
-        .filter(Boolean)
-        .join('  |  ');
+      const tomBpm = [
+        x.key ? `Tom: *${x.key}*` : null,
+        x.song.bpm ? `BPM: *${x.song.bpm}*` : null,
+      ].filter(Boolean).join(' | ');
+
       if (tomBpm) txt += `${tomBpm}\n`;
+
       if (x.soloMemberId) {
         const soloist = members.find((m) => m.id === x.soloMemberId);
         if (soloist) {
@@ -102,15 +108,17 @@ export function buildWhatsAppText(sc, members, groups, songs) {
             ['tenor', 'soprano', 'contralto'].includes(r)
           );
           const roleLabel = vocalRole ? ROLES.find((ro) => ro.key === vocalRole)?.label : '';
-          txt += `🎙️ Solo: *${shortName(soloist.name)}*${roleLabel ? ` (${roleLabel})` : ''}\n`;
+          txt += `Solo: *${shortName(soloist.name)}*${roleLabel ? ` (${roleLabel})` : ''}\n`;
         }
       }
+
       if (x.notes) txt += `Obs: ${x.notes}\n`;
       const ytId = getYtId(x.song.youtubeUrl);
       if (ytId) playlistIds.push(ytId);
     });
+
     if (playlistIds.length > 0) {
-      txt += `\n▶️ *Playlist:* https://www.youtube.com/watch_videos?video_ids=${playlistIds.join(',')}\n`;
+      txt += `\n*Playlist:* https://www.youtube.com/watch_videos?video_ids=${playlistIds.join(',')}\n`;
     }
   }
 
