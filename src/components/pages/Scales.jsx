@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar, Plus, Edit2, Trash2, Check, Search, Eye, Share2, Youtube, X, ChevronUp, ChevronDown, Music2 } from 'lucide-react';
+import { Calendar, Plus, Edit2, Trash2, Check, Search, Eye, Share2, Youtube, X, ChevronUp, ChevronDown, Music2, Filter } from 'lucide-react';
 import { C, ROLES } from '@/lib/theme';
 import { fmtDate, genId, shareToWhatsApp, todayISO } from '@/lib/db';
 import { Avatar, Btn, Confirm, Field, Inp, Modal, PageTitle } from '../ui-kit';
@@ -9,6 +9,17 @@ import { useNavigate } from '@tanstack/react-router';
 import { beginScaleSongRegistration, takeScaleDraft } from '@/lib/scale-draft';
 
 const VOCAL_KEYS = ['tenor', 'soprano', 'contralto'];
+const MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+
+function formatMonthKey(value) {
+  const [year, month] = String(value || '').split('-');
+  const monthIndex = Number(month) - 1;
+  if (!year || monthIndex < 0 || monthIndex > 11) return value;
+  return `${MONTH_NAMES[monthIndex]}/${year}`;
+}
 
 function normalizeSearchText(value) {
   return String(value || '')
@@ -43,6 +54,15 @@ export default function ScalesPage() {
   const [form, setForm] = useState({ name: '', date: '', groupId: '', observations: '', scaleMembers: [], scaleSongs: [] });
   const [mSearch, setMSearch] = useState('');
   const [sSearch, setSSearch] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterGroup, setFilterGroup] = useState('');
+  const [filterMember, setFilterMember] = useState('');
+  const [filterModal, setFilterModal] = useState(false);
+  const [draftFilterMonth, setDraftFilterMonth] = useState('');
+  const [draftFilterGroup, setDraftFilterGroup] = useState('');
+  const [draftFilterMember, setDraftFilterMember] = useState('');
+  const [groupFilterSearch, setGroupFilterSearch] = useState('');
+  const [memberFilterSearch, setMemberFilterSearch] = useState('');
 
   const fresh = () => ({ name: '', date: '', groupId: '', observations: '', scaleMembers: [], scaleSongs: [] });
   const openAdd = () => { setForm(fresh()); setMSearch(''); setSSearch(''); setModal('add'); };
@@ -158,9 +178,72 @@ export default function ScalesPage() {
   const scaleMembersOf = (sc) => (sc.scaleMembers || []).map((sm) => ({ ...sm, member: members.find((m) => m.id === sm.memberId) })).filter((x) => x.member);
   const scaleSongsOf = (sc) => (sc.scaleSongs || []).map((ss) => ({ ...ss, song: songs.find((s) => s.id === ss.songId) })).filter((x) => x.song);
 
+  const filtersActive = Boolean(filterMonth || filterGroup || filterMember);
+  const selectedFilterGroup = groups.find((group) => group.id === filterGroup);
+  const selectedFilterMember = members.find((member) => member.id === filterMember);
+  const selectedDraftGroup = groups.find((group) => group.id === draftFilterGroup);
+  const selectedDraftMember = members.find((member) => member.id === draftFilterMember);
+
+  const normalizedGroupFilterSearch = normalizeSearchText(groupFilterSearch);
+  const normalizedParticipantFilterSearch = normalizeSearchText(memberFilterSearch);
+  const groupFilterResults = groupFilterSearch.trim() && (
+    !selectedDraftGroup || normalizeSearchText(selectedDraftGroup.name) !== normalizedGroupFilterSearch
+  )
+    ? groups
+      .filter((group) => normalizeSearchText(group.name).includes(normalizedGroupFilterSearch))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+      .slice(0, 8)
+    : [];
+  const memberFilterResults = memberFilterSearch.trim() && (
+    !selectedDraftMember || normalizeSearchText(selectedDraftMember.name) !== normalizedParticipantFilterSearch
+  )
+    ? members
+      .filter((member) => normalizeSearchText(member.name).includes(normalizedParticipantFilterSearch))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+      .slice(0, 8)
+    : [];
+
+  const filteredScales = scales.filter((scale) => {
+    if (filterMonth && !String(scale.date || '').startsWith(filterMonth)) return false;
+    if (filterGroup && scale.groupId !== filterGroup) return false;
+    if (filterMember && !(scale.scaleMembers || []).some((member) => member.memberId === filterMember)) return false;
+    return true;
+  });
+
+  const openFilters = () => {
+    setDraftFilterMonth(filterMonth);
+    setDraftFilterGroup(filterGroup);
+    setDraftFilterMember(filterMember);
+    setGroupFilterSearch(selectedFilterGroup?.name || '');
+    setMemberFilterSearch(selectedFilterMember?.name || '');
+    setFilterModal(true);
+  };
+
+  const clearFilterDraft = () => {
+    setDraftFilterMonth('');
+    setDraftFilterGroup('');
+    setDraftFilterMember('');
+    setGroupFilterSearch('');
+    setMemberFilterSearch('');
+  };
+
+  const applyFilters = () => {
+    setFilterMonth(draftFilterMonth);
+    setFilterGroup(draftFilterGroup);
+    setFilterMember(draftFilterMember);
+    setFilterModal(false);
+  };
+
+  const clearFilters = () => {
+    setFilterMonth('');
+    setFilterGroup('');
+    setFilterMember('');
+    clearFilterDraft();
+  };
+
   const today = todayISO();
-  const active = [...scales].filter((s) => s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
-  const archived = [...scales].filter((s) => s.date < today).sort((a, b) => b.date.localeCompare(a.date));
+  const active = [...filteredScales].filter((s) => s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const archived = [...filteredScales].filter((s) => s.date < today).sort((a, b) => b.date.localeCompare(a.date));
 
   const renderCard = (sc) => {
     const g = groups.find((x) => x.id === sc.groupId);
@@ -194,25 +277,195 @@ export default function ScalesPage() {
   return (
     <div style={{ padding: 24, maxWidth: 860 }}>
       <PageTitle title="Escalas" subtitle={`${scales.length} escala${scales.length !== 1 ? 's' : ''}`}>
+        <Btn variant="secondary" onClick={openFilters}>
+          <Filter size={14} />Filtrar escalas{filtersActive ? ' •' : ''}
+        </Btn>
         <Btn onClick={openAdd}><Plus size={15} />Nova Escala</Btn>
       </PageTitle>
 
       {scales.length === 0 ? (
         <div className="empty-state"><Calendar size={38} style={{ marginBottom: 12, opacity: 0.25 }} /><p>Nenhuma escala criada</p></div>
       ) : (
-        <div style={{ display: 'grid', gap: 16 }}>
-          {active.length > 0 ? (
-            <div>
-              <div className="section-header" style={{ marginBottom: 10 }}><Calendar size={13} />Agendadas ({active.length})</div>
-              <div style={{ display: 'grid', gap: 8 }}>{active.map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}</div>
-            </div>
-          ) : (
-            <div style={{ padding: '14px 16px', background: C.bgCard, borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, color: C.textSecondary, textAlign: 'center' }}>
-              Nenhuma escala agendada
+        <>
+          {filtersActive && (
+            <div
+              style={{
+                marginBottom: 16,
+                padding: '9px 12px',
+                background: C.bgCard,
+                border: `1px solid ${C.border}`,
+                borderRadius: 10,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+                flexWrap: 'wrap',
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.textSecondary, marginRight: 2 }}>Filtros:</span>
+              {filterMonth && (
+                <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  {formatMonthKey(filterMonth)}
+                  <button
+                    type="button"
+                    aria-label="Remover filtro de mês"
+                    onClick={() => setFilterMonth('')}
+                    style={{ border: 0, background: 'transparent', color: 'inherit', padding: 0, display: 'flex', cursor: 'pointer' }}
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              )}
+              {selectedFilterGroup && (
+                <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  {selectedFilterGroup.name}
+                  <button
+                    type="button"
+                    aria-label="Remover filtro de equipe"
+                    onClick={() => setFilterGroup('')}
+                    style={{ border: 0, background: 'transparent', color: 'inherit', padding: 0, display: 'flex', cursor: 'pointer' }}
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              )}
+              {selectedFilterMember && (
+                <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  {selectedFilterMember.name}
+                  <button
+                    type="button"
+                    aria-label="Remover filtro de participante"
+                    onClick={() => setFilterMember('')}
+                    style={{ border: 0, background: 'transparent', color: 'inherit', padding: 0, display: 'flex', cursor: 'pointer' }}
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={clearFilters}
+                style={{ border: 0, background: 'transparent', color: C.accent, fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: '3px 4px' }}
+              >
+                Limpar todos
+              </button>
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: C.textSecondary, fontWeight: 600 }}>
+                {filteredScales.length} escala{filteredScales.length !== 1 ? 's' : ''} encontrada{filteredScales.length !== 1 ? 's' : ''}
+              </span>
             </div>
           )}
-          {archived.length > 0 && <ArchivedSection archived={archived} renderCard={renderCard} />}
-        </div>
+
+          {filteredScales.length === 0 ? (
+            <div className="empty-state" style={{ minHeight: 180 }}>
+              <Search size={34} style={{ marginBottom: 10, opacity: 0.25 }} />
+              <p style={{ marginBottom: 4 }}>Nenhuma escala encontrada</p>
+              <span style={{ color: C.textSecondary, fontSize: 12 }}>Altere ou limpe os filtros selecionados.</span>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 16 }}>
+              {active.length > 0 ? (
+                <div>
+                  <div className="section-header" style={{ marginBottom: 10 }}><Calendar size={13} />Agendadas ({active.length})</div>
+                  <div style={{ display: 'grid', gap: 8 }}>{active.map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}</div>
+                </div>
+              ) : (
+                <div style={{ padding: '14px 16px', background: C.bgCard, borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, color: C.textSecondary, textAlign: 'center' }}>
+                  Nenhuma escala agendada com os filtros selecionados
+                </div>
+              )}
+              {archived.length > 0 && <ArchivedSection archived={archived} renderCard={renderCard} />}
+            </div>
+          )}
+        </>
+      )}
+
+      {filterModal && (
+        <Modal title="Filtrar escalas" onClose={() => setFilterModal(false)}>
+          <Field label="Mês / ano">
+            <input
+              className="input-field"
+              type="month"
+              value={draftFilterMonth}
+              onChange={(e) => setDraftFilterMonth(e.target.value)}
+            />
+          </Field>
+
+          <Field label="Equipe">
+            <div style={{ position: 'relative' }}>
+              <Search size={13} color={C.textSecondary} style={{ position: 'absolute', left: 10, top: 13, pointerEvents: 'none' }} />
+              <input
+                className="input-field"
+                placeholder="Digite o nome da equipe..."
+                value={groupFilterSearch}
+                onChange={(e) => {
+                  setGroupFilterSearch(e.target.value);
+                  setDraftFilterGroup('');
+                }}
+                style={{ paddingLeft: 30 }}
+              />
+            </div>
+            {groupFilterResults.length > 0 && (
+              <div style={{ marginTop: 5, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', background: C.bgInput }}>
+                {groupFilterResults.map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => {
+                      setDraftFilterGroup(group.id);
+                      setGroupFilterSearch(group.name);
+                    }}
+                    style={{ width: '100%', border: 0, borderBottom: `1px solid ${C.border}`, background: 'transparent', color: C.textPrimary, textAlign: 'left', padding: '9px 12px', cursor: 'pointer', fontSize: 13 }}
+                  >
+                    {group.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            {groupFilterSearch.trim() && !draftFilterGroup && groupFilterResults.length === 0 && (
+              <div style={{ marginTop: 5, fontSize: 11, color: C.textSecondary }}>Nenhuma equipe encontrada</div>
+            )}
+          </Field>
+
+          <Field label="Participante">
+            <div style={{ position: 'relative' }}>
+              <Search size={13} color={C.textSecondary} style={{ position: 'absolute', left: 10, top: 13, pointerEvents: 'none' }} />
+              <input
+                className="input-field"
+                placeholder="Digite o nome do participante..."
+                value={memberFilterSearch}
+                onChange={(e) => {
+                  setMemberFilterSearch(e.target.value);
+                  setDraftFilterMember('');
+                }}
+                style={{ paddingLeft: 30 }}
+              />
+            </div>
+            {memberFilterResults.length > 0 && (
+              <div style={{ marginTop: 5, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', background: C.bgInput }}>
+                {memberFilterResults.map((member) => (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() => {
+                      setDraftFilterMember(member.id);
+                      setMemberFilterSearch(member.name);
+                    }}
+                    style={{ width: '100%', border: 0, borderBottom: `1px solid ${C.border}`, background: 'transparent', color: C.textPrimary, textAlign: 'left', padding: '9px 12px', cursor: 'pointer', fontSize: 13 }}
+                  >
+                    {member.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            {memberFilterSearch.trim() && !draftFilterMember && memberFilterResults.length === 0 && (
+              <div style={{ marginTop: 5, fontSize: 11, color: C.textSecondary }}>Nenhum participante encontrado</div>
+            )}
+          </Field>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+            <Btn variant="secondary" onClick={clearFilterDraft}>Limpar</Btn>
+            <Btn onClick={applyFilters}><Filter size={14} />Aplicar filtros</Btn>
+          </div>
+        </Modal>
       )}
 
       {viewModal && (
