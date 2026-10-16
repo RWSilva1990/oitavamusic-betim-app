@@ -21,10 +21,16 @@ const requestSchema = z.discriminatedUnion('action', [
       name: z.string().trim().min(3).max(180),
       birthdate: z.string().trim().min(1).max(20),
       phone: z.string().trim().min(3).max(40),
+      roles: z.array(z.string().trim().min(1).max(40)).min(1).max(12),
     }),
   }),
   z.object({ action: z.literal('list') }),
-  z.object({ action: z.literal('accept'), uid: z.string().min(1).max(160) }),
+  z.object({
+    action: z.literal('accept'),
+    uid: z.string().min(1).max(160),
+    memberId: z.string().max(160).optional().default(''),
+    roles: z.array(z.string().trim().min(1).max(40)).min(1).max(12),
+  }),
 ]);
 
 export const Route = createFileRoute('/api/mobile/registration')({
@@ -47,7 +53,10 @@ export const Route = createFileRoute('/api/mobile/registration')({
           if (parsed.data.action === 'list') {
             return mobileJson(request, await listRegistrationsForToken(idToken));
           }
-          return mobileJson(request, await acceptRegistrationForToken(idToken, parsed.data.uid));
+          return mobileJson(request, await acceptRegistrationForToken(idToken, parsed.data.uid, {
+            memberId: parsed.data.memberId,
+            roles: parsed.data.roles,
+          }));
         } catch (error) {
           return mobileError(request, error);
         }

@@ -23,6 +23,8 @@ function allowedOriginsFor(request: Request) {
   const requestOrigin = new URL(request.url).origin;
   return new Set([
     'https://localhost',
+    'http://localhost',
+    'capacitor://localhost',
     requestOrigin,
     ...configuredOrigins(),
   ]);
