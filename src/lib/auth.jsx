@@ -356,6 +356,7 @@ export function AuthProvider({ children }) {
             name: profile.name.trim(),
             birthdate: profile.birthdate,
             phone: profile.phone.trim(),
+            roles: Array.isArray(profile.roles) ? profile.roles : [],
             email: current.email.toLowerCase(),
             status: 'pending',
             createdAt: profile.createdAt || now,
