@@ -56,9 +56,7 @@ export default function MyScalesPage() {
             <div style={{ color: C.textSecondary, fontSize: 12, marginBottom: 10 }}>📅 {fmtDate(sc.date)}</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
               {sm.map((x) => (
-                <span key={x.memberId} className={`tag${x.isSub ? ' sub' : ''}`}>
-                  {x.isSub ? '↔ ' : ''}{x.member.name}
-                </span>
+                <span key={x.memberId} className="tag">{x.member.name}</span>
               ))}
             </div>
             <div style={{ fontSize: 12, color: C.textSecondary }}>{ss.length} música{ss.length !== 1 ? 's' : ''}</div>
@@ -125,16 +123,24 @@ export default function MyScalesPage() {
             📅 {fmtDate(viewModal.date)} · {groups.find((g) => g.id === viewModal.groupId)?.name || 'Sem grupo'}
           </div>
 
+          {viewModal.observations && (
+            <Field label="Observações">
+              <div style={{ padding: '10px 12px', background: C.bgInput, border: `1px solid ${C.border}`, borderRadius: 9, color: C.textPrimary, fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                {viewModal.observations}
+              </div>
+            </Field>
+          )}
+
           <Field label="Membros na Escala">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {scaleMembersOf(viewModal).map((x) => {
                 const activeRoles = x.roles || (x.role ? [x.role] : []);
                 const roleLabels = activeRoles.map((r) => ROLES.find((ro) => ro.key === r)).filter(Boolean);
                 return (
-                  <div key={x.memberId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: x.isSub ? 'rgba(79,128,225,0.1)' : C.accentGlow, borderRadius: 20, border: `1px solid ${x.isSub ? C.blue + '44' : C.accent + '44'}` }}>
+                  <div key={x.memberId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: C.accentGlow, borderRadius: 20, border: `1px solid ${C.accent + '44'}` }}>
                     <Avatar member={x.member} size={24} />
                     <div>
-                      <span style={{ fontSize: 13, color: x.isSub ? C.blue : C.accent }}>{x.isSub ? '↔ ' : ''}{x.member.name}</span>
+                      <span style={{ fontSize: 13, color: C.accent }}>{x.member.name}</span>
                       {roleLabels.length > 0 && (
                         <span style={{ fontSize: 11, color: C.textSecondary, marginLeft: 4 }}>· {roleLabels.map((r) => `${r.emoji} ${r.label}`).join(', ')}</span>
                       )}
