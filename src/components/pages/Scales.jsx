@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { Calendar, Plus, Edit2, Trash2, Check, Search, Eye, Share2, Youtube, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Calendar, Plus, Edit2, Trash2, Check, Search, Eye, Share2, Youtube, X, ChevronUp, ChevronDown, Music2 } from 'lucide-react';
 import { C, ROLES } from '@/lib/theme';
 import { fmtDate, genId, shareToWhatsApp, todayISO } from '@/lib/db';
 import { Avatar, Btn, Confirm, Field, Inp, Modal, PageTitle } from '../ui-kit';
 import { AudioPlayerList } from '../AudioSection';
 import { useData } from '@/lib/data';
+import { useNavigate } from '@tanstack/react-router';
+import { beginScaleSongRegistration, takeScaleDraft } from '@/lib/scale-draft';
 
 const VOCAL_KEYS = ['tenor', 'soprano', 'contralto'];
 
@@ -34,17 +36,24 @@ function ArchivedSection({ archived, renderCard }) {
 
 export default function ScalesPage() {
   const { scales, setScales, members, groups, songs } = useData();
+  const navigate = useNavigate();
   const [modal, setModal] = useState(null);
   const [viewModal, setViewModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
-  const [form, setForm] = useState({ name: '', date: '', groupId: '', scaleMembers: [], scaleSongs: [] });
+  const [form, setForm] = useState({ name: '', date: '', groupId: '', observations: '', scaleMembers: [], scaleSongs: [] });
   const [mSearch, setMSearch] = useState('');
   const [sSearch, setSSearch] = useState('');
 
-  const fresh = () => ({ name: '', date: '', groupId: '', scaleMembers: [], scaleSongs: [] });
+  const fresh = () => ({ name: '', date: '', groupId: '', observations: '', scaleMembers: [], scaleSongs: [] });
   const openAdd = () => { setForm(fresh()); setMSearch(''); setSSearch(''); setModal('add'); };
   const openEdit = (sc) => {
-    setForm({ ...sc, scaleMembers: (sc.scaleMembers || []).map((x) => ({ ...x })), scaleSongs: (sc.scaleSongs || []).map((x) => ({ ...x })) });
+    setForm({
+      ...fresh(),
+      ...sc,
+      observations: sc.observations || '',
+      scaleMembers: (sc.scaleMembers || []).map((x) => ({ ...x, isSub: false })),
+      scaleSongs: (sc.scaleSongs || []).map((x) => ({ ...x })),
+    });
     setMSearch(''); setSSearch(''); setModal(sc);
   };
 
@@ -54,9 +63,9 @@ export default function ScalesPage() {
   };
 
   const removeMember = (id) => setForm((f) => ({ ...f, scaleMembers: f.scaleMembers.filter((x) => x.memberId !== id) }));
-  const addSubstitute = (id) => {
+  const addMember = (id) => {
     if (form.scaleMembers.find((x) => x.memberId === id)) return;
-    setForm((f) => ({ ...f, scaleMembers: [...f.scaleMembers, { memberId: id, isSub: true, role: '' }] }));
+    setForm((f) => ({ ...f, scaleMembers: [...f.scaleMembers, { memberId: id, isSub: false, role: '' }] }));
     setMSearch('');
   };
   const updateMemberRole = (memberId, role) =>
@@ -86,11 +95,60 @@ export default function ScalesPage() {
 
   const save = () => {
     if (!form.name.trim() || !form.date) return;
-    if (modal === 'add') setScales((p) => [...p, { ...form, id: genId() }]);
-    else setScales((p) => p.map((s) => (s.id === form.id ? { ...form } : s)));
+    const normalizedForm = {
+      ...form,
+      observations: String(form.observations || '').trim(),
+      scaleMembers: (form.scaleMembers || []).map((member) => ({ ...member, isSub: false })),
+    };
+    if (modal === 'add') setScales((p) => [...p, { ...normalizedForm, id: genId() }]);
+    else setScales((p) => p.map((scale) => (scale.id === form.id ? { ...normalizedForm } : scale)));
     setModal(null);
   };
   const del = (id) => { setScales((p) => p.filter((s) => s.id !== id)); setConfirm(null); };
+
+  const openSongRegistration = () => {
+    beginScaleSongRegistration({
+      form: {
+        ...form,
+        observations: form.observations || '',
+        scaleMembers: (form.scaleMembers || []).map((member) => ({ ...member, isSub: false })),
+      },
+      mode: modal === 'add' ? 'add' : 'edit',
+      editingId: modal !== 'add' ? modal?.id || form.id || '' : '',
+      memberSearch: mSearch,
+      songSearch: sSearch,
+      suggestedSongName: sSearch.trim(),
+    });
+    setModal(null);
+    navigate({ to: '/repertorio' });
+  };
+
+  useEffect(() => {
+    const restored = takeScaleDraft();
+    if (!restored?.draft?.form) return;
+
+    const draftForm = restored.draft.form;
+    const restoredSongs = [...(draftForm.scaleSongs || [])];
+    if (restored.newSongId && !restoredSongs.some((item) => item.songId === restored.newSongId)) {
+      restoredSongs.push({ songId: restored.newSongId, key: '', notes: '', soloMemberId: '' });
+    }
+
+    setForm({
+      ...fresh(),
+      ...draftForm,
+      observations: draftForm.observations || '',
+      scaleMembers: (draftForm.scaleMembers || []).map((member) => ({ ...member, isSub: false })),
+      scaleSongs: restoredSongs,
+    });
+    setMSearch(restored.draft.memberSearch || '');
+    setSSearch('');
+    if (restored.draft.mode === 'add') {
+      setModal('add');
+    } else {
+      const editingScale = scales.find((scale) => scale.id === restored.draft.editingId);
+      setModal(editingScale || { id: restored.draft.editingId || draftForm.id });
+    }
+  }, [scales]);
 
   const existingIds = form.scaleMembers.map((x) => x.memberId);
   const normalizedMemberSearch = normalizeSearchText(mSearch);
@@ -118,7 +176,7 @@ export default function ScalesPage() {
             </div>
             <div style={{ color: C.textSecondary, fontSize: 12, marginBottom: 10 }}>📅 {fmtDate(sc.date)}</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-              {sm.map((x) => <span key={x.memberId} className={`tag${x.isSub ? ' sub' : ''}`}>{x.isSub ? '↔ ' : ''}{x.member.name}</span>)}
+              {sm.map((x) => <span key={x.memberId} className="tag">{x.member.name}</span>)}
             </div>
             <div style={{ fontSize: 12, color: C.textSecondary }}>{ss.length} música{ss.length !== 1 ? 's' : ''}</div>
           </div>
@@ -162,16 +220,23 @@ export default function ScalesPage() {
           <div style={{ color: C.textSecondary, fontSize: 13, marginBottom: 18 }}>
             📅 {fmtDate(viewModal.date)} · {groups.find((g) => g.id === viewModal.groupId)?.name || 'Sem grupo'}
           </div>
+          {viewModal.observations && (
+            <Field label="Observações">
+              <div style={{ padding: '10px 12px', background: C.bgInput, border: `1px solid ${C.border}`, borderRadius: 9, color: C.textPrimary, fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                {viewModal.observations}
+              </div>
+            </Field>
+          )}
           <Field label="Membros na Escala">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {scaleMembersOf(viewModal).map((x) => {
                 const activeRoles = x.roles || (x.role ? [x.role] : []);
                 const roleLabels = activeRoles.map((r) => ROLES.find((ro) => ro.key === r)).filter(Boolean);
                 return (
-                  <div key={x.memberId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: x.isSub ? 'rgba(79,128,225,0.1)' : C.accentGlow, borderRadius: 20, border: `1px solid ${x.isSub ? C.blue + '44' : C.accent + '44'}` }}>
+                  <div key={x.memberId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', background: C.accentGlow, borderRadius: 20, border: `1px solid ${C.accent + '44'}` }}>
                     <Avatar member={x.member} size={24} />
                     <div>
-                      <span style={{ fontSize: 13, color: x.isSub ? C.blue : C.accent }}>{x.isSub ? '↔ ' : ''}{x.member.name}</span>
+                      <span style={{ fontSize: 13, color: C.accent }}>{x.member.name}</span>
                       {roleLabels.length > 0 && (
                         <span style={{ fontSize: 11, color: C.textSecondary, marginLeft: 4 }}>· {roleLabels.map((r) => `${r.emoji} ${r.label}`).join(', ')}</span>
                       )}
@@ -245,6 +310,17 @@ export default function ScalesPage() {
             </select>
           </Field>
 
+          <Field label="Observações">
+            <textarea
+              className="input-field"
+              rows={4}
+              value={form.observations || ''}
+              onChange={(e) => setForm((current) => ({ ...current, observations: e.target.value }))}
+              placeholder="Ex: Chegar às 18h para passagem de som."
+              style={{ resize: 'vertical', minHeight: 96 }}
+            />
+          </Field>
+
           <Field label={`Membros na Escala (${form.scaleMembers.length})`}>
             {form.scaleMembers.length === 0 && (
               <div style={{ marginBottom: 10, padding: '10px 14px', background: C.bgInput, borderRadius: 8, fontSize: 13, color: C.textSecondary }}>
@@ -257,10 +333,10 @@ export default function ScalesPage() {
               const memberRoles = (m.roles || []).map((r) => ROLES.find((x) => x.key === r)).filter(Boolean);
               const activeRoles = sm.roles || (sm.role ? [sm.role] : []);
               return (
-                <div key={sm.memberId} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', marginBottom: 6, background: sm.isSub ? 'rgba(79,128,225,0.08)' : C.accentGlow, border: `1px solid ${sm.isSub ? C.blue + '44' : C.accent + '33'}`, borderRadius: 10 }}>
+                <div key={sm.memberId} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', marginBottom: 6, background: C.accentGlow, border: `1px solid ${C.accent + '33'}`, borderRadius: 10 }}>
                   <Avatar member={m} size={28} style={{ flexShrink: 0, marginTop: 2 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: sm.isSub ? C.blue : C.accent, marginBottom: 5 }}>{sm.isSub ? '↔ ' : ''}{m.name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.accent, marginBottom: 5 }}>{m.name}</div>
                     {memberRoles.length > 0 ? (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                         {memberRoles.map((r) => {
@@ -282,14 +358,14 @@ export default function ScalesPage() {
               );
             })}
             <div style={{ border: `1px dashed ${C.border}`, borderRadius: 8, padding: 10 }}>
-              <div style={{ fontSize: 12, color: C.textSecondary, marginBottom: 7 }}>Adicionar membro / substituto:</div>
+              <div style={{ fontSize: 12, color: C.textSecondary, marginBottom: 7 }}>Adicionar membro:</div>
               <div style={{ position: 'relative', marginBottom: 7 }}>
                 <Search size={12} color={C.textSecondary} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)' }} />
                 <input className="input-field" placeholder="Buscar..." value={mSearch} onChange={(e) => setMSearch(e.target.value)} style={{ paddingLeft: 26, fontSize: 12 }} />
               </div>
               <div style={{ maxHeight: 120, overflowY: 'auto', display: 'grid', gap: 3 }}>
                 {availSubs.slice(0, 10).map((m) => (
-                  <div key={m.id} className="song-item" onClick={() => addSubstitute(m.id)} style={{ padding: '6px 10px', fontSize: 13 }}>
+                  <div key={m.id} className="song-item" onClick={() => addMember(m.id)} style={{ padding: '6px 10px', fontSize: 13 }}>
                     <Plus size={12} color={C.accent} />{m.name}
                     <span style={{ marginLeft: 'auto', fontSize: 11, color: C.textSecondary }}>
                       {(m.roles || []).map((r) => ROLES.find((x) => x.key === r)?.emoji).filter(Boolean).join(' ')}
@@ -302,6 +378,11 @@ export default function ScalesPage() {
           </Field>
 
           <Field label={`Músicas (${form.scaleSongs.length})`}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <Btn type="button" variant="secondary" onClick={openSongRegistration}>
+                <Music2 size={14} />Cadastrar nova música
+              </Btn>
+            </div>
             <div style={{ position: 'relative', marginBottom: 8 }}>
               <Search size={13} color={C.textSecondary} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
               <input className="input-field" placeholder="Buscar música para adicionar..." value={sSearch} onChange={(e) => setSSearch(e.target.value)} style={{ paddingLeft: 30, fontSize: 13 }} />
