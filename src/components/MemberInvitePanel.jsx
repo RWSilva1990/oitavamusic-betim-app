@@ -147,12 +147,16 @@ export default function MemberInvitePanel() {
     setError('');
   };
 
-  const closeApproval = () => {
-    if (busyUid) return;
+  const resetApproval = () => {
     setApprovalRegistration(null);
     setApprovalRoles([]);
     setApprovalTarget(null);
     setMemberSearch('');
+  };
+
+  const closeApproval = () => {
+    if (busyUid) return;
+    resetApproval();
   };
 
   const toggleApprovalRole = (role) => {
@@ -202,7 +206,7 @@ export default function MemberInvitePanel() {
       });
       if (Array.isArray(result?.members)) setMembers(result.members);
       setRegistrations((rows) => rows.filter((row) => row.uid !== approvalRegistration.uid));
-      closeApproval();
+      resetApproval();
       await refresh({ silent: true });
     } catch (e) {
       setError(e?.message || 'Não foi possível concluir o cadastro.');
