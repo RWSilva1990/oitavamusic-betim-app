@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Papa from 'papaparse';
 import { Music, Plus, Edit2, Trash2, Check, Search, Upload, Download, Youtube, AlertCircle, Mic2 } from 'lucide-react';
 import { C } from '@/lib/theme';
@@ -7,6 +7,8 @@ import { Btn, Confirm, Field, Inp, Modal, PageTitle } from '../ui-kit';
 import AudioSection, { AudioPlayerList } from '../AudioSection';
 import { useData } from '@/lib/data';
 import { useAuth } from '@/lib/auth';
+import { useNavigate } from '@tanstack/react-router';
+import { isScaleSongRegistration, markScaleNewSong, readScaleDraft } from '@/lib/scale-draft';
 
 const TIME_SIGNATURES = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8'];
 
@@ -35,6 +37,7 @@ function findExistingSongIndex(list, imported) {
 export default function SongsPage() {
   const { songs, setSongs } = useData();
   const auth = useAuth();
+  const navigate = useNavigate();
   const readOnly = !auth.isAdmin;
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(null);
@@ -45,11 +48,23 @@ export default function SongsPage() {
   const [preview, setPreview] = useState([]);
   const [dupWarning, setDupWarning] = useState('');
 
-  const openAdd = () => {
+  const openAdd = (initialName = '') => {
     if (readOnly) return;
-    setForm({ name: '', youtubeUrl: '', bpm: '', originalKey: '', timeSignature: '' });
+    setForm({ name: initialName, youtubeUrl: '', bpm: '', originalKey: '', timeSignature: '' });
     setDupWarning('');
     setModal('add');
+  };
+
+  useEffect(() => {
+    if (readOnly || !isScaleSongRegistration()) return;
+    const draft = readScaleDraft();
+    openAdd(String(draft?.suggestedSongName || ''));
+  }, [readOnly]);
+
+  const closeSongModal = () => {
+    setModal(null);
+    setDupWarning('');
+    if (isScaleSongRegistration()) navigate({ to: '/escalas' });
   };
 
   const openEdit = (s) => {
@@ -67,8 +82,20 @@ export default function SongsPage() {
       return;
     }
     setDupWarning('');
-    if (modal === 'add') setSongs((p) => [...p, { ...form, audios: [], id: genId() }]);
-    else setSongs((p) => p.map((s) => (s.id === form.id ? { ...s, ...form } : s)));
+
+    if (modal === 'add') {
+      const newSong = { ...form, audios: [], id: genId() };
+      setSongs((current) => [...current, newSong]);
+      setModal(null);
+
+      if (isScaleSongRegistration()) {
+        markScaleNewSong(newSong.id);
+        navigate({ to: '/escalas' });
+      }
+      return;
+    }
+
+    setSongs((current) => current.map((song) => (song.id === form.id ? { ...song, ...form } : song)));
     setModal(null);
   };
 
@@ -228,7 +255,12 @@ export default function SongsPage() {
         {readOnly ? <><p style={{ fontSize: 13, color: C.textSecondary, marginBottom: 14, lineHeight: 1.6 }}>Ouça os áudios disponíveis para estudar esta música.</p>{(audioModal.audios || []).length > 0 ? <AudioPlayerList audios={audioModal.audios || []} /> : <div style={{ padding: '10px 14px', background: C.bgInput, borderRadius: 8, fontSize: 13, color: C.textSecondary }}>Nenhum áudio disponível para esta música.</div>}</> : <><p style={{ fontSize: 13, color: C.textSecondary, marginBottom: 14, lineHeight: 1.6 }}>Envie arquivos de voz (MP3, M4A, WAV, OGG) para esta música. Os membros autorizados podem ouvir esses áudios no repertório e nas escalas.</p><AudioSection song={audioModal} onChange={(audios) => setAudios(audioModal.id, audios)} /></>}
       </Modal>}
 
-      {!readOnly && modal && <Modal title={modal === 'add' ? 'Nova Música' : 'Editar Música'} onClose={() => setModal(null)}>
+      {!readOnly && modal && <Modal title={modal === 'add' ? 'Nova Música' : 'Editar Música'} onClose={closeSongModal}>
+        {isScaleSongRegistration() && modal === 'add' && (
+          <div style={{ marginBottom: 14, padding: '10px 12px', background: C.accentGlow, border: `1px solid ${C.accent}33`, borderRadius: 9, color: C.textSecondary, fontSize: 12, lineHeight: 1.55 }}>
+            Cadastre a música normalmente. Ao salvar, você voltará automaticamente para a escala em edição e esta música já será adicionada ao repertório da escala.
+          </div>
+        )}
         <Inp label="Nome da Música *" value={form.name} onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); setDupWarning(''); }} placeholder="Ex: Oceanos" />
         {dupWarning && <div style={{ marginTop: -10, marginBottom: 14, padding: '8px 12px', background: `${C.danger}18`, border: `1px solid ${C.danger}44`, borderRadius: 8, color: C.danger, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}><AlertCircle size={14} />{dupWarning}</div>}
         <Inp label="Link do YouTube" value={form.youtubeUrl} onChange={(e) => setForm((f) => ({ ...f, youtubeUrl: e.target.value }))} placeholder="https://youtube.com/watch?v=..." />
@@ -241,7 +273,7 @@ export default function SongsPage() {
           </select>
         </Field>
         {modal !== 'add' && <Field label="Áudios de voz"><AudioSection song={modal} onChange={(audios) => setAudios(modal.id, audios)} /></Field>}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><Btn variant="secondary" onClick={() => setModal(null)}>Cancelar</Btn><Btn onClick={save}><Check size={14} />Salvar</Btn></div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><Btn variant="secondary" onClick={closeSongModal}>Cancelar</Btn><Btn onClick={save}><Check size={14} />Salvar</Btn></div>
       </Modal>}
 
       {!readOnly && importModal && <Modal title="Importar/Atualizar Músicas via CSV" onClose={() => { setImportModal(false); setPreview([]); }} wide>
