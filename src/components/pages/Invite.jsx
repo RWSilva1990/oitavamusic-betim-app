@@ -165,8 +165,8 @@ export default function InvitePage() {
               <Check size={28} />
             </div>
             <div style={{ padding: '14px 16px', background: C.bgInput, borderRadius: 10, fontSize: 13, color: C.textSecondary, lineHeight: 1.65, marginBottom: 16 }}>
-              <strong style={{ color: C.textPrimary }}>Cadastro recebido e aguardando aprovação.</strong><br />
-              Sua senha foi criada, mas seu acesso ainda não está liberado. Um administrador verificará seus dados e poderá vincular sua conta a um participante que já exista no sistema. Depois da aprovação, entre usando <strong style={{ color: C.textPrimary }}>{email}</strong> e a senha que você acabou de criar.
+              <strong style={{ color: C.textPrimary }}>Cadastro realizado com sucesso.</strong><br />
+              Aguarde a aprovação de um administrador.
             </div>
             <Btn onClick={() => navigate({ to: '/entrar', replace: true })} style={{ width: '100%', justifyContent: 'center', padding: 12 }}>
               Ir para a tela de login
