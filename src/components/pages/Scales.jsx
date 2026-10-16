@@ -9,6 +9,17 @@ import { useNavigate } from '@tanstack/react-router';
 import { beginScaleSongRegistration, takeScaleDraft } from '@/lib/scale-draft';
 
 const VOCAL_KEYS = ['tenor', 'soprano', 'contralto'];
+const MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+
+function formatMonthKey(value) {
+  const [year, month] = String(value || '').split('-');
+  const monthIndex = Number(month) - 1;
+  if (!year || monthIndex < 0 || monthIndex > 11) return value;
+  return `${MONTH_NAMES[monthIndex]}/${year}`;
+}
 
 function normalizeSearchText(value) {
   return String(value || '')
@@ -43,6 +54,9 @@ export default function ScalesPage() {
   const [form, setForm] = useState({ name: '', date: '', groupId: '', observations: '', scaleMembers: [], scaleSongs: [] });
   const [mSearch, setMSearch] = useState('');
   const [sSearch, setSSearch] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterGroup, setFilterGroup] = useState('');
+  const [filterMember, setFilterMember] = useState('');
 
   const fresh = () => ({ name: '', date: '', groupId: '', observations: '', scaleMembers: [], scaleSongs: [] });
   const openAdd = () => { setForm(fresh()); setMSearch(''); setSSearch(''); setModal('add'); };
@@ -158,9 +172,29 @@ export default function ScalesPage() {
   const scaleMembersOf = (sc) => (sc.scaleMembers || []).map((sm) => ({ ...sm, member: members.find((m) => m.id === sm.memberId) })).filter((x) => x.member);
   const scaleSongsOf = (sc) => (sc.scaleSongs || []).map((ss) => ({ ...ss, song: songs.find((s) => s.id === ss.songId) })).filter((x) => x.song);
 
+  const availableMonths = [...new Set(
+    scales
+      .map((scale) => String(scale.date || '').slice(0, 7))
+      .filter((value) => /^\d{4}-\d{2}$/.test(value))
+  )].sort((a, b) => b.localeCompare(a));
+
+  const filtersActive = Boolean(filterMonth || filterGroup || filterMember);
+  const filteredScales = scales.filter((scale) => {
+    if (filterMonth && !String(scale.date || '').startsWith(filterMonth)) return false;
+    if (filterGroup && scale.groupId !== filterGroup) return false;
+    if (filterMember && !(scale.scaleMembers || []).some((member) => member.memberId === filterMember)) return false;
+    return true;
+  });
+
+  const clearFilters = () => {
+    setFilterMonth('');
+    setFilterGroup('');
+    setFilterMember('');
+  };
+
   const today = todayISO();
-  const active = [...scales].filter((s) => s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
-  const archived = [...scales].filter((s) => s.date < today).sort((a, b) => b.date.localeCompare(a.date));
+  const active = [...filteredScales].filter((s) => s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const archived = [...filteredScales].filter((s) => s.date < today).sort((a, b) => b.date.localeCompare(a.date));
 
   const renderCard = (sc) => {
     const g = groups.find((x) => x.id === sc.groupId);
@@ -200,19 +234,88 @@ export default function ScalesPage() {
       {scales.length === 0 ? (
         <div className="empty-state"><Calendar size={38} style={{ marginBottom: 12, opacity: 0.25 }} /><p>Nenhuma escala criada</p></div>
       ) : (
-        <div style={{ display: 'grid', gap: 16 }}>
-          {active.length > 0 ? (
-            <div>
-              <div className="section-header" style={{ marginBottom: 10 }}><Calendar size={13} />Agendadas ({active.length})</div>
-              <div style={{ display: 'grid', gap: 8 }}>{active.map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}</div>
+        <>
+          <div
+            style={{
+              marginBottom: 18,
+              padding: 14,
+              background: C.bgCard,
+              border: `1px solid ${C.border}`,
+              borderRadius: 12,
+              display: 'grid',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.textPrimary }}>Filtrar escalas</div>
+                <div style={{ fontSize: 11, color: C.textSecondary, marginTop: 2 }}>
+                  Combine mês, equipe e participante para localizar uma escala.
+                </div>
+              </div>
+              {filtersActive && (
+                <Btn variant="secondary" onClick={clearFilters}>
+                  <X size={13} />Limpar filtros
+                </Btn>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
+              <Field label="Mês">
+                <select className="input-field" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)}>
+                  <option value="">Todos os meses</option>
+                  {availableMonths.map((month) => (
+                    <option key={month} value={month}>{formatMonthKey(month)}</option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Equipe">
+                <select className="input-field" value={filterGroup} onChange={(e) => setFilterGroup(e.target.value)}>
+                  <option value="">Todas as equipes</option>
+                  {[...groups].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')).map((group) => (
+                    <option key={group.id} value={group.id}>{group.name}</option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Participante">
+                <select className="input-field" value={filterMember} onChange={(e) => setFilterMember(e.target.value)}>
+                  <option value="">Todos os participantes</option>
+                  {[...members].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')).map((member) => (
+                    <option key={member.id} value={member.id}>{member.name}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+
+            <div style={{ fontSize: 12, color: filtersActive ? C.accent : C.textSecondary, fontWeight: filtersActive ? 700 : 500 }}>
+              {filteredScales.length} escala{filteredScales.length !== 1 ? 's' : ''} encontrada{filteredScales.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+
+          {filteredScales.length === 0 ? (
+            <div className="empty-state" style={{ minHeight: 180 }}>
+              <Search size={34} style={{ marginBottom: 10, opacity: 0.25 }} />
+              <p style={{ marginBottom: 4 }}>Nenhuma escala encontrada</p>
+              <span style={{ color: C.textSecondary, fontSize: 12 }}>Altere ou limpe os filtros selecionados.</span>
             </div>
           ) : (
-            <div style={{ padding: '14px 16px', background: C.bgCard, borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, color: C.textSecondary, textAlign: 'center' }}>
-              Nenhuma escala agendada
+            <div style={{ display: 'grid', gap: 16 }}>
+              {active.length > 0 ? (
+                <div>
+                  <div className="section-header" style={{ marginBottom: 10 }}><Calendar size={13} />Agendadas ({active.length})</div>
+                  <div style={{ display: 'grid', gap: 8 }}>{active.map((sc) => <div key={sc.id}>{renderCard(sc)}</div>)}</div>
+                </div>
+              ) : (
+                <div style={{ padding: '14px 16px', background: C.bgCard, borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, color: C.textSecondary, textAlign: 'center' }}>
+                  Nenhuma escala agendada com os filtros selecionados
+                </div>
+              )}
+              {archived.length > 0 && <ArchivedSection archived={archived} renderCard={renderCard} />}
             </div>
           )}
-          {archived.length > 0 && <ArchivedSection archived={archived} renderCard={renderCard} />}
-        </div>
+        </>
       )}
 
       {viewModal && (
