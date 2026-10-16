@@ -41,6 +41,10 @@ export async function listPendingRegistrations() {
   return Array.isArray(result?.registrations) ? result.registrations : [];
 }
 
-export function acceptPendingRegistration(uid) {
-  return callRegistrationApi('accept', { uid });
+export function acceptPendingRegistration(uid, options = {}) {
+  return callRegistrationApi('accept', {
+    uid,
+    memberId: String(options.memberId || ''),
+    roles: Array.isArray(options.roles) ? options.roles : [],
+  });
 }
