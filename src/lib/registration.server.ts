@@ -12,7 +12,25 @@ type RegistrationProfile = {
   name: string;
   birthdate: string;
   phone: string;
+  roles: string[];
 };
+
+type RegistrationApproval = {
+  memberId?: string;
+  roles: string[];
+};
+
+const ALLOWED_ROLE_KEYS = new Set([
+  'bateria',
+  'baixo',
+  'violao',
+  'guitarra',
+  'teclado',
+  'ministro',
+  'tenor',
+  'soprano',
+  'contralto',
+]);
 
 type AdminApp = ReturnType<typeof getRegistrationApp>;
 
@@ -104,6 +122,12 @@ function parseCentralData(value: unknown, fallback: unknown) {
   }
 }
 
+function normalizeRoles(value: unknown) {
+  const items = Array.isArray(value) ? value : parseCentralData(value, []);
+  if (!Array.isArray(items)) return [];
+  return [...new Set(items.map((item) => String(item || '').trim()).filter((item) => ALLOWED_ROLE_KEYS.has(item)))];
+}
+
 function registrationFromDocument(document: any) {
   if (!document) return null;
   const name = String(document?.name || '');
@@ -114,6 +138,7 @@ function registrationFromDocument(document: any) {
     name: firestoreString(document, 'name'),
     birthdate: firestoreString(document, 'birthdate'),
     phone: firestoreString(document, 'phone'),
+    roles: normalizeRoles(firestoreString(document, 'roles')),
     email: firestoreString(document, 'email'),
     status: firestoreString(document, 'status'),
     createdAt: firestoreString(document, 'createdAt'),
@@ -146,8 +171,9 @@ export async function submitRegistrationForToken(idToken: string, profile: Regis
   const name = profile.name.trim();
   const birthdate = profile.birthdate.trim();
   const phone = profile.phone.trim();
-  if (name.length < 3 || !birthdate || !phone) {
-    throw new MobileApiError(400, 'Preencha nome completo, data de nascimento e telefone.');
+  const roles = normalizeRoles(profile.roles);
+  if (name.length < 3 || !birthdate || !phone || roles.length === 0) {
+    throw new MobileApiError(400, 'Preencha nome completo, data de nascimento, telefone e pelo menos uma função no ministério.');
   }
 
   const previous = await firestoreRest(
@@ -165,6 +191,7 @@ export async function submitRegistrationForToken(idToken: string, profile: Regis
       name,
       birthdate,
       phone,
+      roles: JSON.stringify(roles),
       email: caller.email,
       status: 'pending',
       createdAt,
@@ -212,7 +239,11 @@ export async function listRegistrationsForToken(idToken: string) {
   return { registrations };
 }
 
-export async function acceptRegistrationForToken(idToken: string, uid: string) {
+export async function acceptRegistrationForToken(
+  idToken: string,
+  uid: string,
+  approval: RegistrationApproval,
+) {
   const caller = await assertAdmin(idToken);
   const registrationDocument = await firestoreRest(
     caller.app,
@@ -230,7 +261,10 @@ export async function acceptRegistrationForToken(idToken: string, uid: string) {
 
   const email = normalizeEmail(registration.email);
   const name = String(registration.name || '').trim();
-  if (!email || !name) throw new MobileApiError(400, 'O cadastro pendente está incompleto.');
+  const finalRoles = normalizeRoles(approval.roles);
+  if (!email || !name || !registration.birthdate || !registration.phone || finalRoles.length === 0) {
+    throw new MobileApiError(400, 'O cadastro pendente está incompleto.');
+  }
 
   const [membersDocument, usersDocument, currentAccess] = await Promise.all([
     firestoreRest(caller.app, '/oitava/members', {}, { allowNotFound: true }),
@@ -248,9 +282,18 @@ export async function acceptRegistrationForToken(idToken: string, uid: string) {
     throw new Error('Os dados centrais de membros/acessos estão inválidos.');
   }
 
-  const existingIndex = members.findIndex((member: any) => normalizeEmail(member?.email) === email);
+  const requestedMemberId = String(approval.memberId || '').trim();
+  const existingIndex = requestedMemberId
+    ? members.findIndex((member: any) => String(member?.id || '') === requestedMemberId)
+    : -1;
+
+  if (requestedMemberId && existingIndex < 0) {
+    throw new MobileApiError(404, 'O participante escolhido para o vínculo não existe mais.');
+  }
+
   const existing = existingIndex >= 0 ? members[existingIndex] : null;
   const memberId = String(existing?.id || randomUUID());
+  const previousEmail = normalizeEmail(existing?.email);
   const memberData = {
     ...(existing || {}),
     id: memberId,
@@ -259,7 +302,7 @@ export async function acceptRegistrationForToken(idToken: string, uid: string) {
     phone: String(registration.phone || ''),
     email,
     photo: String(existing?.photo || ''),
-    roles: Array.isArray(existing?.roles) ? existing.roles : [],
+    roles: finalRoles,
   };
 
   const nextMembers = [...members];
@@ -267,52 +310,87 @@ export async function acceptRegistrationForToken(idToken: string, uid: string) {
   else nextMembers.push(memberData);
 
   const nextUsers = { ...(users as Record<string, any>) };
+  if (
+    previousEmail
+    && previousEmail !== email
+    && nextUsers[previousEmail]?.memberId === memberId
+    && nextUsers[previousEmail]?.role !== 'admin'
+  ) {
+    delete nextUsers[previousEmail];
+  }
+
   const currentRole = firestoreString(currentAccess, 'role');
   const role = currentRole === 'admin' ? 'admin' : 'membro';
   nextUsers[email] = { ...(nextUsers[email] || {}), role, memberId };
   const now = new Date().toISOString();
 
+  let previousAccess: any = null;
+  if (previousEmail && previousEmail !== email) {
+    previousAccess = await firestoreRest(
+      caller.app,
+      `/accessUsers/${encodeURIComponent(previousEmail)}`,
+      {},
+      { allowNotFound: true },
+    );
+  }
+
+  const writes: any[] = [
+    {
+      update: {
+        name: documentName(caller.app, 'oitava/members'),
+        fields: stringFields({ data: JSON.stringify(nextMembers) }).fields,
+      },
+    },
+    {
+      update: {
+        name: documentName(caller.app, 'oitava/users'),
+        fields: stringFields({ data: JSON.stringify(nextUsers) }).fields,
+      },
+    },
+    {
+      update: {
+        name: documentName(caller.app, `accessUsers/${email}`),
+        fields: stringFields({ email, role, memberId, updatedAt: now }).fields,
+      },
+    },
+    {
+      update: {
+        name: documentName(caller.app, `memberRegistrations/${uid}`),
+        fields: stringFields({
+          name: registration.name,
+          birthdate: registration.birthdate,
+          phone: registration.phone,
+          roles: JSON.stringify(finalRoles),
+          email,
+          status: 'accepted',
+          createdAt: registration.createdAt,
+          updatedAt: now,
+          memberId,
+          acceptedAt: now,
+        }).fields,
+      },
+    },
+  ];
+
+  if (
+    previousEmail
+    && previousEmail !== email
+    && firestoreString(previousAccess, 'memberId') === memberId
+    && firestoreString(previousAccess, 'role') !== 'admin'
+  ) {
+    writes.push({ delete: documentName(caller.app, `accessUsers/${previousEmail}`) });
+  }
+
   await firestoreRest(caller.app, ':commit', {
     method: 'POST',
-    body: JSON.stringify({
-      writes: [
-        {
-          update: {
-            name: documentName(caller.app, 'oitava/members'),
-            fields: stringFields({ data: JSON.stringify(nextMembers) }).fields,
-          },
-        },
-        {
-          update: {
-            name: documentName(caller.app, 'oitava/users'),
-            fields: stringFields({ data: JSON.stringify(nextUsers) }).fields,
-          },
-        },
-        {
-          update: {
-            name: documentName(caller.app, `accessUsers/${email}`),
-            fields: stringFields({ email, role, memberId, updatedAt: now }).fields,
-          },
-        },
-        {
-          update: {
-            name: documentName(caller.app, `memberRegistrations/${uid}`),
-            fields: stringFields({
-              name: registration.name,
-              birthdate: registration.birthdate,
-              phone: registration.phone,
-              email,
-              status: 'accepted',
-              createdAt: registration.createdAt,
-              updatedAt: now,
-              memberId,
-              acceptedAt: now,
-            }).fields,
-          },
-        },
-      ],
-    }),
+    body: JSON.stringify({ writes }),
   });
 
-  return { success: true, memberId, member: memberData, members: nextMembers };
+  return {
+    success: true,
+    memberId,
+    linkedExisting: existingIndex >= 0,
+    member: memberData,
+    members: nextMembers,
+  };
 }
