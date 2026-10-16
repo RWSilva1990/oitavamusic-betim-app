@@ -8,8 +8,13 @@ function env(...names: string[]) {
 
 function vercelPreviewUrl() {
   const vercelEnv = env('VERCEL_ENV');
+  if (vercelEnv !== 'preview') return '';
+
+  const homologUrl = env('HOMOLOG_APP_URL').replace(/\/$/, '');
+  if (homologUrl) return homologUrl;
+
   const branchUrl = env('VERCEL_BRANCH_URL');
-  if (vercelEnv === 'preview' && branchUrl) return `https://${branchUrl}`;
+  if (branchUrl) return `https://${branchUrl}`;
   return '';
 }
 
