@@ -286,11 +286,14 @@ async function sendPush(
     scaleId?: string;
     notificationId?: string;
   },
+  options: { includeWebWhenNative?: boolean } = {},
 ) {
   const targets = await pushTargets(app, memberIds);
   const nativeTargets = targets.filter((target) => target.platform === 'android');
   const nativeMemberIds = new Set(nativeTargets.map((target) => target.memberId));
-  const webTargets = targets.filter((target) => target.platform === 'web' && !nativeMemberIds.has(target.memberId));
+  const webTargets = targets.filter(
+    (target) => target.platform === 'web' && (options.includeWebWhenNative || !nativeMemberIds.has(target.memberId)),
+  );
   let sent = 0;
   let failed = 0;
   const sentMembers = new Set<string>();
@@ -542,6 +545,25 @@ function birthdayContent(members: Array<Record<string, any>>) {
     body: `${formatter.format(names)} fazem aniversário hoje. Não deixe de parabenizá-los!`,
     path: '/',
   };
+}
+
+export async function sendBirthdayTestForToken(idToken: string) {
+  const caller = await verifyCaller(idToken);
+  const memberId = await resolveMemberId(caller.app, caller.email);
+  if (!memberId) throw new Error('Seu e-mail ainda não está vinculado a um membro do ministério.');
+
+  const preferences = await preferencesForMember(caller.app, memberId);
+  if (!preferences.noticeBirthdays) {
+    throw new Error('Ative a opção de aniversariantes e salve as preferências antes de enviar o teste.');
+  }
+
+  return sendPush(caller.app, [memberId], {
+    type: 'birthday-test',
+    title: 'Teste de aniversariante 🎂',
+    body: 'As notificações de aniversariantes do Oitava Music estão funcionando.',
+    path: '/',
+    notificationId: `birthday-test-${Date.now()}`,
+  }, { includeWebWhenNative: true });
 }
 
 export async function runBirthdayNotificationSweep() {
