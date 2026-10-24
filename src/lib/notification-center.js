@@ -9,6 +9,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = {
   noticeRoleChanged: true,
   noticeRepertoireChanged: true,
   noticeSongDetailsChanged: true,
+  noticeBirthdays: false,
   reminder7Days: false,
   reminder3Days: true,
   reminder1Day: true,
