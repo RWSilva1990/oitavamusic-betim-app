@@ -20,6 +20,7 @@ const preferencesSchema = z.object({
   noticeRoleChanged: z.boolean(),
   noticeRepertoireChanged: z.boolean(),
   noticeSongDetailsChanged: z.boolean(),
+  noticeBirthdays: z.boolean(),
   reminder7Days: z.boolean(),
   reminder3Days: z.boolean(),
   reminder1Day: z.boolean(),
