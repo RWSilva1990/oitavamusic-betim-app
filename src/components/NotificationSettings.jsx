@@ -19,6 +19,10 @@ const NOTICE_OPTIONS = [
   ['noticeSongDetailsChanged', 'Quando o tom ou o solista de uma música mudar'],
 ];
 
+const BIRTHDAY_OPTIONS = [
+  ['noticeBirthdays', 'Avisar quando houver aniversariante no dia'],
+];
+
 const REMINDER_OPTIONS = [
   ['reminder7Days', '7 dias antes'],
   ['reminder3Days', '3 dias antes'],
@@ -351,6 +355,14 @@ export default function NotificationSettings() {
               <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Avisos sobre minhas escalas</div>
               <div style={{ fontSize: 11, lineHeight: 1.45, color: C.textSecondary, marginBottom: 4 }}>São enviados quando alguma informação importante da sua escala muda.</div>
               {NOTICE_OPTIONS.map(([key, label]) => (
+                <PreferenceRow key={key} label={label} checked={Boolean(preferences[key])} disabled={loadingPreferences || saving} onChange={(value) => setPreferences((current) => ({ ...current, [key]: value }))} />
+              ))}
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Aniversariantes</div>
+              <div style={{ fontSize: 11, lineHeight: 1.45, color: C.textSecondary, marginBottom: 4 }}>Receba um aviso no dia em que alguém do ministério fizer aniversário.</div>
+              {BIRTHDAY_OPTIONS.map(([key, label]) => (
                 <PreferenceRow key={key} label={label} checked={Boolean(preferences[key])} disabled={loadingPreferences || saving} onChange={(value) => setPreferences((current) => ({ ...current, [key]: value }))} />
               ))}
             </div>
