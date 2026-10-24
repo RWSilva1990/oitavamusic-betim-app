@@ -59,6 +59,13 @@ export async function saveNotificationPreferences(preferences) {
   return { ...DEFAULT_NOTIFICATION_PREFERENCES, ...(result?.preferences || value) };
 }
 
+export async function sendBirthdayTestNotification() {
+  return request(
+    { action: 'test-birthday' },
+    'Não foi possível enviar o teste de aniversariante.',
+  );
+}
+
 export async function sendScaleEventNotification(type, scale, memberIds, detail) {
   const ids = [...new Set((memberIds || []).filter(Boolean))];
   if (ids.length === 0) return { sent: 0, failed: 0, devices: 0, recipients: 0 };
