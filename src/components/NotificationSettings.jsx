@@ -9,6 +9,7 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   getNotificationPreferences,
   saveNotificationPreferences,
+  sendBirthdayTestNotification,
 } from '@/lib/notification-center';
 
 const NOTICE_OPTIONS = [
@@ -93,6 +94,7 @@ export default function NotificationSettings() {
   const [deviceBusy, setDeviceBusy] = useState(false);
   const [loadingPreferences, setLoadingPreferences] = useState(false);
   const [message, setMessage] = useState(null);
+  const [birthdayTestBusy, setBirthdayTestBusy] = useState(false);
   const messageTimer = useRef(null);
   const rootRef = useRef(null);
 
@@ -209,6 +211,27 @@ export default function NotificationSettings() {
       flash(error?.message || 'Não foi possível salvar suas preferências.', true);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const testBirthdayNotification = async () => {
+    if (birthdayTestBusy || saving || loadingPreferences) return;
+    if (!preferences.noticeBirthdays) {
+      return flash('Ative “Avisar quando houver aniversariante no dia” e salve as preferências antes do teste.', true);
+    }
+
+    setBirthdayTestBusy(true);
+    try {
+      const result = await sendBirthdayTestNotification();
+      if (Number(result?.sent || 0) > 0) {
+        flash('Teste de aniversariante enviado');
+      } else {
+        flash('Nenhum dispositivo vinculado recebeu o teste. Confirme se as notificações estão ativadas neste aparelho.', true);
+      }
+    } catch (error) {
+      flash(error?.message || 'Não foi possível enviar o teste de aniversariante.', true);
+    } finally {
+      setBirthdayTestBusy(false);
     }
   };
 
@@ -363,8 +386,20 @@ export default function NotificationSettings() {
               <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Aniversariantes</div>
               <div style={{ fontSize: 11, lineHeight: 1.45, color: C.textSecondary, marginBottom: 4 }}>Receba um aviso no dia em que alguém do ministério fizer aniversário.</div>
               {BIRTHDAY_OPTIONS.map(([key, label]) => (
-                <PreferenceRow key={key} label={label} checked={Boolean(preferences[key])} disabled={loadingPreferences || saving} onChange={(value) => setPreferences((current) => ({ ...current, [key]: value }))} />
+                <PreferenceRow key={key} label={label} checked={Boolean(preferences[key])} disabled={loadingPreferences || saving || birthdayTestBusy} onChange={(value) => setPreferences((current) => ({ ...current, [key]: value }))} />
               ))}
+              <button
+                type="button"
+                onClick={testBirthdayNotification}
+                disabled={birthdayTestBusy || saving || loadingPreferences}
+                className="btn btn-secondary"
+                style={{ marginTop: 10, width: '100%', justifyContent: 'center', padding: '8px 10px', fontSize: 11 }}
+              >
+                {birthdayTestBusy ? 'Enviando teste...' : 'Testar notificação de aniversariante'}
+              </button>
+              <div style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.45, color: C.textSecondary }}>
+                Temporário para validação na homologação. O teste é enviado aos dispositivos vinculados ao seu usuário.
+              </div>
             </div>
 
             <div>
