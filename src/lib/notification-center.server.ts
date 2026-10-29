@@ -15,6 +15,7 @@ export type NotificationPreferences = {
   noticeRoleChanged: boolean;
   noticeRepertoireChanged: boolean;
   noticeSongDetailsChanged: boolean;
+  noticeBirthdays: boolean;
   reminder7Days: boolean;
   reminder3Days: boolean;
   reminder1Day: boolean;
@@ -34,6 +35,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   noticeRoleChanged: true,
   noticeRepertoireChanged: true,
   noticeSongDetailsChanged: true,
+  noticeBirthdays: false,
   reminder7Days: false,
   reminder3Days: true,
   reminder1Day: true,
@@ -276,12 +278,22 @@ function isStaleTargetError(code: string) {
 async function sendPush(
   app: ReturnType<typeof getCenterApp>,
   memberIds: string[],
-  notification: { type: string; title: string; body: string; path: string; scaleId: string },
+  notification: {
+    type: string;
+    title: string;
+    body: string;
+    path: string;
+    scaleId?: string;
+    notificationId?: string;
+  },
+  options: { includeWebWhenNative?: boolean } = {},
 ) {
   const targets = await pushTargets(app, memberIds);
   const nativeTargets = targets.filter((target) => target.platform === 'android');
   const nativeMemberIds = new Set(nativeTargets.map((target) => target.memberId));
-  const webTargets = targets.filter((target) => target.platform === 'web' && !nativeMemberIds.has(target.memberId));
+  const webTargets = targets.filter(
+    (target) => target.platform === 'web' && (options.includeWebWhenNative || !nativeMemberIds.has(target.memberId)),
+  );
   let sent = 0;
   let failed = 0;
   const sentMembers = new Set<string>();
@@ -298,7 +310,8 @@ async function sendPush(
         body: notification.body,
         path: notification.path,
         url,
-        scaleId: notification.scaleId,
+        ...(notification.scaleId ? { scaleId: notification.scaleId } : {}),
+        ...(notification.notificationId ? { notificationId: notification.notificationId } : {}),
       },
     };
 
@@ -476,6 +489,161 @@ async function markReminderDelivered(
       sentAt: new Date().toISOString(),
     })),
   });
+}
+
+
+function birthdayDeliveryId(memberId: string, date: string) {
+  return createHash('sha256').update(`birthday|${memberId}|${date}`).digest('hex');
+}
+
+async function birthdayAlreadyDelivered(app: ReturnType<typeof getCenterApp>, id: string) {
+  return Boolean(await firestoreRest(
+    app,
+    `/notificationBirthdayDeliveries/${encodeURIComponent(id)}`,
+    {},
+    { allowNotFound: true },
+  ));
+}
+
+async function markBirthdayDelivered(
+  app: ReturnType<typeof getCenterApp>,
+  id: string,
+  values: { memberId: string; date: string; birthdayMemberIds: string[] },
+) {
+  await firestoreRest(app, `/notificationBirthdayDeliveries/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(stringFields({
+      memberId: values.memberId,
+      date: values.date,
+      birthdayMemberIds: JSON.stringify(values.birthdayMemberIds),
+      sentAt: new Date().toISOString(),
+    })),
+  });
+}
+
+function birthdayNames(members: Array<Record<string, any>>) {
+  return members
+    .map((member) => String(member?.name || '').trim())
+    .filter(Boolean)
+    .map((name) => name.split(/\s+/)[0])
+    .filter(Boolean);
+}
+
+function birthdayContent(members: Array<Record<string, any>>) {
+  const names = birthdayNames(members);
+  if (names.length === 1) {
+    return {
+      title: `Hoje é aniversário de ${names[0]}! 🎂`,
+      body: `Não deixe de parabenizar ${names[0]} pelo aniversário de hoje.`,
+      path: '/',
+    };
+  }
+
+  const formatter = new Intl.ListFormat('pt-BR', { style: 'long', type: 'conjunction' });
+  return {
+    title: 'Hoje temos aniversariantes! 🎂',
+    body: `${formatter.format(names)} fazem aniversário hoje. Não deixe de parabenizá-los!`,
+    path: '/',
+  };
+}
+
+export async function sendBirthdayTestForToken(idToken: string) {
+  const caller = await verifyCaller(idToken);
+  const memberId = await resolveMemberId(caller.app, caller.email);
+  if (!memberId) throw new Error('Seu e-mail ainda não está vinculado a um membro do ministério.');
+
+  const preferences = await preferencesForMember(caller.app, memberId);
+  if (!preferences.noticeBirthdays) {
+    throw new Error('Ative a opção de aniversariantes e salve as preferências antes de enviar o teste.');
+  }
+
+  return sendPush(caller.app, [memberId], {
+    type: 'birthday-test',
+    title: 'Teste de aniversariante 🎂',
+    body: 'As notificações de aniversariantes do Oitava Music estão funcionando.',
+    path: '/',
+    notificationId: `birthday-test-${Date.now()}`,
+  }, { includeWebWhenNative: true });
+}
+
+export async function runBirthdayNotificationSweep() {
+  const app = getCenterApp();
+  let members = await readCentralArray(app, 'members');
+  if (!Array.isArray(members)) members = [];
+
+  const today = saoPauloDateISO();
+  const monthDay = today.slice(5);
+  const birthdayMembers = members.filter((member) => {
+    const birthdate = String(member?.birthdate || '');
+    return Boolean(member?.id) && /^\d{4}-\d{2}-\d{2}$/.test(birthdate) && birthdate.slice(5) === monthDay;
+  });
+
+  if (birthdayMembers.length === 0) {
+    const result = { success: true, date: today, birthdays: 0, evaluated: 0, sent: 0, failed: 0 };
+    console.info('[birthday-notifications]', JSON.stringify(result));
+    return result;
+  }
+
+  const birthdayMemberIds = new Set(
+    birthdayMembers.map((member) => String(member.id || '')).filter(Boolean),
+  );
+  const recipientIds = [...new Set(
+    members
+      .map((member) => String(member?.id || ''))
+      .filter((memberId) => memberId && !birthdayMemberIds.has(memberId)),
+  )] as string[];
+
+  const allowed = await filterByPreference(app, recipientIds, 'noticeBirthdays');
+  const pending: string[] = [];
+  for (const memberId of allowed) {
+    const id = birthdayDeliveryId(memberId, today);
+    if (!(await birthdayAlreadyDelivered(app, id))) pending.push(memberId);
+  }
+
+  if (pending.length === 0) {
+    const result = {
+      success: true,
+      date: today,
+      birthdays: birthdayMembers.length,
+      evaluated: recipientIds.length,
+      recipients: allowed.length,
+      sent: 0,
+      failed: 0,
+    };
+    console.info('[birthday-notifications]', JSON.stringify(result));
+    return result;
+  }
+
+  const content = birthdayContent(birthdayMembers);
+  const resultPush = await sendPush(app, pending, {
+    type: 'birthday',
+    title: content.title,
+    body: content.body,
+    path: content.path,
+    notificationId: `birthday-${today}`,
+  });
+
+  const birthdayIds = birthdayMembers.map((member) => String(member.id || '')).filter(Boolean);
+  await Promise.all(resultPush.sentMemberIds.map((memberId) => {
+    const id = birthdayDeliveryId(memberId, today);
+    return markBirthdayDelivered(app, id, {
+      memberId,
+      date: today,
+      birthdayMemberIds: birthdayIds,
+    });
+  }));
+
+  const result = {
+    success: true,
+    date: today,
+    birthdays: birthdayMembers.length,
+    evaluated: recipientIds.length,
+    recipients: allowed.length,
+    sent: resultPush.sent,
+    failed: resultPush.failed,
+  };
+  console.info('[birthday-notifications]', JSON.stringify(result));
+  return result;
 }
 
 export async function runScaleReminderSweep() {

@@ -1,5 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { runScaleReminderSweep } from '@/lib/notification-center.server';
+import {
+  runBirthdayNotificationSweep,
+  runScaleReminderSweep,
+} from '@/lib/notification-center.server';
 
 export const Route = createFileRoute('/api/cron/scale-reminders')({
   server: {
@@ -12,12 +15,14 @@ export const Route = createFileRoute('/api/cron/scale-reminders')({
         }
 
         try {
-          return Response.json(await runScaleReminderSweep());
+          const scaleReminders = await runScaleReminderSweep();
+          const birthdays = await runBirthdayNotificationSweep();
+          return Response.json({ success: true, scaleReminders, birthdays });
         } catch (error) {
           console.error('[scale-reminders-cron]', error);
           return Response.json({
             success: false,
-            error: error instanceof Error ? error.message : 'Falha ao processar lembretes.',
+            error: error instanceof Error ? error.message : 'Falha ao processar notificações diárias.',
           }, { status: 500 });
         }
       },

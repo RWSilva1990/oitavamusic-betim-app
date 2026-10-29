@@ -31,16 +31,16 @@ self.addEventListener('push', (event) => {
 
   const data = notificationData(payload);
   const notification = notificationInfo(payload);
-  const title = data.title || notification.title || 'Você foi escalado! 🎵';
-  const body = data.body || notification.body || 'Há uma nova escala para você.';
-  const url = data.url || payload.fcmOptions?.link || payload.message?.fcmOptions?.link || '/minhas-escalas';
+  const title = data.title || notification.title || 'Oitava Music';
+  const body = data.body || notification.body || 'Você recebeu uma nova notificação.';
+  const url = data.url || payload.fcmOptions?.link || payload.message?.fcmOptions?.link || '/';
 
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
       icon: '/pwa-icon-192.png',
       badge: NOTIFICATION_BADGE,
-      tag: data.scaleId ? `scale-added-${data.scaleId}` : 'oitava-music-push',
+      tag: data.notificationId || (data.scaleId ? `scale-${data.scaleId}` : 'oitava-music-push'),
       data: { url },
       vibrate: [180, 80, 180],
     }),
@@ -49,7 +49,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = event.notification?.data?.url || '/minhas-escalas';
+  const target = event.notification?.data?.url || '/';
   const targetUrl = new URL(target, self.location.origin).href;
 
   event.waitUntil(

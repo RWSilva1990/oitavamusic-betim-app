@@ -70,8 +70,8 @@ async function ensureNativePushChannel() {
   try {
     await PushNotifications.createChannel({
       id: NATIVE_PUSH_CHANNEL_ID,
-      name: 'Escalas',
-      description: 'Avisos de novas escalas do Oitava Music',
+      name: 'Oitava Music',
+      description: 'Avisos, lembretes e aniversariantes do Oitava Music',
       importance: 4,
       visibility: 1,
       vibration: true,

@@ -9,6 +9,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = {
   noticeRoleChanged: true,
   noticeRepertoireChanged: true,
   noticeSongDetailsChanged: true,
+  noticeBirthdays: false,
   reminder7Days: false,
   reminder3Days: true,
   reminder1Day: true,
@@ -56,6 +57,13 @@ export async function saveNotificationPreferences(preferences) {
     'Não foi possível salvar suas preferências.',
   );
   return { ...DEFAULT_NOTIFICATION_PREFERENCES, ...(result?.preferences || value) };
+}
+
+export async function sendBirthdayTestNotification() {
+  return request(
+    { action: 'test-birthday' },
+    'Não foi possível enviar o teste de aniversariante.',
+  );
 }
 
 export async function sendScaleEventNotification(type, scale, memberIds, detail) {

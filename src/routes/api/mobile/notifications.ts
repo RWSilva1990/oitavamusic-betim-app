@@ -4,6 +4,7 @@ import {
   getNotificationPreferencesForToken,
   notifyScaleEventForToken,
   saveNotificationPreferencesForToken,
+  sendBirthdayTestForToken,
 } from '@/lib/notification-center.server';
 import {
   assertMobileOrigin,
@@ -20,6 +21,7 @@ const preferencesSchema = z.object({
   noticeRoleChanged: z.boolean(),
   noticeRepertoireChanged: z.boolean(),
   noticeSongDetailsChanged: z.boolean(),
+  noticeBirthdays: z.boolean(),
   reminder7Days: z.boolean(),
   reminder3Days: z.boolean(),
   reminder1Day: z.boolean(),
@@ -35,6 +37,7 @@ const scaleSchema = z.object({
 const requestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('get-preferences') }),
   z.object({ action: z.literal('save-preferences'), preferences: preferencesSchema }),
+  z.object({ action: z.literal('test-birthday') }),
   z.object({
     action: z.literal('notify-scale-event'),
     type: z.enum(['scale-added', 'scale-removed', 'role-changed', 'repertoire-changed', 'song-details-changed']),
@@ -66,6 +69,8 @@ export const Route = createFileRoute('/api/mobile/notifications')({
             result = await getNotificationPreferencesForToken(idToken);
           } else if (parsed.data.action === 'save-preferences') {
             result = await saveNotificationPreferencesForToken(idToken, parsed.data.preferences);
+          } else if (parsed.data.action === 'test-birthday') {
+            result = await sendBirthdayTestForToken(idToken);
           } else {
             result = await notifyScaleEventForToken(idToken, {
               type: parsed.data.type,
