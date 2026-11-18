@@ -34,6 +34,20 @@ export function AuthProvider({ children }) {
   const [configured, setConfigured] = useState(false);
   const [adminEmails, setAdminEmails] = useState([]);
   const [accessEntry, setAccessEntry] = useState(null);
+  const [offline, setOffline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine === false : false
+  );
+
+  useEffect(() => {
+    const updateNetworkStatus = () => setOffline(navigator.onLine === false);
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+    updateNetworkStatus();
+    return () => {
+      window.removeEventListener('online', updateNetworkStatus);
+      window.removeEventListener('offline', updateNetworkStatus);
+    };
+  }, []);
 
   useEffect(() => {
     let unsub = () => {};
@@ -102,6 +116,7 @@ export function AuthProvider({ children }) {
       role,
       loading: loading || accessLoading,
       configured,
+      offline,
       isAdmin: role === 'admin',
 
       async signIn(mail, password) {
@@ -432,7 +447,7 @@ export function AuthProvider({ children }) {
         return members.find((m) => String(m?.email || '').trim().toLowerCase() === email) || null;
       },
     }),
-    [user, email, role, loading, accessLoading, configured, accessEntry, adminEmails]
+    [user, email, role, loading, accessLoading, configured, offline, accessEntry, adminEmails]
   );
 
   return <AuthCtx.Provider value={api}>{children}</AuthCtx.Provider>;
