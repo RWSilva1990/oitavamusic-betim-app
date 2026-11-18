@@ -23,7 +23,7 @@ export default function LoginPage() {
       await auth.signIn(email, password);
       navigate({ to: '/', replace: true });
     } catch (e2) {
-      setErr(traduz(e2));
+      setErr(traduz(e2, auth.offline));
     } finally {
       setBusy(false);
     }
@@ -76,7 +76,9 @@ export default function LoginPage() {
 
         {!auth.configured && (
           <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: C.accentGlow, color: C.accent, fontSize: 12, lineHeight: 1.6 }}>
-            O Firebase ainda não foi configurado neste ambiente. Cadastre as variáveis do projeto no Vercel antes de liberar o acesso.
+            {auth.offline
+              ? 'Não foi possível acessar o app. Verifique sua conexão com a internet.'
+              : 'O Firebase ainda não foi configurado neste ambiente. Cadastre as variáveis do projeto no Vercel antes de liberar o acesso.'}
           </div>
         )}
 
@@ -118,7 +120,10 @@ export default function LoginPage() {
   );
 }
 
-function traduz(e) {
+function traduz(e, offline = false) {
+  if (offline || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+    return 'Não foi possível acessar o app. Verifique sua conexão com a internet.';
+  }
   const code = e?.code || '';
   if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return 'E-mail ou senha incorretos.';
   if (code.includes('too-many-requests')) return 'Muitas tentativas. Tente novamente mais tarde.';
