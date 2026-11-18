@@ -78,7 +78,7 @@ export default function LoginPage() {
           <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: C.accentGlow, color: C.accent, fontSize: 12, lineHeight: 1.6 }}>
             {auth.offline
               ? 'Não foi possível acessar o app. Verifique sua conexão com a internet.'
-              : 'O Firebase ainda não foi configurado neste ambiente. Cadastre as variáveis do projeto no Vercel antes de liberar o acesso.'}
+              : 'Não foi possível acessar o app no momento. Tente novamente mais tarde.'}
           </div>
         )}
 
@@ -128,5 +128,10 @@ function traduz(e, offline = false) {
   if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return 'E-mail ou senha incorretos.';
   if (code.includes('too-many-requests')) return 'Muitas tentativas. Tente novamente mais tarde.';
   if (code.includes('invalid-email')) return 'E-mail inválido.';
-  return e?.message || 'Não foi possível concluir a operação.';
+  const message = String(e?.message || '');
+  if (/firebase|configura[cç][aã]o|configuration|not configured/i.test(message)) {
+    return 'Não foi possível acessar o app no momento. Tente novamente mais tarde.';
+  }
+  if (message.includes('não está liberado') || message.includes('ainda não está vinculado')) return message;
+  return 'Não foi possível concluir a operação. Tente novamente mais tarde.';
 }
